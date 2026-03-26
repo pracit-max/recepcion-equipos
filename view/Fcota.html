@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recepción de Equipos | Sistema Profesional</title>
+    <link rel="icon" type="image/png" href="/img/Innova_Schools_escudo.webp">
+    
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <img src="/img/Innova_Schools_escudo.webp" alt="Logo" class="logo">
+            <span>Informe de equipos - Cota</span>
+        </div>
+        <button class="hamburger" id="hamburger" aria-label="Menú" aria-expanded="false">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+        </button>
+        <div class="nav-actions" id="navMenu">
+            <button class="btn-nav" onclick="showSection('records-section')">Ver Registros</button>
+            <button class="btn-nav secondary" onclick="showSection('form-section')">Crear Formulario</button>
+        </div>
+    </nav>
+
+    <!-- Sección Formulario -->
+    <section id="form-section" class="section active">
+        <div class="container">
+            <div class="form-header">
+                <h1 class="title-with-logo">
+                    <img src="/img/Innova_Schools_escudo.webp" alt="Logo" class="logo-title">
+                    <span>Registro de Recepción</span>
+                </h1>
+                <p class="subtitle">Complete el formulario para registrar la recepción de equipos</p>
+            </div>
+
+            <form id="form" class="modern-form" novalidate>
+                <!-- Progress Bar -->
+                <div class="progress-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                    <div class="progress-steps">
+                        <div class="step active" data-step="1">
+                            <div class="step-number">1</div>
+                            <span>Recepción</span>
+                        </div>
+                        <div class="step" data-step="2">
+                            <div class="step-number">2</div>
+                            <span>Estado</span>
+                        </div>
+                        <div class="step" data-step="3">
+                            <div class="step-number">3</div>
+                            <span>Firma</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 1: Recepción -->
+
+                <div class="form-section active" data-section="1">
+                    <div class="section-card">
+                        <div class="card-header">
+                            <div class="icon-circle blue">
+                                <i class="fas fa-box-open"></i>
+                            </div>
+                            <div>
+                                <h2>Recepción de Equipos</h2>
+                                <p class="warning-text">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    Usted asume la responsabilidad de los equipos recibidos
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="input-group">
+                                <label for="nombre">
+                                    <i class="fas fa-user"></i> Nombre completo *
+                                </label>
+                                <input type="text" id="nombre" required maxlength="50" placeholder="Ingrese su nombre completo">
+                                <span class="input-focus"></span>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="cedula">
+                                    <i class="fas fa-id-card"></i> Cédula de ciudadanía *
+                                </label>
+                                <input type="text" id="cedula" required maxlength="20" minlength="6" inputmode="numeric" pattern="\d*" title="Solo números, entre 6 y 20 dígitos" placeholder="Ej: 80720145">
+                                <span class="input-focus"></span>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="correo">
+                                    <i class="fas fa-envelope"></i> Correo electrónico Innova *
+                                </label>
+                                <input 
+                                    type="email" 
+                                    id="correo" 
+                                    required 
+                                    placeholder="usuario@innovaschools.edu.co" 
+                                    pattern=".*@innovaschools\.edu\.co$"
+                                    title="Debe ser correo institucional @innovaschools.edu.co"
+                                    autocomplete="email"
+                                >
+                                <button type="button" id="btnVerificar" onclick="iniciarVerificacion()">
+                                    <i class="fas fa-shield-alt"></i> Verificar
+                                </button>
+                                <span class="input-focus"></span>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="fecha">
+                                    <i class="fas fa-calendar-alt"></i> Fecha de recepción *
+                                </label>
+                                <input type="datetime-local" id="fecha" required disabled>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="carroSelect">
+                                    <i class="fas fa-laptop"></i> Carro a recibir *
+                                </label>
+                                <div class="select-wrapper">
+                                    <select id="carroSelect" required onchange="cargarEquiposCarro(); verificarDisponibilidad();">
+                                        <option value="">Cargando carros...</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down"></i>
+                                </div>
+                                <div id="disponibilidadMsg" style="margin-top: 8px; font-size: 0.85rem;"></div>
+                            </div>
+
+                            <div class="input-group">
+                                <label class="toggle-label-main" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                                    <span><i class="fas fa-boxes"></i> ¿Otros equipos (rangos numéricos)?</span>
+                                    <div class="toggle-switch">
+                                        <input type="checkbox" id="otrosEquipos" onchange="toggleOtrosEquipos()">
+                                        <label for="otrosEquipos" class="toggle-label">
+                                            <span class="toggle-text yes">Sí</span>
+                                            <span class="toggle-text no">No</span>
+                                        </label>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <div id="otrosEquiposBox" class="conditional-content hidden" style="background: #f0f9ff; padding: 15px; border-radius: 8px; border: 2px solid #0ea5e9;">
+                                <div class="form-grid">
+                                    <div class="input-group">
+                                        <label for="rangoInicio">
+                                            <i class="fas fa-sort-numeric-down"></i> Desde (Número) *
+                                        </label>
+                                        <input type="number" id="rangoInicio" min="1" max="500" placeholder="Ej: 106" onchange="validarRango()">
+                                    </div>
+                                    <div class="input-group">
+                                        <label for="rangoFin">
+                                            <i class="fas fa-sort-numeric-up"></i> Hasta (Número) *
+                                        </label>
+                                        <input type="number" id="rangoFin" min="1" max="500" placeholder="Ej: 230" onchange="validarRango()">
+                                    </div>
+                                </div>
+                                <p id="rangoError" style="color: #ef4444; font-size: 0.85rem; margin-top: 8px; display: none;">
+                                    <i class="fas fa-exclamation-circle"></i> El rango final debe ser mayor al inicial (Máx 500 equipos)
+                                </p>
+                                <p style="margin-top: 8px; font-size: 0.85rem; color: #0369a1;">
+                                    <i class="fas fa-info-circle"></i> Total equipos seleccionados: <strong id="totalOtrosEquipos">0</strong>
+                                </p>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="horaDevolucion">
+                                    <i class="fas fa-clock"></i> Hora máxima de devolución * 
+                                    <span style="font-size: 0.8rem; color: #64748b;">(Máx 4:00 PM)</span>
+                                </label>
+                                <input type="time" id="horaDevolucion" name="horaDevolucion" required min="07:00" max="16:00" onchange="validarHora()" value="16:00">
+                                <span id="horaError" style="color: #ef4444; font-size: 0.8rem; display: none;">
+                                    <i class="fas fa-exclamation-circle"></i> La hora máxima es 4:00 PM (16:00)
+                                </span>
+                            </div>
+
+                            <div class="input-group full-width" id="equiposContainer" style="display: none;">
+                                <label>
+                                    <i class="fas fa-list-ol"></i> Equipos incluidos en este carro:
+                                </label>
+                                <div class="equipos-table-container" style="max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 8px;">
+                                    <table id="equiposTable" style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                                        <thead style="background: #f1f5f9; position: sticky; top: 0;">
+                                            <tr>
+                                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">#</th>
+                                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Placa</th>
+                                                <th style="padding: 10px; text-align: left; border-bottom: 2px solid #cbd5e1;">Serial</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="equiposTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p style="margin-top: 8px; font-size: 0.85rem; color: #64748b;">
+                                    <i class="fas fa-info-circle"></i> Total de equipos: <strong id="totalEquipos">0</strong>
+                                </p>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="cargador">
+                                    <i class="fas fa-plug"></i> ¿Entrega cargador?
+                                </label>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="cargador" checked>
+                                    <label for="cargador" class="toggle-label">
+                                        <span class="toggle-text yes">Sí</span>
+                                        <span class="toggle-text no">No</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="section-actions">
+                        <button type="button" class="btn-next" onclick="nextSection()">
+                            Siguiente <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-section" data-section="2">
+                    <div class="section-card">
+                        <div class="card-header">
+                            <div class="icon-circle orange">
+                                <i class="fas fa-clipboard-check"></i>
+                            </div>
+                            <div>
+                                <h2>Estado de Equipos</h2>
+                                <p>Verifique el estado actual de los equipos</p>
+                            </div>
+                        </div>
+
+                        <div class="conditional-group">
+                            <label class="toggle-label-main">
+                                <span>¿Los equipos presentan alguna novedad?</span>
+                                <div class="toggle-switch large">
+                                    <input type="checkbox" id="novedad">
+                                    <label for="novedad" class="toggle-label">
+                                        <span class="toggle-text yes">Sí</span>
+                                        <span class="toggle-text no">No</span>
+                                    </label>
+                                </div>
+                            </label>
+
+                            <div class="conditional-content hidden" id="novedadBox">
+                                <div class="alert-box warning">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span>Describa la novedad encontrada y adjunte evidencia fotográfica</span>
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label for="descripcion">
+                                        <i class="fas fa-align-left"></i> Descripción de la novedad
+                                    </label>
+                                    <textarea id="descripcion" rows="4" placeholder="Describa detalladamente la novedad..."></textarea>
+                                </div>
+
+                                <div class="file-upload">
+                                    <label for="foto_dano" class="file-label">
+                                        <i class="fas fa-camera"></i>
+                                        <span class="file-text">Foto del equipo dañado</span>
+                                        <span class="file-name" id="fileName1">Ningún archivo seleccionado</span>
+                                    </label>
+                                    <input type="file" id="foto_dano" accept="image/*" onchange="updateFileName(this, 'fileName1')">
+                                    <div class="image-preview" id="preview1"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-actions">
+                        <button type="button" class="btn-prev" onclick="prevSection()">
+                            <i class="fas fa-arrow-left"></i> Anterior
+                        </button>
+                        <button type="button" class="btn-next" onclick="nextSection()">
+                            Siguiente <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-section" data-section="3">
+                    <div class="section-card">
+                        <div class="card-header">
+                            <div class="icon-circle red">
+                                <i class="fas fa-signature"></i>
+                            </div>
+                            <div>
+                                <h2>Firma y Autorización</h2>
+                                <p class="warning-text">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    Usted asume la responsabilidad total de los equipos recibidos
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="signature-section">
+                            <div class="signature-canvas-container">
+                                <div class="canvas-header">
+                                    <span class="canvas-title">
+                                        <i class="fas fa-pen"></i> Firma aquí *
+                                    </span>
+                                    <button type="button" class="btn-clear-signature" onclick="clearSignature()">
+                                        <i class="fas fa-eraser"></i> Borrar firma
+                                    </button>
+                                </div>
+                                <canvas id="signatureCanvas" class="signature-pad" width="600" height="200"></canvas>
+                                <p class="canvas-hint">
+                                    <i class="fas fa-mouse-pointer"></i> Dibuje su firma con el mouse o dedo (en tablets)
+                                </p>
+                            </div>
+
+                            <div class="checkbox-group">
+                                <label class="custom-checkbox">
+                                    <input type="checkbox" id="autoriza" required>
+                                    <span class="checkmark"></span>
+                                    <span class="checkbox-text">
+                                        Autorizo los <a href="/view/temrinos.html" class="link">términos y condiciones</a> y acepto la responsabilidad de los equipos *
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-actions">
+                        <button type="button" class="btn-prev" onclick="prevSection()">
+                            <i class="fas fa-arrow-left"></i> Anterior
+                        </button>
+                        <button type="submit" class="btn-submit">
+                            <i class="fas fa-paper-plane"></i> Enviar Registro
+                            <span class="btn-loader hidden"></span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <section id="records-section" class="section">
+        <div class="container">
+            <div class="records-header">
+                <h1>Registros de Recepción</h1>
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Buscar por nombre, equipo o fecha..." onkeyup="filterRecords()">
+                </div>
+            </div>
+
+            <div class="records-grid" id="recordsGrid">
+            </div>
+
+            <div class="empty-state hidden" id="emptyState">
+                <i class="fas fa-inbox"></i>
+                <h3>No hay registros</h3>
+                <p>Comience creando un nuevo registro de recepción</p>
+                <button class="btn-primary" onclick="showSection('form-section')">
+                    Crear Registro
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <div class="modal" id="detailModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Detalle del Registro</h2>
+                <button class="btn-close" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modalBody">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
+                <button class="btn-primary" onclick="downloadCurrentPDF()">
+                    <i class="fas fa-file-pdf"></i> Descargar PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Procesando...</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="../js/verify.js"></script>
+    <script src="../js/script.js"></script>
+</body>
+</html>
