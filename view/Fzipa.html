@@ -119,6 +119,11 @@
                                 <input type="datetime-local" id="fecha" required disabled>
                             </div>
 
+                            <!-- Sede oculta para envío -->
+                            <div class="input-group" style="display: none;">
+                                <input type="hidden" id="sede" value="Zipaquirá">
+                            </div>
+
                             <!-- SELECT DINÁMICO DE CARROS -->
                             <!-- Reemplaza la sección del carroSelect con esto: -->
                             <div class="input-group">
@@ -395,9 +400,6 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
-                <button class="btn-primary" onclick="downloadCurrentPDF()">
-                    <i class="fas fa-file-pdf"></i> Descargar PDF
-                </button>
             </div>
         </div>
     </div>

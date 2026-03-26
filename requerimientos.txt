@@ -1,2 +1,78 @@
-mejorar del sistema 
-correo 
+=================================================================
+REQUERIMIENTOS DEL SISTEMA DE RECEPCIÓN DE EQUIPOS
+Innova Schools Colombia
+=================================================================
+
+=================================================================
+✅ COMPLETADO / IMPLEMENTADO
+=================================================================
+
+[2026-03-26] - Mejoras recientes:
+
+1. HORA MÁXIMA DE DEVOLUCIÓN
+   - Cambiada de 18:00 (6 PM) a 16:00 (4 PM)
+   - Aplicado en validación frontend y mensajes de error
+   - Archivo: js/script.js
+
+2. CAMPO OCULTO DE SEDE
+   - Agregado campo oculto "sede" en cada formulario
+   - Cada sede tiene su propio valor: Zipaquirá, Niza, Usaquén, Cota, Mosquera, Tunja, Barranquilla
+   - Archivos: view/Fzipa.html, Fniza.html, Fusa.html, Fcota.html, Fmosquera.html, Ftunja.html, Fbarranquilla.html
+
+3. SIMPLIFICACIÓN DE VISTA "VER REGISTROS"
+   - Eliminados campos innecesarios: Firma digital, Cargador, Autorización, Novedad, Botón PDF
+   - Agregados campos relevantes: Sede, Hora de devolución (Hasta)
+   - Modal de detalle simplificado
+   - Botón "Descargar PDF" eliminado del modal
+   - Archivos: js/script.js, view/*.html
+
+4. CORRECCIÓN DE MAPEO DE DATOS
+   - Corregido para mostrar correctamente: Equipo (carro), Sede, Hora devolución
+   - Ajuste según estructura del Google Apps Script
+   - Archivo: js/script.js
+
+5. MENSAJE DE CARRO NO DISPONIBLE
+   - Tiempo de exibição aumentado a 8 segundos
+   - Emojis eliminados del mensaje
+   - Archivo: js/script.js
+
+=================================================================
+📋 PENDIENTE / POR IMPLEMENTAR
+=================================================================
+
+BAJA PRIORIDAD:
+- Sistema de notificaciones por correo electrónico automáticas
+- Dashboard/estadísticas de uso por sede
+
+MEDIA PRIORIDAD:
+- Historial de préstamos por usuario
+- Exportación masiva a Excel/PDF con filtros
+- Conexión de cada sede a su propia base de datos (hoja de cálculo separada)
+
+ALTA PRIORIDAD:
+- Ninguna por el momento
+
+=================================================================
+💡 IDEAS PARA EL FUTURO
+=================================================================
+
+1. AUTENTICACIÓN
+   - Login con Google/Microsoft para rastrear usuarios
+   - Diferentes roles: Administrador, Usuario normal
+
+2. GESTIÓN DE EQUIPOS
+   - CRUD completo de equipos por carro
+   - Historial de mantenimiento de equipos
+   - Reporte de equipos dañados
+
+3. MEJORAS UX
+   - Modo offline (guardar formularios localmente)
+   - Sincronización automática cuando hay conexión
+   - Notificaciones push
+
+4. REPORTES
+   - Gráficos de uso por sede
+   - Top equipos más solicitados
+   - Horarios pico de préstamos
+
+=================================================================

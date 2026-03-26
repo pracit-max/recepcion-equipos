@@ -22,39 +22,50 @@ document.addEventListener('DOMContentLoaded', () => {
     setDefaultDate();
     
     // Cargar equipos de Zipaquirá
-    cargarCarrosZipaquira();
+    cargarEquiposPorSede();
 });
 
-// Función para cargar carros desde Google Sheets
-async function cargarCarrosZipaquira() {
+// Función general para cargar equipos según la sede
+async function cargarEquiposPorSede() {
+    const sedeInput = document.getElementById('sede');
+    if (!sedeInput) {
+        console.error("No se encontró el input hidden #sede");
+        return;
+    }
+
+    // Normalizamos igual que en Apps Script
+    const sedeNombre = sedeInput.value;
+    const sedeParaURL = sedeNombre.toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, ""); // zipaquira, niza, usaquen...
+
     try {
-        const response = await fetch(`${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=zipaquira`);
-        equiposZipaquira = await response.json();
-        
+        const response = await fetch(`${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeParaURL)}`);
+        equiposZipaquira = await response.json();   // reutilizamos la misma variable global (está bien)
+
         // Obtener carros únicos y ordenarlos
         carrosDisponibles = [...new Set(equiposZipaquira.map(e => e.carro))].sort((a, b) => {
-            // Ordenar lógicamente: Carro 1, Carro 2... Carro 10, Bodega TI
             const numA = a.match(/\d+/) ? parseInt(a.match(/\d+/)[0]) : 999;
             const numB = b.match(/\d+/) ? parseInt(b.match(/\d+/)[0]) : 999;
             return numA - numB;
         });
-        
+
         // Llenar el select
         const select = document.getElementById('carroSelect');
         select.innerHTML = '<option value="">Seleccione un carro...</option>';
-        
+
         carrosDisponibles.forEach(carro => {
             const option = document.createElement('option');
             option.value = carro;
             option.textContent = carro;
             select.appendChild(option);
         });
-        
-        console.log("Carros cargados:", carrosDisponibles);
-        
+
+        console.log(`✅ Carros cargados para sede ${sedeNombre}:`, carrosDisponibles);
+
     } catch (error) {
         console.error("Error cargando equipos:", error);
-        document.getElementById('carroSelect').innerHTML = 
+        document.getElementById('carroSelect').innerHTML =
             '<option value="">Error al cargar carros</option>';
     }
 }
@@ -118,7 +129,7 @@ function validarHora() {
     const errorMsg = document.getElementById('horaError');
     
     const horaMin = "07:00";
-    const horaMax = "18:00";
+    const horaMax = "16:00";
 
     if (hora < horaMin || hora > horaMax) {
         errorMsg.style.display = 'block';
@@ -128,7 +139,7 @@ function validarHora() {
         
         setTimeout(() => {
             errorMsg.style.display = 'none';
-        }, 2500);
+        }, 8000);
         
         return false;
     }
@@ -139,11 +150,13 @@ function validarHora() {
 
 async function verificarDisponibilidad() {
     const carro = document.getElementById('carroSelect').value;
+    const sede = document.getElementById('sede').value;   // ← NUEVO
     const msgDiv = document.getElementById('disponibilidadMsg');
     const btnNext = document.querySelector('.btn-next');
     
     console.log("=== VERIFICANDO EN FRONTEND ===");
     console.log("Carro seleccionado:", carro);
+    console.log("Sede:", sede);
     
     if (!carro || document.getElementById('otrosEquipos').checked) {
         msgDiv.innerHTML = '';
@@ -157,7 +170,10 @@ async function verificarDisponibilidad() {
     
     try {
         const fechaHoy = new Date().toISOString().split('T')[0];
-        const url = `${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carro)}&fecha=${fechaHoy}`;
+        
+        // ←←← AQUÍ ESTÁ EL CAMBIO IMPORTANTE
+        const url = `${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carro)}&fecha=${fechaHoy}&sede=${encodeURIComponent(sede)}`;
+        
         console.log("URL de consulta:", url);
         
         const response = await fetch(url);
@@ -173,8 +189,8 @@ async function verificarDisponibilidad() {
                         <i class="fas fa-ban"></i> CARRO NO DISPONIBLE
                     </span><br>
                     <span style="color: #7f1d1d; font-size: 0.9rem;">
-                        ⏰ Este carro está ocupado hasta las <strong>${data.hora_devolucion || '18:00'}</strong><br>
-                        👤 Por: ${data.usuario || 'Usuario no especificado'}
+                        Este carro está ocupado hasta las <strong>${data.hora_devolucion || '16:00'}</strong><br>
+                        Por: ${data.usuario || 'Usuario no especificado'}
                     </span>
                 </div>
             `;
@@ -267,13 +283,6 @@ let records = [
 ];
 
 // Inicialización
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM cargado, inicializando...");
-    initializeEventListeners();
-    updateProgressBar();
-    loadRecords();
-    setDefaultDate();
-});
 
 function setDefaultDate() {
     const fechaInput = document.getElementById('fecha');
@@ -631,9 +640,10 @@ function validateCurrentSection() {
 // ===== ENVÍO DEL FORMULARIO =====
 async function handleSubmit(e) {
     e.preventDefault();
-    console.log("Enviando formulario...");
-
+    
     const submitBtn = document.querySelector('.btn-submit');
+    if (submitBtn.disabled) return; // Ya se envió, no hacer nada
+    submitBtn.disabled = true; // Bloquear inmediatamente
     const loader = submitBtn.querySelector('.btn-loader');
 
     submitBtn.disabled = true;
@@ -713,7 +723,7 @@ async function collectFormData() {
     const horaDevolucion = document.getElementById('horaDevolucion').value;
     
     // Validar hora
-    if (!horaDevolucion || horaDevolucion < "07:00" || horaDevolucion > "18:00") {
+    if (!horaDevolucion || horaDevolucion < "07:00" || horaDevolucion > "16:00") {
         showToast('La hora debe estar entre 7:00 AM y 4:00 PM', 'error');
         return false;
     }
@@ -723,6 +733,7 @@ async function collectFormData() {
         nombre: document.getElementById('nombre').value.trim(),
         cedula: document.getElementById('cedula').value.trim(),
         correo: document.getElementById('correo').value.trim(),
+        sede: document.getElementById('sede').value,
         hora_devolucion: horaDevolucion,
         cargador: document.getElementById('cargador').checked ? 'Sí' : 'No',
         novedad: document.getElementById('novedad').checked ? 'Sí' : 'No',
@@ -741,7 +752,7 @@ async function collectFormData() {
             showToast('Verifique el rango numérico (1-500)', 'error');
             return false;
         }
-        
+        data.sede = document.getElementById('sede').value;
         data.equipo = `Otros equipos (${rangoInicio} - ${rangoFin})`;
         data.cantidad = rangoFin - rangoInicio + 1;
         data.detalle_equipos = `Equipos del número ${rangoInicio} hasta ${rangoFin} (Total: ${data.cantidad})`;
@@ -756,8 +767,9 @@ async function collectFormData() {
         }
         
         // Verificar disponibilidad antes de enviar
-        try {
-            const checkResp = await fetch(`${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carroSeleccionado)}&fecha=${new Date().toISOString().split('T')[0]}`);
+            try {
+                const sede = document.getElementById('sede').value;   // ← NUEVO
+                const checkResp = await fetch(`${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carroSeleccionado)}&fecha=${new Date().toISOString().split('T')[0]}&sede=${encodeURIComponent(sede)}`);
             const checkData = await checkResp.json();
             
             if (checkData.ocupado) {
@@ -860,21 +872,17 @@ function createRecordCard(record) {
             </div>
             
             <div class="record-equipo">
-                <i class="fas fa-laptop"></i> ${record.equipo}
+                <i class="fas fa-laptop"></i> ${record.cantidad || record.equipo}
             </div>
             
             <div class="record-status">
-                ${record.novedad === 'Sí' ? '<span class="status-badge warning">Con Novedad</span>' : ''}
-                ${record.solicita_cambio === 'Sí' ? '<span class="status-badge info">Cambio Solicitado</span>' : ''}
-                ${record.equipos_adicionales === 'Sí' ? '<span class="status-badge success">+Equipos</span>' : ''}
+                <span class="status-badge info">Sede: ${record.sede || 'N/A'}</span>
+                <span class="status-badge warning">Hasta: ${record.hora_devolucion || 'N/A'}</span>
             </div>
             
             <div class="record-actions" onclick="event.stopPropagation()">
                 <button class="btn-icon" onclick="showDetail(${record.id})" title="Ver detalle">
                     <i class="fas fa-eye"></i>
-                </button>
-                <button class="btn-icon" onclick="downloadPDF(${record.id})" title="Descargar PDF">
-                    <i class="fas fa-file-pdf"></i>
                 </button>
             </div>
         </div>
@@ -911,51 +919,15 @@ function showDetail(id) {
             </div>
             <div class="detail-item">
                 <div class="detail-label">Equipo</div>
-                <div class="detail-value">${currentRecord.equipo}</div>
+                <div class="detail-value">${currentRecord.cantidad || currentRecord.equipo}</div>
             </div>
             <div class="detail-item">
-                <div class="detail-label">Cantidad</div>
-                <div class="detail-value">${currentRecord.cantidad}</div>
+                <div class="detail-label">Sede</div>
+                <div class="detail-value">${currentRecord.sede || currentRecord.equipo}</div>
             </div>
             <div class="detail-item">
-                <div class="detail-label">Cargador</div>
-                <div class="detail-value">${currentRecord.cargador}</div>
-            </div>
-            <div class="detail-item">
-                <div class="detail-label">Autorización</div>
-                <div class="detail-value">${currentRecord.autoriza}</div>
-            </div>
-            
-            ${currentRecord.novedad === 'Sí' ? `
-                <div class="detail-item full-width" style="background: #fff7ed; border-left: 4px solid #FF6B6B;">
-                    <div class="detail-label">Novedad Reportada</div>
-                    <div class="detail-value">${currentRecord.descripcion || 'Sin descripción'}</div>
-                    ${currentRecord.foto_dano ? `<img src="${currentRecord.foto_dano}" style="max-width: 200px; margin-top: 0.5rem; border-radius: 8px;">` : ''}
-                </div>
-            ` : ''}
-            
-            ${currentRecord.solicita_cambio === 'Sí' ? `
-                <div class="detail-item full-width" style="background: #eff6ff; border-left: 4px solid #4ECDC4;">
-                    <div class="detail-label">Cambio Solicitado</div>
-                    <div class="detail-value">Serial: ${currentRecord.serial_cambio || 'No especificado'}</div>
-                    ${currentRecord.foto_cambio ? `<img src="${currentRecord.foto_cambio}" style="max-width: 200px; margin-top: 0.5rem; border-radius: 8px;">` : ''}
-                </div>
-            ` : ''}
-            
-            ${currentRecord.equipos_adicionales === 'Sí' ? `
-                <div class="detail-item full-width" style="background: #f0fdf4; border-left: 4px solid #FFD93D;">
-                    <div class="detail-label">Equipos Adicionales (${currentRecord.cant_adicional})</div>
-                    <div class="detail-value">${currentRecord.serial_adicional}</div>
-                    ${currentRecord.observacion ? `<p style="margin-top: 0.5rem; color: #888;">${currentRecord.observacion}</p>` : ''}
-                </div>
-            ` : ''}
-            
-            <div class="detail-item full-width">
-                <div class="detail-label">Firma Digital</div>
-                ${currentRecord.firma ? 
-                    `<img src="${currentRecord.firma}" class="signature-img" style="max-height: 150px; border: 2px solid #4ECDC4; border-radius: 8px;">` : 
-                    '<p style="color: #888;">No hay firma registrada</p>'
-                }
+                <div class="detail-label">Hasta</div>
+                <div class="detail-value">${currentRecord.hora_devolucion || 'N/A'}</div>
             </div>
         </div>
     `;
@@ -999,7 +971,7 @@ function generatePDF(record) {
     doc.setFont('helvetica', 'bold');
     doc.text('RECEPCIÓN DE EQUIPOS', 105, 20, { align: 'center' });
     doc.setFontSize(14);
-    doc.text('SEDE ZIPAQUIRÁ', 105, 32, { align: 'center' });
+    doc.text(`SEDE ${record.sede || 'N/A'}`, 105, 32, { align: 'center' });
     
     let y = 55;
     
@@ -1027,7 +999,7 @@ function generatePDF(record) {
     // NUEVO: Mostrar hora de devolución destacada
     doc.setTextColor(220, 38, 38); // Rojo para destacar
     doc.setFont('helvetica', 'bold');
-    doc.text(`Hora máxima de devolución: ${record.hora_devolucion || '18:00'}`, 20, y);
+    doc.text(`Hora máxima de devolución: ${record.hora_devolucion || '16:00'}`, 20, y);
     doc.setTextColor(26, 26, 26);
     doc.setFont('helvetica', 'normal');
     doc.text(`Cargador: ${record.cargador || 'No'}`, 110, y);

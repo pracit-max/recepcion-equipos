@@ -119,6 +119,11 @@
                                 <input type="datetime-local" id="fecha" required disabled>
                             </div>
 
+                            <!-- Sede oculta para envío -->
+                            <div class="input-group" style="display: none;">
+                                <input type="hidden" id="sede" value="Cota">
+                            </div>
+
                             <div class="input-group">
                                 <label for="carroSelect">
                                     <i class="fas fa-laptop"></i> Carro a recibir *
@@ -376,9 +381,6 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
-                <button class="btn-primary" onclick="downloadCurrentPDF()">
-                    <i class="fas fa-file-pdf"></i> Descargar PDF
-                </button>
             </div>
         </div>
     </div>
