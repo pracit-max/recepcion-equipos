@@ -14,7 +14,9 @@ function doPost(e){
     lock.waitLock(10000);
     
     const data = JSON.parse(e.postData.contents);
-    
+    if (data.action === "cerrarSolicitud") {
+      return cerrarSolicitud(data);
+    }
     // === VALIDACIÓN DE DISPONIBILIDAD (CORREGIDA Y CON LOCK) ===
     if (data.equipo && data.equipo !== "Otros equipos" && data.sede && data.hora_devolucion) {
       const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
@@ -22,21 +24,30 @@ function doPost(e){
       registros.shift(); 
 
       const fechaHoy = new Date().toISOString().split('T')[0];
-      const horaActualStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
+      const zonaHoraria = Session.getScriptTimeZone();
+      const horaActualStr = Utilities.formatDate(new Date(), zonaHoraria, "HH:mm");
 
       for (let row of registros) {
-        if (row.length < 24) continue; // Ahora 24 columnas
+        if (row.length < 24) continue;
 
         let fechaRegistro = row[0];
         if (fechaRegistro instanceof Date) {
-          fechaRegistro = Utilities.formatDate(fechaRegistro, Session.getScriptTimeZone(), "yyyy-MM-dd");
+          fechaRegistro = Utilities.formatDate(fechaRegistro, zonaHoraria, "yyyy-MM-dd");
         } else {
           fechaRegistro = String(fechaRegistro).split('T')[0].split(' ')[0];
         }
 
-        const sedeRegistrada = String(row[4] || "").trim();        // Columna E (índice 4)
-        const equipoRegistrado = String(row[5] || "").trim();      // Columna F (índice 5)
-        const horaDevolucionStr = String(row[23] || "16:00").trim(); // Columna X (índice 23)
+        const sedeRegistrada = String(row[4] || "").trim();
+        const equipoRegistrado = String(row[5] || "").trim();
+
+        // === FIX: Convertir correctamente la hora ===
+        let horaDevolucionStr = "16:00";
+        const horaRaw = row[23];
+        if (horaRaw instanceof Date) {
+          horaDevolucionStr = Utilities.formatDate(horaRaw, zonaHoraria, "HH:mm");
+        } else if (horaRaw) {
+          horaDevolucionStr = String(horaRaw).trim();
+        }
 
         if (fechaRegistro === fechaHoy && 
             equipoRegistrado === data.equipo && 
@@ -62,22 +73,47 @@ function doPost(e){
     
     const fotoDanoURL = data.foto_dano ? guardarImagen(data.foto_dano,"dano",FOLDER_DANO) : "";
     const firmaBase64 = data.firma || "";
+    const idSolicitud = Utilities.getUuid();
+    const zonaHoraria = Session.getScriptTimeZone();
+    const ahoraFecha = new Date();
+    const horaEntrega = Utilities.formatDate(ahoraFecha, zonaHoraria, "HH:mm");
+    const estadoInicial = "EN_CURSO";
+
+    // === SEGUNDO CHEQUEO ANTI-RACE-CONDITION (CORREGIDO) ===
     if (data.equipo && data.equipo !== "Otros equipos") {
       const check = sheet.getDataRange().getValues();
       check.shift();
       const hoy = new Date().toISOString().split('T')[0];
-      const ahora = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "HH:mm");
-      
+      const zonaHoraria = Session.getScriptTimeZone();
+      const ahora = Utilities.formatDate(new Date(), zonaHoraria, "HH:mm");
+
       for (let r of check) {
-        if (r.length < 25) continue;
+        if (r.length < 24) continue;
+
         let f = r[0];
-        if (f instanceof Date) f = Utilities.formatDate(f, Session.getScriptTimeZone(), "yyyy-MM-dd");
-        else f = String(f).split('T')[0].split(' ')[0];
-        
+        if (f instanceof Date) {
+          f = Utilities.formatDate(f, zonaHoraria, "yyyy-MM-dd");
+        } else {
+          f = String(f).split('T')[0].split(' ')[0];
+        }
+
+        const sedeRegistrada = String(r[4] || "").trim();
+        const equipoRegistrado = String(r[5] || "").trim();
+
+        // === FIX: Convertir correctamente la hora ===
+        let horaDevolucionStr = "16:00";
+        const horaRaw = r[23];
+        if (horaRaw instanceof Date) {
+          horaDevolucionStr = Utilities.formatDate(horaRaw, zonaHoraria, "HH:mm");
+        } else if (horaRaw) {
+          horaDevolucionStr = String(horaRaw).trim();
+        }
+
         if (f === hoy && 
-            String(r[5] || "").trim() === data.equipo && 
-            String(r[4] || "").trim().toLowerCase() === (data.sede || "").toLowerCase() &&
-            ahora < String(r[24] || "16:00").trim()) {
+            equipoRegistrado === data.equipo && 
+            sedeRegistrada.toLowerCase() === (data.sede || "").toLowerCase() &&
+            ahora < horaDevolucionStr) {
+          
           return ContentService.createTextOutput(JSON.stringify({
             status: "error",
             error: `El equipo acaba de ser reservado por otro usuario mientras completabas el formulario. Recarga la página.`,
@@ -105,7 +141,19 @@ function doPost(e){
       data.es_otros_equipos || "No",
       data.rango_inicio || "",
       data.rango_fin || "",
-      data.hora_devolucion || "16:00"
+      data.hora_devolucion || "16:00",
+      // NUEVAS COLUMNAS
+      idSolicitud,
+      estadoInicial,
+      horaEntrega,
+      "", // fecha_devolucion
+      "", // hora_devolucion_real
+      "", // cantidad_devuelta
+      "", // estado_final
+      "", // novedad_devolucion
+      "", // descripcion_devolucion
+      "", // firma_devolucion
+      ""  // pdf_resumen_url
     ]);
 
     // Anti-duplicado
@@ -128,7 +176,10 @@ function doPost(e){
       data.foto_dano = fotoDanoURL; // Pasa la URL de Drive
       enviarCorreoNovedad(data);
     }
-    return ContentService.createTextOutput(JSON.stringify({status:"ok"})).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "ok",
+      id_solicitud: idSolicitud
+    })).setMimeType(ContentService.MimeType.JSON);
       
   } catch(err) {
     console.error("Error en doPost:", err);
@@ -311,7 +362,7 @@ function enviarPDFporCorreo(data) {
     
     // Enviar correo (igual que antes)
     GmailApp.sendEmail(
-      "prac.it@innovaschools.edu.co, jmacias@innovaschools.edu.co",
+      "prac.it@innovaschools.edu.co",
       `Nuevo Registro - ${data.nombre} - ${data.fecha}`,
       `Adjunto PDF de recepción de equipos. También disponible en: ${pdfUrl}`,
       { attachments: [pdfBlob] }
@@ -382,7 +433,69 @@ function doGet() {
 function doGet(e) {
   const action = e && e.parameter ? e.parameter.action : null;
   const sede = e && e.parameter ? e.parameter.sede : null;
-  
+
+  // ==============================
+  // SOLICITUDES EN CURSO
+  // ==============================
+  if (action === "enCurso") {
+    try {
+      const sheet = getMainSheet();
+      const colMap = getColumnMap(sheet);
+      const lastRow = sheet.getLastRow();
+      const lastCol = sheet.getLastColumn();
+
+      if (lastRow <= 1) {
+        return ContentService
+          .createTextOutput(JSON.stringify([]))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+      const normalizarTexto = (txt) => {
+        return String(txt || "")
+          .toLowerCase()
+          .trim()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+      };
+
+      const sedeFiltro = normalizarTexto(e.parameter.sede || "");
+
+      const enCurso = rows
+        .map(row => getRowDataObject(row, colMap))
+        .filter(r => {
+          const estadoOk = String(r.estado || "").trim().toUpperCase() === "EN_CURSO";
+          const sedeRegistro = normalizarTexto(r.sede || "");
+          const sedeOk = !sedeFiltro || sedeRegistro === sedeFiltro;
+          return estadoOk && sedeOk;
+        })
+        .map(r => ({
+          id_solicitud: r.id_solicitud || "",
+          fecha: r.fecha || "",
+          nombre: r.nombre || "",
+          cedula: r.cedula || "",
+          correo: r.correo || "",
+          sede: r.sede || "",
+          equipo: r.equipo || "",
+          cantidad: r.cantidad || "",
+          hora_entrega: formatearHoraSheet(r.hora_entrega),
+          hora_devolucion: r.hora_devolucion || "",
+          detalle_equipos: r.detalle_equipos || ""
+        }));
+
+      return ContentService
+        .createTextOutput(JSON.stringify(enCurso))
+        .setMimeType(ContentService.MimeType.JSON);
+
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          status: "error",
+          error: err.toString()
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
 // === VERIFICAR DISPONIBILIDAD DE CARRO (CON LOGS) ===
 // 🔥 NUEVO: carros ocupados
 if (action === "ocupados") {
@@ -394,91 +507,78 @@ if (action === 'verificarDisponibilidad') {
     try {
       const carro = e.parameter.carro;
       const fecha = e.parameter.fecha || new Date().toISOString().split('T')[0];
-      const sedeParam = e.parameter.sede || '';        // ←←← NUEVO
-      
+      const sedeParam = e.parameter.sede || '';
+
       if (!carro) {
         return ContentService.createTextOutput(JSON.stringify({ocupado: false}))
           .setMimeType(ContentService.MimeType.JSON);
       }
-      
+
       const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
       const data = sheet.getDataRange().getValues();
       data.shift(); // Quitar headers
-      
+
       const ahora = new Date();
       const zonaHoraria = Session.getScriptTimeZone();
-      
+      const horaActualStr = Utilities.formatDate(ahora, zonaHoraria, "HH:mm");
+
       console.log("==== VERIFICANDO DISPONIBILIDAD ====");
-      console.log(`Carro: ${carro} | Sede: ${sedeParam} | Fecha: ${fecha}`);
-      
+      console.log(`Carro: ${carro} | Sede: ${sedeParam} | Fecha: ${fecha} | Hora actual: ${horaActualStr}`);
+
       for (let row of data) {
-        if (row.length < 23) continue;
-        
+        if (row.length < 24) continue;
+
+        // Fecha del registro
         let fechaRegistro;
         if (row[0] instanceof Date) {
           fechaRegistro = Utilities.formatDate(row[0], zonaHoraria, "yyyy-MM-dd");
         } else {
           fechaRegistro = String(row[0]).split('T')[0].split(' ')[0];
         }
-        
-        const equipoRegistrado = row[4]; // Columna E (el carro)
-        const sedeRegistrada = row[3];   // ← Columna D = sede (importante)
-        
-        let horaDevolucion = row[22]; // Columna W
-        
-        // Comparación con sede
-        if (fechaRegistro === fecha && 
-            equipoRegistrado === carro && 
-            String(sedeRegistrada).trim().toLowerCase() === sedeParam.trim().toLowerCase()) {
-          
-          let fechaDevolucion = new Date();
-          if (horaDevolucion instanceof Date) {
-            fechaDevolucion.setHours(horaDevolucion.getHours());
-            fechaDevolucion.setMinutes(horaDevolucion.getMinutes());
-          } else {
-            const partes = (horaDevolucion || "16:00").toString().split(":");
-            fechaDevolucion.setHours(parseInt(partes[0]) || 0);
-            fechaDevolucion.setMinutes(parseInt(partes[1]) || 0);
-          }
-          
-          const horaActual = Utilities.formatDate(ahora, zonaHoraria, "HH:mm");
-          const horaDevStr = Utilities.formatDate(fechaDevolucion, zonaHoraria, "HH:mm");
-          
-          // ========== AGREGAR LOGS AQUÍ ==========
-          console.log("Registro encontrado:");
-          console.log("  - fechaRegistro:", fechaRegistro);
-          console.log("  - equipoRegistrado:", equipoRegistrado);
-          console.log("  - sedeRegistrada:", sedeRegistrada);
-          console.log("  - horaDevolucion raw:", horaDevolucion);
-          console.log("  - fechaDevolucion:", fechaDevolucion);
-          console.log("  - horaActual:", horaActual);
-          console.log("  - horaDevStr:", horaDevStr);
-          console.log("  - comparación (horaActual < horaDevStr):", horaActual < horaDevStr);
-          // ======================================
-          
-          if (horaActual < horaDevStr) {
-            console.log(`🔴 OCUPADO en sede ${sedeParam}`);
+
+        // COLUMNAS CORRECTAS
+        const sedeRegistrada = String(row[4] || "").trim();
+        const equipoRegistrado = String(row[5] || "").trim();
+
+        // === AQUÍ ESTÁ EL FIX IMPORTANTE ===
+        let horaDevolucionStr = "16:00";
+        const horaRaw = row[23];
+
+        if (horaRaw instanceof Date) {
+          horaDevolucionStr = Utilities.formatDate(horaRaw, zonaHoraria, "HH:mm");
+        } else if (horaRaw) {
+          horaDevolucionStr = String(horaRaw).trim();
+        }
+
+        if (fechaRegistro === fecha &&
+            equipoRegistrado === carro &&
+            sedeRegistrada.toLowerCase() === sedeParam.toLowerCase()) {
+
+          console.log(`Registro encontrado → ${equipoRegistrado} en ${sedeRegistrada} hasta ${horaDevolucionStr}`);
+
+          if (horaActualStr < horaDevolucionStr) {
+            console.log(`🔴 OCUPADO`);
             return ContentService.createTextOutput(JSON.stringify({
               ocupado: true,
-              hora_devolucion: horaDevStr,   // ✅ Devuelve el string formateado
-              usuario: row[1]
+              hora_devolucion: horaDevolucionStr,   // ← Ahora siempre es "HH:mm"
+              usuario: row[1] || 'Usuario desconocido'
             })).setMimeType(ContentService.MimeType.JSON);
           } else {
-            console.log(`🟢 Este registro ya pasó la hora (${horaActual} >= ${horaDevStr})`);
+            console.log(`🟢 Ya pasó la hora`);
           }
         }
       }
-      
-      console.log(`🟢 DISPONIBLE (sin registros activos)`);
+
+      console.log(`🟢 DISPONIBLE`);
       return ContentService.createTextOutput(JSON.stringify({ocupado: false}))
         .setMimeType(ContentService.MimeType.JSON);
-        
+
     } catch(err) {
       console.error("Error en verificarDisponibilidad:", err);
       return ContentService.createTextOutput(JSON.stringify({ocupado: false, error: err.toString()}))
         .setMimeType(ContentService.MimeType.JSON);
     }
-}
+  }
   
   // === CASO 1: Enviar código de verificación ===
   if (action === 'sendVerifyCode') {
@@ -564,31 +664,36 @@ if (action === 'verificarDisponibilidad') {
 
     const registros = data.map((row, index) => ({
       id: index + 1,
-      fecha: row[0],                 // Fecha
-      nombre: row[1],                // Nombre
-      cedula: row[2],                // Cédula
-      correo: row[3],                // Correo
-      equipo: row[4],                // Carro
-      cantidad: row[5],              // Cantidad
-      cargador: row[6],              // Cargador
-      novedad: row[7],               // Novedad
-      descripcion: row[8],           // Descripción
-      foto_dano: row[9],             // URL Foto daño
-      solicita_cambio: row[10],      // Cambio
-      serial_cambio: row[11],        // Serial cambio
-      foto_cambio: row[12],          // URL Foto cambio
-      equipos_adicionales: row[13],  // Adicionales
-      cant_adicional: row[14],       // Cant adicional
-      serial_adicional: row[15],     // Serial adicional
-      observacion: row[16],          // Observación
-      firma: row[17],                // URL Firma
-      detalle_equipos: row[18] || "", // Lista de seriales/placas
-      es_otros_equipos: row[19] || "No",    // NUEVO
-      rango_inicio: row[20] || "",          // NUEVO
-      rango_fin: row[21] || "",             // NUEVO
-      hora_devolucion: row[22] || "16:00"   // NUEVO
+      fecha: row[0],
+      nombre: row[1],
+      cedula: row[2],
+      correo: row[3],
+      sede: row[4],
+      equipo: row[5],
+      cantidad: row[6],
+      cargador: row[7],
+      novedad: row[8],
+      descripcion: row[9],
+      foto_dano: row[10],
+      observacion: row[17],
+      firma: row[18],
+      detalle_equipos: row[19] || "",
+      es_otros_equipos: row[20] || "No",
+      rango_inicio: row[21] || "",
+      rango_fin: row[22] || "",
+      hora_devolucion: row[23] || "16:00",
+      id_solicitud: row[24] || "",
+      estado: row[25] || "",
+      hora_entrega: row[26] || "",
+      fecha_devolucion: row[27] || "",
+      hora_devolucion_real: row[28] || "",
+      cantidad_devuelta: row[29] || "",
+      estado_final: row[30] || "",
+      novedad_devolucion: row[31] || "",
+      descripcion_devolucion: row[32] || "",
+      firma_devolucion: row[33] || "",
+      pdf_resumen_url: row[34] || ""
     }));
-
     return ContentService
       .createTextOutput(JSON.stringify(registros))
       .setMimeType(ContentService.MimeType.JSON);
@@ -604,6 +709,17 @@ if (action === 'verificarDisponibilidad') {
  * @param {string} code - Código de 6 dígitos
  * @returns {boolean} - true si se envió correctamente
  */
+function formatearHoraSheet(valor) {
+  if (!valor) return "";
+
+  const zona = Session.getScriptTimeZone();
+
+  if (valor instanceof Date) {
+    return Utilities.formatDate(valor, zona, "HH:mm");
+  }
+
+  return String(valor).trim();
+}
 function enviarCodigoVerificacion(email, code) {
   try {
     const asunto = "Código de verificación - Sistema de Equipos";
@@ -634,7 +750,6 @@ function enviarCodigoVerificacion(email, code) {
   }
 }
 function getCarrosDisponibles() {
-
   const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
   const data = sheet.getDataRange().getValues();
   data.shift();
@@ -643,14 +758,23 @@ function getCarrosDisponibles() {
   const ocupados = [];
 
   data.forEach(row => {
-    const equipo = row[4];
-    const horaDevolucion = row[22]; // ✔️ corregido
+    const equipo = row[5]; // CORREGIDO
+    const horaDevolucion = row[23]; // CORREGIDO
 
-    if (!horaDevolucion) return;
+    if (!horaDevolucion || !equipo) return;
 
-    const [hora, minuto] = horaDevolucion.toString().split(":");
+    let horaTexto = "";
+    if (horaDevolucion instanceof Date) {
+      horaTexto = Utilities.formatDate(horaDevolucion, Session.getScriptTimeZone(), "HH:mm");
+    } else {
+      horaTexto = String(horaDevolucion).trim();
+    }
+
+    if (!horaTexto.includes(":")) return;
+
+    const [hora, minuto] = horaTexto.split(":");
     const fecha = new Date();
-    fecha.setHours(hora, minuto);
+    fecha.setHours(Number(hora), Number(minuto), 0, 0);
 
     if (ahora < fecha) {
       ocupados.push(equipo);
@@ -708,4 +832,399 @@ function enviarCorreoNovedad(data) {
   });
   
   console.log("✅ Correo de novedad enviado a: " + destinatarios);
+}
+function getMainSheet() {
+  return SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+}
+
+function getColumnMap(sheet) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  const normalizar = (txt) =>
+    String(txt || "")
+      .toLowerCase()
+      .trim()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+  const headersNorm = headers.map(h => normalizar(h));
+  const map = {};
+
+  function buscarColumna(...aliases) {
+    const aliasesNorm = aliases.map(a => normalizar(a));
+    for (let i = 0; i < headersNorm.length; i++) {
+      if (aliasesNorm.includes(headersNorm[i])) {
+        return i + 1; // 1-based
+      }
+    }
+    return null;
+  }
+
+  map.fecha = buscarColumna("fecha");
+  map.nombre = buscarColumna("nombre");
+  map.cedula = buscarColumna("cedula");
+  map.correo = buscarColumna("correo");
+  map.sede = buscarColumna("sede");
+  map.equipo = buscarColumna("equipo");
+  map.cantidad = buscarColumna("cantidad");
+  map.cargador = buscarColumna("cargador");
+  map.novedad = buscarColumna("novedad");
+  map.descripcion = buscarColumna("descripcion");
+  map.foto_dano = buscarColumna("foto_dano");
+
+  map.solicita_cambio = buscarColumna("solicita_cambio");
+  map.serial_cambio = buscarColumna("serial_cambio");
+  map.foto_cambio = buscarColumna("foto_cambio");
+  map.equipos_adicionales = buscarColumna("equipos_adicionales");
+  map.cant_adicional = buscarColumna("cant_adicional");
+  map.serial_adicional = buscarColumna("serial_adicional", "serial y placa");
+  map.observacion = buscarColumna("observacion");
+
+  map.acta = buscarColumna("acta");
+  map.firma = buscarColumna("firma");
+  map.detalle_equipos = buscarColumna("detalle_equipos");
+  map.es_otros_equipos = buscarColumna("es_otros_equipos");
+  map.rango_inicio = buscarColumna("rango_inicio", "rango_");
+  map.rango_fin = buscarColumna("rango_fin");
+  map.hora_devolucion = buscarColumna("hora_devolucion");
+  map.id_solicitud = buscarColumna("id_solicitud");
+  map.estado = buscarColumna("estado");
+  map.hora_entrega = buscarColumna("hora_entrega");
+  map.fecha_devolucion = buscarColumna("fecha_devolucion");
+  map.hora_devolucion_real = buscarColumna("hora_devolucion_real");
+  map.cantidad_devuelta = buscarColumna("cantidad_devuelta");
+  map.estado_final = buscarColumna("estado_final");
+  map.novedad_devolucion = buscarColumna("novedad_devolucion");
+  map.descripcion_devolucion = buscarColumna("descripcion_devolucion");
+  map.firma_devolucion = buscarColumna("firma_devolucion");
+  map.pdf_resumen_url = buscarColumna("pdf_resumen_url");
+
+  Logger.log("MAP COLUMNAS: " + JSON.stringify(map));
+  return map;
+}
+
+function getRowDataObject(row, colMap) {
+  const obj = {};
+  Object.keys(colMap).forEach(key => {
+    const col = colMap[key];
+    obj[key] = col ? row[col - 1] : "";
+  });
+  return obj;
+}
+function cerrarSolicitud(data) {
+  try {
+    const sheet = getMainSheet();
+    const colMap = getColumnMap(sheet);
+
+    if (!data.id_solicitud) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          status: "error",
+          error: "Falta id_solicitud"
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+
+    if (lastRow <= 1) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          status: "error",
+          error: "No hay registros para cerrar"
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    let targetRowNumber = -1;
+    let targetRow = null;
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowObj = getRowDataObject(rows[i], colMap);
+
+      if (String(rowObj.id_solicitud || "").trim() === String(data.id_solicitud).trim()) {
+        targetRowNumber = i + 2; // porque empieza en fila 2
+        targetRow = rowObj;
+        break;
+      }
+    }
+
+    if (targetRowNumber === -1) {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          status: "error",
+          error: "No se encontró la solicitud"
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    if (String(targetRow.estado || "").trim().toUpperCase() === "CERRADO") {
+      return ContentService
+        .createTextOutput(JSON.stringify({
+          status: "error",
+          error: "La solicitud ya está cerrada"
+        }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const zonaHoraria = Session.getScriptTimeZone();
+    const ahora = new Date();
+    const fechaDevolucion = Utilities.formatDate(ahora, zonaHoraria, "yyyy-MM-dd");
+    const horaDevolucionReal = Utilities.formatDate(ahora, zonaHoraria, "HH:mm");
+
+    const cantidadDevuelta = data.cantidad_devuelta || "";
+    const estadoFinal = data.estado_final || "";
+    const novedadDevolucion = data.novedad_devolucion || "No";
+    const descripcionDevolucion = data.descripcion_devolucion || "";
+    const firmaDevolucion = data.firma_devolucion || "";
+
+    // Actualizar SOLO esa fila
+    if (colMap.fecha_devolucion) {
+      sheet.getRange(targetRowNumber, colMap.fecha_devolucion).setValue(fechaDevolucion);
+    }
+    if (colMap.hora_devolucion_real) {
+      sheet.getRange(targetRowNumber, colMap.hora_devolucion_real).setValue(horaDevolucionReal);
+    }
+    if (colMap.cantidad_devuelta) {
+      sheet.getRange(targetRowNumber, colMap.cantidad_devuelta).setValue(cantidadDevuelta);
+    }
+    if (colMap.estado_final) {
+      sheet.getRange(targetRowNumber, colMap.estado_final).setValue(estadoFinal);
+    }
+    if (colMap.novedad_devolucion) {
+      sheet.getRange(targetRowNumber, colMap.novedad_devolucion).setValue(novedadDevolucion);
+    }
+    if (colMap.descripcion_devolucion) {
+      sheet.getRange(targetRowNumber, colMap.descripcion_devolucion).setValue(descripcionDevolucion);
+    }
+    if (colMap.firma_devolucion) {
+      sheet.getRange(targetRowNumber, colMap.firma_devolucion).setValue(firmaDevolucion);
+    }
+    if (colMap.estado) {
+      sheet.getRange(targetRowNumber, colMap.estado).setValue("CERRADO");
+    }
+
+    // Refrescar fila actualizada
+    const updatedRow = sheet.getRange(targetRowNumber, 1, 1, lastCol).getValues()[0];
+    const updatedObj = getRowDataObject(updatedRow, colMap);
+
+    // Generar PDF final
+    const pdfResumenUrl = generarPdfResumenFinal(updatedObj);
+
+    if (colMap.pdf_resumen_url) {
+      sheet.getRange(targetRowNumber, colMap.pdf_resumen_url).setValue(pdfResumenUrl || "");
+    }
+    // Enviar correo al usuario
+    // Enviar correo al usuario
+    try {
+      if (updatedObj.correo) {
+        MailApp.sendEmail({
+          to: String(updatedObj.correo).trim(),
+          subject: "Devolución de equipo registrada",
+          htmlBody: `
+            <h2>Devolución registrada correctamente</h2>
+            <p><strong>Nombre:</strong> ${updatedObj.nombre || ""}</p>
+            <p><strong>Sede:</strong> ${updatedObj.sede || ""}</p>
+            <p><strong>Equipo:</strong> ${updatedObj.equipo || ""}</p>
+            <p><strong>Cantidad devuelta:</strong> ${cantidadDevuelta}</p>
+            <p><strong>Estado final:</strong> ${estadoFinal}</p>
+            <p><strong>Fecha devolución:</strong> ${fechaDevolucion}</p>
+            <p><strong>Hora devolución:</strong> ${horaDevolucionReal}</p>
+            ${
+              pdfResumenUrl
+                ? `<p><a href="${pdfResumenUrl}">Ver acta final PDF</a></p>`
+                : ""
+            }
+            <hr>
+            <p>Sistema de recepción de equipos</p>
+          `
+        });
+
+        Logger.log("Correo devolución enviado a: " + updatedObj.correo);
+      } else {
+        Logger.log("No se envió correo porque updatedObj.correo está vacío");
+      }
+    } catch (mailError) {
+      Logger.log("Error enviando correo de devolución: " + mailError);
+    }
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: "ok",
+        message: "Solicitud cerrada correctamente",
+        pdf_resumen_url: pdfResumenUrl || ""
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: "error",
+        error: err.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+function generarPdfResumenFinal(data) {
+  try {
+    const folder = DriveApp.getFolderById(FOLDER_PDF);
+
+    const fechaEntrega = data.fecha || "";
+    const horaEntrega = data.hora_entrega || "";
+    const fechaDev = data.fecha_devolucion || "";
+    const horaDev = data.hora_devolucion_real || "";
+
+    const conclusion = construirConclusionAutomatica(data);
+    const tiempoUso = calcularTiempoUsoTexto(fechaEntrega, horaEntrega, fechaDev, horaDev);
+
+    const firmaEntrega = data.firma ? procesarImagenPdf(data.firma) : null;
+    const firmaDevolucion = data.firma_devolucion ? procesarImagenPdf(data.firma_devolucion) : null;
+
+    let html = `
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, sans-serif; font-size: 12px; margin: 25px; color: #222; }
+          h1 { color: #0f172a; border-bottom: 3px solid #14b8a6; padding-bottom: 8px; }
+          h2 { color: #0f766e; margin-top: 22px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+          th { background: #f3f4f6; }
+          .box { background: #f8fafc; border: 1px solid #e5e7eb; padding: 12px; border-radius: 8px; margin: 10px 0; }
+          .firma { border: 1px solid #cbd5e1; padding: 10px; display: inline-block; background: white; }
+          img { max-width: 280px; max-height: 100px; }
+          .ok { color: #15803d; font-weight: bold; }
+          .warn { color: #b45309; font-weight: bold; }
+          .bad { color: #b91c1c; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <h1>ACTA FINAL DE ENTREGA Y DEVOLUCIÓN</h1>
+
+        <h2>Datos generales</h2>
+        <table>
+          <tr><th>ID Solicitud</th><td>${data.id_solicitud || ""}</td></tr>
+          <tr><th>Nombre</th><td>${data.nombre || ""}</td></tr>
+          <tr><th>Cédula</th><td>${data.cedula || ""}</td></tr>
+          <tr><th>Correo</th><td>${data.correo || ""}</td></tr>
+          <tr><th>Sede</th><td>${data.sede || ""}</td></tr>
+          <tr><th>Equipo</th><td>${data.equipo || ""}</td></tr>
+          <tr><th>Cantidad entregada</th><td>${data.cantidad || ""}</td></tr>
+          <tr><th>Cantidad devuelta</th><td>${data.cantidad_devuelta || ""}</td></tr>
+        </table>
+
+        <h2>Datos de la entrega</h2>
+        <table>
+          <tr><th>Fecha entrega</th><td>${fechaEntrega}</td></tr>
+          <tr><th>Hora entrega</th><td>${horaEntrega}</td></tr>
+          <tr><th>Hora máxima pactada</th><td>${data.hora_devolucion || ""}</td></tr>
+          <tr><th>Detalle equipos</th><td>${(data.detalle_equipos || "").toString().replace(/\n/g, "<br>")}</td></tr>
+        </table>
+
+        <h2>Datos de la devolución</h2>
+        <table>
+          <tr><th>Fecha devolución</th><td>${fechaDev}</td></tr>
+          <tr><th>Hora devolución real</th><td>${horaDev}</td></tr>
+          <tr><th>Estado final</th><td>${data.estado_final || ""}</td></tr>
+          <tr><th>Novedad devolución</th><td>${data.novedad_devolucion || "No"}</td></tr>
+          <tr><th>Descripción devolución</th><td>${data.descripcion_devolucion || ""}</td></tr>
+        </table>
+
+        <h2>Tiempo de uso</h2>
+        <div class="box">${tiempoUso}</div>
+
+        <h2>Conclusión automática</h2>
+        <div class="box">${conclusion}</div>
+
+        <h2>Firmas</h2>
+        <table>
+          <tr>
+            <th>Firma entrega</th>
+            <th>Firma devolución</th>
+          </tr>
+          <tr>
+            <td>${firmaEntrega ? `<div class="firma"><img src="${firmaEntrega}"></div>` : "Sin firma"}</td>
+            <td>${firmaDevolucion ? `<div class="firma"><img src="${firmaDevolucion}"></div>` : "Sin firma"}</td>
+          </tr>
+        </table>
+
+        <p style="margin-top:30px; font-size:10px; color:#666;">
+          Documento generado automáticamente el ${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss")}
+        </p>
+      </body>
+      </html>
+    `;
+
+    const tempFile = DriveApp.createFile(
+      `temp_resumen_${data.id_solicitud}.html`,
+      html,
+      MimeType.HTML
+    );
+
+    const pdfBlob = tempFile.getAs(MimeType.PDF).setName(`Resumen_${data.id_solicitud}.pdf`);
+    const pdfFile = folder.createFile(pdfBlob);
+    const pdfUrl = pdfFile.getUrl();
+
+    tempFile.setTrashed(true);
+
+    return pdfUrl;
+
+  } catch (err) {
+    Logger.log("Error generando PDF final: " + err.toString());
+    return "";
+  }
+}
+function procesarImagenPdf(imgData) {
+  if (!imgData) return null;
+  if (String(imgData).startsWith("data:image")) return imgData;
+  if (String(imgData).includes("drive.google.com")) return obtenerImagenBase64(imgData);
+  return null;
+}
+
+function calcularTiempoUsoTexto(fechaEntrega, horaEntrega, fechaDev, horaDev) {
+  try {
+    if (!fechaEntrega || !horaEntrega || !fechaDev || !horaDev) {
+      return "No fue posible calcular el tiempo de uso.";
+    }
+
+    const inicio = new Date(`${fechaEntrega}T${horaEntrega}:00`);
+    const fin = new Date(`${fechaDev}T${horaDev}:00`);
+
+    const diffMs = fin - inicio;
+    if (isNaN(diffMs) || diffMs < 0) {
+      return "No fue posible calcular el tiempo de uso.";
+    }
+
+    const totalMin = Math.floor(diffMs / 60000);
+    const horas = Math.floor(totalMin / 60);
+    const minutos = totalMin % 60;
+
+    return `Tiempo total aproximado de uso: ${horas} hora(s) y ${minutos} minuto(s).`;
+  } catch (err) {
+    return "No fue posible calcular el tiempo de uso.";
+  }
+}
+
+function construirConclusionAutomatica(data) {
+  const cantidad = Number(data.cantidad || 0);
+  const devuelta = Number(data.cantidad_devuelta || 0);
+  const estadoFinal = String(data.estado_final || "").toUpperCase();
+  const novedad = String(data.novedad_devolucion || "No").toUpperCase();
+
+  if (estadoFinal === "COMPLETO" && cantidad === devuelta && novedad !== "SÍ" && novedad !== "SI") {
+    return `<span class="ok">La solicitud fue cerrada correctamente. Los equipos fueron devueltos completos y sin novedades reportadas.</span>`;
+  }
+
+  if (estadoFinal === "INCOMPLETO" || devuelta < cantidad) {
+    return `<span class="warn">La solicitud fue cerrada con devolución incompleta. Se recomienda revisión administrativa del faltante.</span>`;
+  }
+
+  if (estadoFinal === "DAÑADO" || novedad === "SÍ" || novedad === "SI") {
+    return `<span class="bad">La solicitud fue cerrada con novedad o daño reportado. Se recomienda validación técnica del equipo.</span>`;
+  }
+
+  return `<span class="warn">La solicitud fue cerrada. Revisar manualmente el estado final para validar la conclusión.</span>`;
 }

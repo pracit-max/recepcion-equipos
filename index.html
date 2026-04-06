@@ -24,7 +24,90 @@
                 </span>
             </div>
         </header>
+        <nav class="top-nav">
+            <div class="nav-container">
+                <button class="hamburger" id="hamburgerBtn" aria-label="Menú">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <div class="nav-tabs" id="navTabs">
+                    <button class="nav-tab active" onclick="mostrarVista('docentes'); cerrarMenu();">Docentes</button>
+                    <button class="nav-tab" onclick="mostrarVista('soporte'); cerrarMenu();">Devoluciones</button>
+                </div>
+            </div>
+        </nav>
+        <section class="sedes-section" id="vistaDocentes">
+            <div class="sedes-grid">
+                <!-- tus tarjetas actuales -->
+            </div>
+        </section>
+        <section class="sedes-section" id="vistaSoporte" style="display:none;">
+            <div class="sedes-grid">
+                <a href="/view/devolucion.html?sede=zipaquira" class="sede-card">
+                    <div class="sede-icon"><i class="fas fa-tools"></i></div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devolucion Zipaquirá</h3>
+                        <p class="sede-desc">Ver equipos en curso de Zipaquirá</p>
+                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                    </div>
+                </a>
 
+                <a href="/view/devolucion.html?sede=niza" class="sede-card">
+                    <div class="sede-icon"><i class="fas fa-tools"></i></div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devolucion Niza</h3>
+                        <p class="sede-desc">Ver equipos en curso de Niza</p>
+                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                    </div>
+                </a>
+
+                <a href="/view/devolucion.html?sede=usaquen" class="sede-card">
+                    <div class="sede-icon"><i class="fas fa-tools"></i></div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devolucion Usaquén</h3>
+                        <p class="sede-desc">Ver equipos en curso de Usaquén</p>
+                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                    </div>
+                </a>
+
+                <a href="/view/devolucion.html?sede=cota" class="sede-card">
+                    <div class="sede-icon"><i class="fas fa-tools"></i></div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devolucion Cota</h3>
+                        <p class="sede-desc">Ver equipos en curso de Cota</p>
+                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                    </div>
+                </a>
+
+                <a href="/view/devolucion.html?sede=mosquera" class="sede-card">
+                    <div class="sede-icon"><i class="fas fa-tools"></i></div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devolucion Mosquera</h3>
+                        <p class="sede-desc">Ver equipos en curso de Mosquera</p>
+                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                    </div>
+                </a>
+
+                <a href="/view/devolucion.html?sede=tunja" class="sede-card">
+                    <div class="sede-icon"><i class="fas fa-tools"></i></div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devolucion Tunja</h3>
+                        <p class="sede-desc">Ver equipos en curso de Tunja</p>
+                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                    </div>
+                </a>
+
+                <a href="/view/devolucion.html?sede=barranquilla" class="sede-card">
+                    <div class="sede-icon"><i class="fas fa-tools"></i></div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devolucion Barranquilla</h3>
+                        <p class="sede-desc">Ver equipos en curso de Barranquilla</p>
+                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                    </div>
+                </a>
+            </div>
+        </section>
         <!-- Hero Section -->
         <section class="hero">
             <div class="hero-content">
@@ -145,6 +228,19 @@
                         <div class="sede-badge">Pronto</div>
                     </div>
                 </a>
+                <!-- DEVOLUCIONES -->
+                <a href="/view/devolucion.html" class="sede-card">
+                    <div class="sede-icon">
+                        <i class="fas fa-undo"></i>
+                    </div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devoluciones</h3>
+                        <p class="sede-desc">Cerrar solicitudes de equipos</p>
+                        <div class="sede-arrow">
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+                </a>
             </div>
         </section>
 
@@ -224,6 +320,36 @@
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
+        function mostrarVista(tipo) {
+            const vistaDocentes = document.getElementById('vistaDocentes');
+            const vistaSoporte = document.getElementById('vistaSoporte');
+            const tabs = document.querySelectorAll('.nav-tab');
+
+            tabs.forEach(tab => tab.classList.remove('active'));
+
+            if (tipo === 'docentes') {
+                vistaDocentes.style.display = 'block';
+                vistaSoporte.style.display = 'none';
+                tabs[0].classList.add('active');
+            } else {
+                vistaDocentes.style.display = 'none';
+                vistaSoporte.style.display = 'block';
+                tabs[1].classList.add('active');
+            }
+        }
+
+        function cerrarMenu() {
+            const navTabs = document.getElementById('navTabs');
+            const hamburger = document.getElementById('hamburgerBtn');
+            navTabs.classList.remove('active');
+            hamburger.classList.remove('active');
+        }
+
+        // Toggle hamburger menu
+        document.getElementById('hamburgerBtn').addEventListener('click', function() {
+            this.classList.toggle('active');
+            document.getElementById('navTabs').classList.toggle('active');
+        });
     </script>
 </body>
 </html>

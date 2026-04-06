@@ -16,13 +16,34 @@ let carrosOcupados = [];
 // Cargar equipos al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
-    initializeEventListeners();
-    updateProgressBar();
-    loadRecords();
-    setDefaultDate();
-    
-    // Cargar equipos de Zipaquirá
-    cargarEquiposPorSede();
+
+    if (document.getElementById('form')) {
+        initializeEventListeners();
+    }
+
+    if (document.querySelector('.progress-bar')) {
+        updateProgressBar();
+    }
+
+    if (document.getElementById('recordsGrid')) {
+        loadRecords();
+    }
+
+    if (document.getElementById('fecha')) {
+        setDefaultDate();
+    }
+
+    if (document.getElementById('enCursoTableBody')) {
+        cargarSolicitudesEnCurso();
+    }
+
+    if (document.getElementById('signatureCanvasDevolucion')) {
+        initSignatureDevolucion();
+    }
+
+    if (document.getElementById('sede')) {
+        cargarEquiposPorSede();
+    }
 });
 
 // Función general para cargar equipos según la sede
@@ -640,6 +661,17 @@ function validateCurrentSection() {
 // ===== ENVÍO DEL FORMULARIO =====
 async function handleSubmit(e) {
     e.preventDefault();
+    
+    // Validar checkbox de autorización de términos
+    const autorizaCheckbox = document.getElementById('autoriza');
+    if (autorizaCheckbox && !autorizaCheckbox.checked) {
+        autorizaCheckbox.style.borderColor = '#FF6B6B';
+        showToast('Debe aceptar los términos y condiciones para continuar', 'error');
+        setTimeout(() => {
+            autorizaCheckbox.style.borderColor = '';
+        }, 3000);
+        return;
+    }
     
     const submitBtn = document.querySelector('.btn-submit');
     if (submitBtn.disabled) return; // Ya se envió, no hacer nada
@@ -1312,21 +1344,233 @@ document.addEventListener('click', (e) => {
     }
 });
 async function cargarCarros() {
-
-    const resOcupados = await fetch(URL + "?action=ocupados");
+    const resOcupados = await fetch(URL_GOOGLE_SCRIPT + "?action=ocupados");
     const ocupados = await resOcupados.json();
 
     console.log("OCUPADOS:", ocupados);
 
     const select = document.getElementById("carroSelect");
+    if (!select) return;
 
     Array.from(select.options).forEach(option => {
-
         if (ocupados.includes(option.value)) {
             option.disabled = true;
             option.text += " (Ocupado)";
         }
-
     });
 
+}
+async function cargarSolicitudesEnCurso() {
+  const tbody = document.getElementById("enCursoTableBody");
+  if (!tbody) return;
+
+  const sede = obtenerSedeDesdeURL();
+
+  tbody.innerHTML = `<tr><td colspan="6">Cargando...</td></tr>`;
+
+  try {
+    const res = await fetch(`${URL_GOOGLE_SCRIPT}?action=enCurso&sede=${encodeURIComponent(sede)}`);
+    const text = await res.text();
+    console.log("RESPUESTA RAW enCurso:", text);
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("La respuesta NO es JSON:", text);
+      tbody.innerHTML = `<tr><td colspan="6">Error: el servidor no devolvió JSON válido</td></tr>`;
+      return;
+    }
+
+    if (!Array.isArray(data) || data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6">No hay solicitudes en curso para esta sede</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = "";
+
+    data.forEach(item => {
+      const tr = document.createElement("tr");
+
+      tr.innerHTML = `
+        <td>${item.nombre || ""}</td>
+        <td>${item.sede || ""}</td>
+        <td>${item.equipo || ""}</td>
+        <td>${item.cantidad || ""}</td>
+        <td>${formatearHora(item.hora_entrega)}</td>
+        <td></td>
+      `;
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "Devolver";
+      btn.addEventListener("click", () => abrirFormularioDevolucion(item));
+
+      tr.children[5].appendChild(btn);
+      tbody.appendChild(tr);
+    });
+
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = `<tr><td colspan="6">Error cargando solicitudes</td></tr>`;
+  }
+}
+function formatearHora(valor) {
+    if (!valor) return "";
+
+    if (typeof valor === "string" && valor.includes(":") && !valor.includes("T")) {
+        return valor.slice(0, 5);
+    }
+
+    const fecha = new Date(valor);
+    if (!isNaN(fecha.getTime())) {
+        return fecha.toLocaleTimeString("es-CO", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false
+        });
+    }
+
+    return String(valor);
+}
+function abrirFormularioDevolucion(item) {
+  document.getElementById("formCerrarBox").style.display = "block";
+  document.getElementById("devolucion_id_solicitud").value = item.id_solicitud || "";
+  document.getElementById("cantidad_devuelta").value = item.cantidad || "";
+  document.getElementById("estado_final").value = "";
+  document.getElementById("novedad_devolucion").value = "No";
+  document.getElementById("descripcion_devolucion").value = "";
+  document.getElementById("boxDescripcionDevolucion").style.display = "none";
+
+  clearSignatureDevolucion();
+}
+function toggleDescripcionDevolucion() {
+  const value = document.getElementById("novedad_devolucion").value;
+  document.getElementById("boxDescripcionDevolucion").style.display =
+    value === "Sí" ? "block" : "none";
+}
+let canvasDev, ctxDev, isDrawingDev = false;
+
+function initSignatureDevolucion() {
+  canvasDev = document.getElementById("signatureCanvasDevolucion");
+  if (!canvasDev) return;
+
+  ctxDev = canvasDev.getContext("2d");
+  ctxDev.fillStyle = "white";
+  ctxDev.fillRect(0, 0, canvasDev.width, canvasDev.height);
+  ctxDev.strokeStyle = "#111827";
+  ctxDev.lineWidth = 2;
+  ctxDev.lineCap = "round";
+
+  canvasDev.addEventListener("mousedown", () => isDrawingDev = true);
+  canvasDev.addEventListener("mouseup", () => {
+    isDrawingDev = false;
+    ctxDev.beginPath();
+  });
+  canvasDev.addEventListener("mouseout", () => {
+    isDrawingDev = false;
+    ctxDev.beginPath();
+  });
+  canvasDev.addEventListener("mousemove", drawDevolucion);
+}
+
+function drawDevolucion(e) {
+  if (!isDrawingDev) return;
+
+  const rect = canvasDev.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  ctxDev.lineTo(x, y);
+  ctxDev.stroke();
+  ctxDev.beginPath();
+  ctxDev.moveTo(x, y);
+}
+
+function clearSignatureDevolucion() {
+  if (!ctxDev || !canvasDev) return;
+  ctxDev.clearRect(0, 0, canvasDev.width, canvasDev.height);
+  ctxDev.fillStyle = "white";
+  ctxDev.fillRect(0, 0, canvasDev.width, canvasDev.height);
+}
+
+function getSignatureDevolucionBase64() {
+  if (!canvasDev || !ctxDev) return "";
+
+  const imageData = ctxDev.getImageData(0, 0, canvasDev.width, canvasDev.height).data;
+  let hasContent = false;
+
+  for (let i = 0; i < imageData.length; i += 4) {
+    if (imageData[i] < 250 || imageData[i + 1] < 250 || imageData[i + 2] < 250) {
+      hasContent = true;
+      break;
+    }
+  }
+
+  return hasContent ? canvasDev.toDataURL("image/png") : "";
+}
+async function cerrarSolicitudFrontend() {
+  const id_solicitud = document.getElementById("devolucion_id_solicitud").value;
+  const cantidad_devuelta = document.getElementById("cantidad_devuelta").value;
+  const estado_final = document.getElementById("estado_final").value;
+  const novedad_devolucion = document.getElementById("novedad_devolucion").value;
+  const descripcion_devolucion = document.getElementById("descripcion_devolucion").value;
+  const firma_devolucion = getSignatureDevolucionBase64();
+
+  if (!id_solicitud) {
+    alert("No hay solicitud seleccionada");
+    return;
+  }
+
+  if (!cantidad_devuelta) {
+    alert("Debes ingresar la cantidad devuelta");
+    return;
+  }
+
+  if (!estado_final) {
+    alert("Debes seleccionar el estado final");
+    return;
+  }
+
+  if (novedad_devolucion === "Sí" && !descripcion_devolucion.trim()) {
+    alert("Debes describir la novedad de devolución");
+    return;
+  }
+
+  try {
+    const payload = {
+      action: "cerrarSolicitud",
+      id_solicitud,
+      cantidad_devuelta,
+      estado_final,
+      novedad_devolucion,
+      descripcion_devolucion,
+      firma_devolucion
+    };
+
+    const res = await fetch(URL_GOOGLE_SCRIPT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+
+    if (result.status === "ok") {
+      alert("Solicitud cerrada correctamente");
+      document.getElementById("formCerrarBox").style.display = "none";
+      cargarSolicitudesEnCurso();
+    } else {
+      alert("Error: " + (result.error || "No se pudo cerrar la solicitud"));
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Error de conexión al cerrar la solicitud");
+  }
+}
+function obtenerSedeDesdeURL() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("sede") || "";
 }

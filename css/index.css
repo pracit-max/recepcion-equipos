@@ -938,3 +938,211 @@ body {
         border-color: var(--gray-200);
     }
 }
+/* ============================================
+   TOP NAV - Premium Navigation
+   ============================================ */
+.top-nav {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0 10px;
+    position: relative;
+    z-index: 100;
+}
+
+.nav-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--white);
+    padding: 8px;
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-md), 0 0 0 1px var(--gray-100);
+}
+
+/* Hamburger Button */
+.hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 44px;
+    height: 44px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--radius-md);
+    transition: background var(--transition-fast);
+}
+
+.hamburger:hover {
+    background: var(--green-50);
+}
+
+.hamburger span {
+    display: block;
+    width: 22px;
+    height: 2.5px;
+    background: var(--text-primary);
+    border-radius: 2px;
+    transition: all var(--transition-base);
+    position: relative;
+}
+
+.hamburger span:not(:last-child) {
+    margin-bottom: 5px;
+}
+
+.hamburger.active span:nth-child(1) {
+    transform: rotate(45deg) translate(5px, 6px);
+}
+
+.hamburger.active span:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+
+.hamburger.active span:nth-child(3) {
+    transform: rotate(-45deg) translate(5px, -6px);
+}
+
+/* Nav Tabs */
+.nav-tabs {
+    display: flex;
+    gap: 8px;
+}
+
+.nav-tab {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 14px 28px;
+    border-radius: var(--radius-xl);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-tab::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--green-500) 0%, var(--blue-500) 100%);
+    opacity: 0;
+    transition: opacity var(--transition-base);
+    border-radius: var(--radius-xl);
+}
+
+.nav-tab span {
+    position: relative;
+    z-index: 1;
+}
+
+.nav-tab:hover {
+    color: var(--green-700);
+    background: var(--green-50);
+}
+
+.nav-tab.active {
+    color: var(--white);
+    box-shadow: var(--shadow-md), var(--shadow-glow-green);
+}
+
+.nav-tab.active::before {
+    opacity: 1;
+}
+
+.nav-tab i {
+    margin-right: 8px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+    .nav-container {
+        width: 100%;
+        justify-content: space-between;
+        padding: 6px;
+        border-radius: var(--radius-xl);
+    }
+
+    .hamburger {
+        display: flex;
+        z-index: 110;
+    }
+
+    .nav-tabs {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.5);
+        backdrop-filter: blur(8px);
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 16px;
+        opacity: 0;
+        visibility: hidden;
+        transition: all var(--transition-base);
+        z-index: 100;
+    }
+
+    .nav-tabs.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .nav-tab {
+        width: 85%;
+        max-width: 280px;
+        text-align: center;
+        padding: 18px 28px;
+        font-size: 1.0625rem;
+        background: var(--white);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        transform: scale(0.9);
+        opacity: 0;
+        transition: all var(--transition-spring);
+    }
+
+    .nav-tabs.active .nav-tab {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    .nav-tabs.active .nav-tab:nth-child(1) {
+        transition-delay: 50ms;
+    }
+
+    .nav-tabs.active .nav-tab:nth-child(2) {
+        transition-delay: 100ms;
+    }
+
+    .nav-tab.active {
+        background: linear-gradient(135deg, var(--green-500) 0%, var(--blue-500) 100%);
+        color: var(--white);
+        box-shadow: var(--shadow-xl), var(--shadow-glow-green);
+    }
+
+    .nav-tab.active::before {
+        display: none;
+    }
+
+    .nav-tab:hover {
+        background: var(--green-50);
+        color: var(--green-700);
+        transform: scale(1.02);
+    }
+
+    .nav-tab.active:hover {
+        background: linear-gradient(135deg, var(--green-600) 0%, var(--blue-600) 100%);
+        color: var(--white);
+    }
+}

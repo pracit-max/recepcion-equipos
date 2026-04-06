@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Devoluciones | Sistema de Recepción de Equipos</title>
+    <link rel="icon" type="image/png" href="/img/Innova_Schools_escudo.webp">
+    <link rel="stylesheet" href="/css/index.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        .section-card {
+            background: #fff;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 16px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        .custom-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 700px;
+        }
+
+        .custom-table th,
+        .custom-table td {
+            padding: 14px 12px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: left;
+        }
+
+        .custom-table th {
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 700;
+        }
+
+        .custom-table td {
+            color: #475569;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #334155;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            transition: 0.2s ease;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus {
+            border-color: #14b8a6;
+            box-shadow: 0 0 0 4px rgba(20,184,166,0.12);
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .canvas-wrapper {
+            border: 1px dashed #94a3b8;
+            border-radius: 16px;
+            padding: 12px;
+            background: #f8fafc;
+        }
+
+        #signatureCanvasDevolucion {
+            width: 100%;
+            max-width: 100%;
+            height: 200px;
+            background: #fff;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            display: block;
+            cursor: crosshair;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .btn-custom {
+            border: none;
+            border-radius: 12px;
+            padding: 12px 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s ease;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ff6b6b, #14b8a6);
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+
+        .btn-custom:hover {
+            transform: translateY(-1px);
+            opacity: 0.96;
+        }
+
+        .selected-box {
+            background: #ecfeff;
+            border: 1px solid #99f6e4;
+            color: #115e59;
+            padding: 14px 16px;
+            border-radius: 14px;
+            margin-bottom: 18px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            color: #0f766e;
+            margin-bottom: 20px;
+        }
+
+        .estado-chip {
+            display: inline-block;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-container">
+                <img src="/img/Innova_Schools_escudo.webp" alt="Logo Empresa" class="main-logo" id="mainLogo">
+                <span class="logo-fallback" style="display: none;">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Sistema de Equipos</span>
+                </span>
+            </div>
+        </header>
+
+        <a href="/index.html" class="back-link">
+            <i class="fas fa-arrow-left"></i>
+            Volver al inicio
+        </a>
+
+        <!-- Hero -->
+        <section class="hero">
+            <div class="hero-content">
+                <h1 class="hero-title">Módulo de Devoluciones</h1>
+                <p class="hero-subtitle">
+                    Consulta solicitudes en curso y registra la devolución de equipos
+                </p>
+            </div>
+        </section>
+
+        <!-- Tabla -->
+        <section class="section-card">
+            <h2 class="section-title">Solicitudes en curso</h2>
+
+            <div class="table-wrapper">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Sede</th>
+                            <th>Equipo</th>
+                            <th>Cantidad</th>
+                            <th>Hora entrega</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="enCursoTableBody">
+                        <tr>
+                            <td colspan="6">Cargando solicitudes...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Formulario devolución -->
+        <section class="section-card" id="formCerrarBox" style="display:none;">
+            <h2 class="section-title">Cerrar solicitud</h2>
+
+            <div class="selected-box">
+                Completa los datos de devolución de la solicitud seleccionada.
+            </div>
+
+            <input type="hidden" id="devolucion_id_solicitud">
+
+            <div class="form-group">
+                <label for="cantidad_devuelta">Cantidad devuelta</label>
+                <input type="number" id="cantidad_devuelta" min="1" class="form-input" placeholder="Ejemplo: 5">
+            </div>
+
+            <div class="form-group">
+                <label for="estado_final">Estado final</label>
+                <select id="estado_final" class="form-input">
+                    <option value="">Seleccione...</option>
+                    <option value="COMPLETO">COMPLETO</option>
+                    <option value="INCOMPLETO">INCOMPLETO</option>
+                    <option value="DAÑADO">DAÑADO</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="novedad_devolucion">Novedad en devolución</label>
+                <select id="novedad_devolucion" class="form-input" onchange="toggleDescripcionDevolucion()">
+                    <option value="No">No</option>
+                    <option value="Sí">Sí</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="boxDescripcionDevolucion" style="display:none;">
+                <label for="descripcion_devolucion">Descripción devolución</label>
+                <textarea id="descripcion_devolucion" class="form-input" rows="4" placeholder="Describe la novedad de la devolución..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Firma devolución</label>
+                <div class="canvas-wrapper">
+                    <canvas id="signatureCanvasDevolucion" width="800" height="200"></canvas>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button type="button" class="btn-custom btn-secondary" onclick="clearSignatureDevolucion()">
+                    Limpiar firma
+                </button>
+
+                <button type="button" class="btn-custom btn-primary" onclick="cerrarSolicitudFrontend()">
+                    Cerrar solicitud
+                </button>
+            </div>
+        </section>
+
+        <!-- Toast -->
+        <div class="toast-container" id="toastContainer"></div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2026 Sistema de Recepción de Equipos. Todos los derechos reservados.</p>
+        </footer>
+    </div>
+
+    <script src="/js/script.js"></script>
+</body>
+</html>

@@ -1,19 +1,301 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Autorización de Descuentos | Innova Schools</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            /* Todas tus variables originales */
+            --green-50: #F0FDF4;
+            --green-100: #DCFCE7;
+            --green-200: #BBF7D0;
+            --green-300: #86EFAC;
+            --green-400: #4ADE80;
+            --green-500: #22C55E;
+            --green-600: #16A34A;
+            --green-700: #15803D;
+            --green-800: #166534;
+            --green-900: #14532D;
+            
+            --blue-50: #EFF6FF;
+            --blue-100: #DBEAFE;
+            --blue-200: #BFDBFE;
+            --blue-300: #93C5FD;
+            --blue-400: #60A5FA;
+            --blue-500: #3B82F6;
+            --blue-600: #2563EB;
+            --blue-700: #1D4ED8;
+            
+            --orange-50: #FFF7ED;
+            --orange-100: #FFEDD5;
+            --orange-200: #FED7AA;
+            --orange-300: #FDBA74;
+            --orange-400: #FB923C;
+            --orange-500: #F97316;
+            --orange-600: #EA580C;
+            --orange-700: #C2410C;
+            
+            --bg-primary: #F8FAF9;
+            --bg-secondary: #F0F7F4;
+            --bg-tertiary: #E8F5E9;
+            --surface: #FFFFFF;
+            --text-primary: #0F172A;
+            --text-secondary: #475569;
+            --text-muted: #94A3B8;
+            
+            --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.08);
+            --shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.08);
+            --shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.08);
+            --shadow-xl: 0 20px 25px -5px rgb(15 23 42 / 0.08);
+            --shadow-glow-green: 0 0 20px -5px rgba(34, 197, 94, 0.4);
+            
+            --radius-lg: 16px;
+            --radius-xl: 24px;
+            --radius-2xl: 32px;
+            
+            --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-bounce: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .terms-container {
+            width: 100%;
+            max-width: 860px;
+            background: var(--surface);
+            border-radius: var(--radius-2xl);
+            box-shadow: var(--shadow-xl);
+            overflow: hidden;
+            border: 1px solid var(--green-200);
+            animation: fadeInScale 0.6s var(--ease-out-expo);
+        }
+
+        /* Header con gradiente animado */
+        .terms-header {
+            background: linear-gradient(135deg, var(--green-700) 0%, var(--green-600) 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .terms-header::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+            animation: shimmer 8s infinite linear;
+        }
+
+        .terms-header i {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            opacity: 0.95;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .terms-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.02em;
+        }
+
+        .terms-header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Contenido */
+        .terms-content {
+            padding: 3rem 3.5rem;
+            background: var(--surface);
+        }
+
+        .legal-text {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            text-align: justify;
+        }
+
+        .legal-text p {
+            margin-bottom: 1.4rem;
+        }
+
+        .legal-text strong {
+            color: var(--green-700);
+            font-weight: 600;
+        }
+
+        /* Caja destacada */
+        .highlight-box {
+            background: var(--green-50);
+            border-left: 6px solid var(--green-600);
+            padding: 1.75rem 2rem;
+            margin: 2.5rem 0;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            transition: transform var(--transition-base);
+        }
+
+        .highlight-box:hover {
+            transform: translateY(-4px);
+        }
+
+        /* Nota final */
+        .note-box {
+            background: #fefce8;
+            border: 1px solid #fde047;
+            padding: 1.5rem 2rem;
+            border-radius: var(--radius-lg);
+            color: #854d0e;
+            font-size: 1rem;
+            margin-top: 2.5rem;
+        }
+
+        /* Footer */
+        .terms-footer {
+            padding: 2rem 3.5rem;
+            background: var(--bg-secondary);
+            text-align: center;
+            border-top: 1px solid var(--green-100);
+        }
+
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, var(--green-600), var(--green-500));
+            color: white;
+            padding: 0.9rem 2rem;
+            border-radius: var(--radius-lg);
+            font-weight: 600;
+            text-decoration: none;
+            box-shadow: var(--shadow-md), var(--shadow-glow-green);
+            transition: all var(--transition-bounce);
+        }
+
+        .btn-back:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: var(--shadow-lg), var(--shadow-glow-green);
+        }
+
+        /* Animaciones */
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.95) translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .terms-content,
+            .terms-footer {
+                padding: 2rem 1.5rem;
+            }
+            .terms-header {
+                padding: 2.5rem 1.5rem;
+            }
+        }
+    </style>
 </head>
 <body>
-    <p>Yo, Luis Leandro Leyva Carreño  identificado con cédula de ciudadanía No.80720145
-de Bogotá . En mi calidad de TRABAJADOR, autorizo expresamente a mi empleador, COLEGIOS COLOMBIANOS S.A.S., para que descuente de mi Salario, primas, cesantías, auxilios legales y extralegales, bonificaciones, indemnizaciones y liquidaciones, el valor de (los) elementos, equipos y/o herramientas de trabajo que me fueron entregados mediante acta suscrita en fecha 2/2/2026 en caso de pérdida, hurto o daños por descuido, negligencia y/o impericia que por mi culpa o dolo se generen a los mismos.
-De igual manera AUTORIZO a mi empleador, COLEGIOS COLOMBIANOS S.A.S a que los descuentos aquí permitidos se realicen por el valor total de los elementos, equipo y /o herramientas o en caso de ser requerido mediante cuotas fijas a mi salario incluyendo primas, cesantías, auxilios legales y extralegales o bonificaciones. En caso de retiro definitivo, AUTORIZO a mi empleador, COLEGIOS COLOMBIANOS S.A.S., descontar de mi liquidación final, el valor total o faltante por pagar de los elementos, equipo y /o herramientas de trabajo en caso de pérdida, hurto o daños a mi atribuibles.
 
-La deducción autorizada se realiza en los términos establecidos en el Artículo 149 del Código Sustantivo del Trabajo.
+    <div class="terms-container">
 
-Nota: Un original del presente documento reposará en la carpeta del trabajador, en la Gerencia de GDH.
+        <!-- Header -->
+        <div class="terms-header">
+            <i class="fas fa-file-signature"></i>
+            <h1>Autorización de Descuentos</h1>
+            <p>Acta de Responsabilidad por Entrega de Equipos y Herramientas de Trabajo</p>
+        </div>
 
- </p>
+        <!-- Contenido -->
+        <div class="terms-content">
+
+            <div class="legal-text">
+                <p>En mi calidad de trabajador de <strong>COLEGIOS COLOMBIANOS S.A.S.</strong>, manifiesto de manera expresa, libre y voluntaria que autorizo a mi empleador para efectuar descuentos sobre mi salario, primas, cesantías, auxilios legales y extralegales, bonificaciones, indemnizaciones y demás acreencias laborales a las que haya lugar, con el fin de cubrir el valor de los elementos, equipos y/o herramientas de trabajo que me han sido entregados mediante acta suscrita en fecha del día de hoy hasta la hora de entrega.</p>
+
+                <p>La presente autorización aplica en los eventos de pérdida, hurto o daño de dichos elementos, cuando estos sean atribuibles a mi culpa, dolo, descuido, negligencia y/o impericia en su uso, custodia o manejo.</p>
+
+                <p>Así mismo, autorizo a <strong>COLEGIOS COLOMBIANOS S.A.S.</strong> para que los descuentos correspondientes se realicen por el valor total de los elementos, equipos y/o herramientas, o en su defecto, mediante cuotas periódicas que serán deducidas de mi salario y demás emolumentos, hasta cubrir el valor total adeudado.</p>
+
+                <p>En caso de terminación de la relación laboral por cualquier causa, autorizo expresa e irrevocablemente a <strong>COLEGIOS COLOMBIANOS S.A.S.</strong> para descontar de mi liquidación final el saldo total o pendiente por concepto de los elementos, equipos y/o herramientas de trabajo, en los eventos anteriormente descritos.</p>
+            </div>
+
+            <div class="highlight-box">
+                <strong>Artículo 149 del Código Sustantivo del Trabajo</strong><br><br>
+                La deducción autorizada se realiza en los términos establecidos en el Artículo 149 del Código Sustantivo del Trabajo.
+            </div>
+
+            <div class="highlight-box" style="background: var(--blue-50); border-left-color: var(--blue-500);">
+                <strong>Declaración de Responsabilidad:</strong><br><br>
+                Yo asumo la responsabilidad de los equipos que me fueron entregados, hasta que los vuelva a entregar al soporte.
+            </div>
+
+            <div class="note-box">
+                <strong>Nota:</strong> Un original del presente documento reposará en la carpeta del trabajador, en la Gerencia de GDH.
+            </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div class="terms-footer">
+            <a href="#" onclick="window.history.back(); return false;" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+                Volver al Formulario
+            </a>
+            <p style="margin-top: 1.5rem; color: var(--text-muted); font-size: 0.9rem;">
+                Sistema de Recepción de Equipos • Innova Schools © 2026
+            </p>
+        </div>
+
+    </div>
+
+    <script>
+        // Rellenar datos dinámicamente (opcional)
+        const urlParams = new URLSearchParams(window.location.search);
+        document.getElementById('nombre-placeholder').textContent = urlParams.get('nombre') || "______________________________";
+        document.getElementById('cedula-placeholder').textContent = urlParams.get('cedula') || "____________";
+        document.getElementById('fecha-placeholder').textContent = urlParams.get('fecha') || "__/__/____";
+    </script>
+
 </body>
 </html>

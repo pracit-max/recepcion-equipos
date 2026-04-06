@@ -1,0 +1,283 @@
+# 🚀 PROYECTO: Sistema de Préstamo y Devolución de Equipos
+
+---
+
+# 💡 MEJORAS ADICIONALES SUGERIDAS (ANÁLISIS)
+
+## 10. 🔔 Sistema de Alertas Tempranas
+
+* Notificaciones automáticas cuando un equipo no ha sido devuelto después de X horas/días
+* Alertas por correo al docente y/o administrador
+* Dashboard con equipos pendientes de devolución
+
+## 11. 📦 Inventario Detallado por Equipo
+
+* En lugar de solo "carros", registrar equipos individuales con:
+  * Número de serie
+  * Marca/Modelo
+  * Estado actual
+* Historial de cada equipo específico
+* Rastreo de cuál docente tiene cuál equipo
+
+## 12. 📸 Módulo de Reporte de Daños
+
+* Formulario dedicado para reportar daños
+* Subida de fotos del daño
+* Clasificación del daño (leve, moderado, grave)
+* Solicitud automática de mantenimiento
+* Historial de daños por equipo
+
+## 13. 🖊️ Firma Digital Avanzada
+
+* Opción de firma con dedo/táctil más robusta
+* Posible integración con servicios como DocuSign
+* Verificación de identidad adicionales (código SMS/email)
+
+## 14. 📜 Sistema de Auditoría
+
+* Log completo de todas las acciones:
+  * Quién creó/modificó/cerró cada solicitud
+  * Timestamps detallados
+  * Cambios en el estado de equipos
+* Cumplimiento normativo
+
+## 15. 💾 Respaldo y Recuperación
+
+* Backups automáticos de Google Sheets
+* Historial de versiones
+* Punto de recuperación ante errores
+
+## 16. ⏰ Horarios Personalizados por Sede
+
+* Cada sede puede tener diferentes horarios de operación
+* Validación de horarios según la sede seleccionada
+* Días festivos por sede
+
+## 17. 📱 Aplicación Móvil (PWA)
+
+* Progressive Web App para registro rápido desde celular
+* Escaneo de códigos de barras/QR de equipos
+* Funcionamiento offline
+* Sincronización automática cuando hay conexión
+
+## 18. 💬 Chat de Soporte Interno
+
+* Comunicación directa entre docente y equipo de soporte
+* Sistema de tickets
+* Historial de conversaciones
+
+## 19. 📈 Análisis Predictivo
+
+* Predicción de demanda de equipos por temporada
+* Identificación de horarios pico
+* Recomendaciones de inventario
+
+## 20. 🔐 Control de Acceso por Roles
+
+* Rol Administrador: acceso total
+* Rol Soporte: gestión de equipos y cierre de solicitudes
+* Rol Usuario/Docente: solo puede ver sus solicitudes
+
+---
+
+
+
+## 📌 Estado actual del sistema
+
+El sistema actualmente permite:
+
+* Registrar la entrega de equipos a docentes
+* Guardar información en Google Sheets
+* Subir imágenes (firma, daños, etc.)
+* Generar un PDF de entrega (acta)
+* Validar disponibilidad de equipos por fecha y hora
+* Enviar correos automáticos con el PDF
+
+⚠️ Limitación actual:
+El sistema SOLO cubre la fase de ENTREGA, no existe control de devolución ni cierre de solicitudes.
+
+---
+
+# 🎯 OBJETIVO GENERAL
+
+Evolucionar el sistema a un flujo completo de gestión de equipos con:
+
+* Control de solicitudes en curso
+* Registro de devolución
+* Cierre de solicitudes
+* Generación de PDF final (resumen completo)
+
+---
+
+# 🧩 NUEVAS FUNCIONALIDADES A IMPLEMENTAR
+
+## 1. 🔑 Sistema de solicitudes
+
+Cada registro debe representar una solicitud completa con:
+
+* id_solicitud (único)
+* estado:
+
+  * EN_CURSO
+  * CERRADO
+
+---
+
+## 2. 🔁 Flujo del sistema
+
+1. Crear solicitud (entrega)
+2. Mantener solicitud en curso
+3. Cerrar solicitud (devolución)
+4. Generar PDF final
+
+---
+
+## 3. 🧾 Módulo de devolución (NUEVO)
+
+Se debe crear un formulario para cerrar solicitudes con los siguientes campos:
+
+* cantidad_devuelta
+* estado_final:
+
+  * COMPLETO
+  * INCOMPLETO
+  * DAÑADO
+* novedad_devolucion (Sí/No)
+* descripcion_devolucion
+* firma_devolucion
+
+---
+
+## 4. 📄 PDF FINAL (RESUMEN)
+
+Debe incluir:
+
+* Información del usuario
+* Datos de la entrega
+* Datos de la devolución
+* Tiempo de uso
+* Novedades
+* Conclusión automática:
+
+  * "Equipos devueltos correctamente"
+  * o "Se presentaron novedades"
+
+---
+
+## 5. 📊 Cambios en Google Sheets
+
+NO eliminar columnas actuales.
+
+Agregar nuevas columnas:
+
+* id_solicitud
+* estado
+* hora_entrega
+* fecha_devolucion
+* hora_devolucion_real
+* cantidad_devuelta
+* estado_final
+* novedad_devolucion
+* descripcion_devolucion
+* firma_devolucion
+* pdf_resumen_url
+* sede
+
+---
+
+## 6. ⚙️ Backend (Apps Script)
+
+Nuevos endpoints:
+
+### ✔ Crear solicitud
+
+(ya existe, solo agregar id y estado)
+
+### ✔ Obtener solicitudes en curso
+
+Filtrar por:
+estado = EN_CURSO
+
+### ✔ Cerrar solicitud (NUEVO)
+
+Debe:
+
+* Buscar fila por id_solicitud
+* Actualizar datos de devolución
+* Cambiar estado a CERRADO
+* Generar PDF final
+
+### ✔ Historial
+
+Mostrar solicitudes cerradas
+
+---
+
+## 7. 🖥️ Frontend (NUEVAS VISTAS)
+
+### ✔ Vista: Solicitudes en curso
+
+Tabla con:
+
+* nombre
+* equipo
+* hora_entrega
+* botón "Cerrar"
+
+---
+
+### ✔ Formulario de devolución
+
+Se abre al presionar "Cerrar solicitud"
+
+---
+
+## 8. 👨‍🔧 Módulo de soporte (FUTURO)
+
+* Login por correo autorizado
+* Gestión de equipos:
+
+  * crear
+  * editar
+  * eliminar
+* Manejo por sedes
+
+---
+
+## 9. 🚀 Escalabilidad
+
+El sistema debe permitir:
+
+* Varias sedes
+* Diferentes tipos de equipos
+* Control de disponibilidad en tiempo real
+
+---
+
+# ⚠️ REGLAS IMPORTANTES
+
+* NO crear una nueva fila al cerrar solicitud
+* SIEMPRE actualizar la misma fila usando id_solicitud
+* Mantener compatibilidad con el sistema actual
+* No eliminar datos existentes
+* Usar LockService para evitar conflictos
+
+---
+
+# 🧠 NOTA FINAL
+
+El sistema deja de ser un formulario y pasa a ser un sistema de gestión completo de equipos con ciclo de vida:
+
+ENTREGA → USO → DEVOLUCIÓN → CIERRE
+
+---
+----------------------------------
+FASE ACTUAL (EN DESARROLLO):
+
+[ ] Agregar id_solicitud
+[ ] Agregar estado
+[ ] Crear endpoint cerrarSolicitud
+[ ] Crear vista solicitudes en curso
+[ ] Crear formulario devolución
+[ ] Generar PDF final
+----------------------------------
