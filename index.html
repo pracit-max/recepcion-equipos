@@ -6,350 +6,1457 @@
     <title>Selección de Sede | Sistema de Recepción de Equipos</title>
     <link rel="icon" type="image/png" href="/img/Innova_Schools_escudo.webp">
     <link rel="stylesheet" href="/css/index.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* =============================================
+           NIVEL PROFESIONAL — Override completo
+           ============================================= */
+
+        /* ── Grain texture overlay ── */
+        .grain-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.028;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            background-repeat: repeat;
+            background-size: 180px 180px;
+        }
+
+        /* ── Animated gradient mesh background ── */
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .bg-mesh .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            will-change: transform;
+        }
+
+        .bg-mesh .orb-1 {
+            width: 600px;
+            height: 600px;
+            background: rgba(34, 197, 94, 0.08);
+            top: -10%;
+            left: -5%;
+            animation: orbDrift1 25s ease-in-out infinite;
+        }
+
+        .bg-mesh .orb-2 {
+            width: 500px;
+            height: 500px;
+            background: rgba(59, 130, 246, 0.06);
+            top: -5%;
+            right: -10%;
+            animation: orbDrift2 30s ease-in-out infinite;
+        }
+
+        .bg-mesh .orb-3 {
+            width: 450px;
+            height: 450px;
+            background: rgba(249, 115, 22, 0.04);
+            bottom: -15%;
+            right: -5%;
+            animation: orbDrift3 20s ease-in-out infinite;
+        }
+
+        .bg-mesh .orb-4 {
+            width: 350px;
+            height: 350px;
+            background: rgba(34, 197, 94, 0.05);
+            bottom: 10%;
+            left: 20%;
+            animation: orbDrift1 35s ease-in-out infinite reverse;
+        }
+
+        @keyframes orbDrift1 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(40px, -30px) scale(1.05); }
+            50% { transform: translate(-20px, 20px) scale(0.95); }
+            75% { transform: translate(30px, 10px) scale(1.02); }
+        }
+
+        @keyframes orbDrift2 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(-30px, -40px) scale(1.08); }
+            66% { transform: translate(20px, 15px) scale(0.96); }
+        }
+
+        @keyframes orbDrift3 {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-40px, -25px) scale(1.1); }
+        }
+
+        /* Override body — limpio, mesh se encarga */
+        body {
+            background-color: #F8FAF9 !important;
+            background-image: none !important;
+            background-attachment: scroll !important;
+        }
+
+        body::before {
+            display: none !important;
+        }
+
+        body::after {
+            display: none !important;
+        }
+
+        /* ── NAV: Sliding pill ── */
+        .nav-container {
+            padding: 6px !important;
+            background: rgba(255, 255, 255, 0.55) !important;
+            backdrop-filter: blur(20px) saturate(160%) !important;
+            -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+            box-shadow:
+                0 1px 3px rgba(0,0,0,0.04),
+                0 8px 32px rgba(0,0,0,0.04),
+                0 0 0 1px rgba(0,0,0,0.03) !important;
+        }
+
+        .nav-container::before {
+            display: none !important;
+        }
+
+        .nav-pill {
+            position: absolute;
+            height: calc(100% - 12px);
+            top: 6px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #16A34A 0%, #2563EB 100%);
+            transition: all 0.45s cubic-bezier(0.4, 0, 0.15, 1);
+            z-index: 0;
+            box-shadow:
+                0 2px 8px rgba(22, 163, 74, 0.3),
+                0 0 20px rgba(22, 163, 74, 0.1);
+        }
+
+        .nav-pill.dev-mode {
+            background: linear-gradient(135deg, #DC2626 0%, #7C3AED 100%);
+            box-shadow:
+                0 2px 8px rgba(220, 38, 38, 0.3),
+                0 0 20px rgba(220, 38, 38, 0.1);
+        }
+
+        .nav-tab {
+            position: relative;
+            z-index: 1 !important;
+            background: transparent !important;
+            color: var(--text-secondary) !important;
+            padding: 12px 28px !important;
+            font-weight: 600 !important;
+            font-size: 0.9rem !important;
+            letter-spacing: 0.01em;
+            border-radius: 20px !important;
+            transition: color 0.35s ease !important;
+        }
+
+        .nav-tab::before {
+            display: none !important;
+        }
+
+        .nav-tab:hover {
+            color: var(--text-primary) !important;
+            background: transparent !important;
+            transform: none !important;
+        }
+
+        .nav-tab.active {
+            color: #FFFFFF !important;
+            background: transparent !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        .nav-tab.active:hover {
+            transform: none !important;
+        }
+
+        .nav-tab i {
+            margin-right: 6px;
+            font-size: 0.85em;
+        }
+
+        /* ── HERO: Refinado ── */
+        .hero {
+            padding: clamp(2rem, 5vw, 4rem) 0 clamp(1.5rem, 3vw, 2.5rem) !important;
+            position: relative;
+        }
+
+        .hero::before {
+            display: none !important;
+        }
+
+        .hero::after {
+            display: none !important;
+        }
+
+        .hero-greeting {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--green-600);
+            background: rgba(34, 197, 94, 0.08);
+            padding: 0.35rem 1rem;
+            border-radius: 999px;
+            margin-bottom: 1.25rem;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+
+        .hero-greeting i {
+            font-size: 0.75rem;
+        }
+
+        .hero-title {
+            font-size: clamp(2rem, 5.5vw, 3.25rem) !important;
+            font-weight: 900 !important;
+            letter-spacing: -0.04em !important;
+            line-height: 1.08 !important;
+            margin-bottom: 1rem !important;
+            background: linear-gradient(
+                160deg,
+                #0F172A 0%,
+                #14532D 30%,
+                #1E3A8A 60%,
+                #0F172A 100%
+            ) !important;
+            background-size: 200% 200% !important;
+            -webkit-background-clip: text !important;
+            -webkit-text-fill-color: transparent !important;
+            background-clip: text !important;
+            animation: heroGradient 10s ease infinite !important;
+            filter: none !important;
+        }
+
+        @keyframes heroGradient {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .hero-subtitle {
+            font-size: clamp(0.9375rem, 1.8vw, 1.0625rem) !important;
+            color: var(--text-tertiary) !important;
+            max-width: 480px !important;
+            font-weight: 400 !important;
+            line-height: 1.7 !important;
+        }
+
+        .hero-divider {
+            width: 48px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--green-500), var(--blue-500));
+            border-radius: 2px;
+            margin: 2rem auto 0;
+            opacity: 0.6;
+        }
+
+        .region-legend {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        .legend-dot.cundinamarca { background: #16A34A; }
+        .legend-dot.bogota { background: #2563EB; }
+        .legend-dot.otras { background: #EA580C; }
+
+        /* Hero floats — más sutiles */
+        .hero-floats {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .hero-float {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.04;
+        }
+
+        .hero-float:nth-child(1) {
+            width: 100px; height: 100px;
+            background: var(--green-500);
+            top: 5%; left: 5%;
+            animation: hFloat 8s ease-in-out infinite;
+        }
+        .hero-float:nth-child(2) {
+            width: 60px; height: 60px;
+            background: var(--blue-500);
+            top: 15%; right: 8%;
+            animation: hFloat 11s ease-in-out infinite reverse;
+        }
+        .hero-float:nth-child(3) {
+            width: 40px; height: 40px;
+            background: var(--orange-500);
+            bottom: 10%; left: 12%;
+            animation: hFloat 9s ease-in-out infinite;
+        }
+
+        @keyframes hFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(20px, -15px) scale(1.1); }
+            66% { transform: translate(-15px, 10px) scale(0.95); }
+        }
+
+
+        /* ── CARDS: Gradient border + mouse glow ── */
+        .sede-card {
+            background: rgba(255, 255, 255, 0.85) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            border: 1px solid rgba(0, 0, 0, 0.04) !important;
+            border-radius: 20px !important;
+            padding: 1.5rem !important;
+            box-shadow:
+                0 1px 2px rgba(0,0,0,0.03),
+                0 4px 16px rgba(0,0,0,0.03) !important;
+            transition:
+                transform 0.4s cubic-bezier(0.4, 0, 0.15, 1),
+                box-shadow 0.4s ease,
+                border-color 0.4s ease !important;
+            overflow: hidden !important;
+            will-change: transform;
+        }
+
+        /* Top accent → gradient border wrapper via ::before */
+        .sede-card::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 21px;
+            padding: 1px;
+            background: linear-gradient(
+                135deg,
+                transparent 0%,
+                transparent 40%,
+                var(--card-accent, var(--green-400)) 100%
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Mouse-follow glow */
+        .sede-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 20px;
+            background: radial-gradient(
+                350px circle at var(--mx, 50%) var(--my, 50%),
+                var(--card-glow, rgba(34, 197, 94, 0.06)),
+                transparent 60%
+            );
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .sede-card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .sede-card:hover {
+            transform: translateY(-6px) !important;
+            box-shadow:
+                0 4px 8px rgba(0,0,0,0.03),
+                0 12px 40px rgba(0,0,0,0.06),
+                0 0 0 1px rgba(0,0,0,0.02) !important;
+            border-color: transparent !important;
+        }
+
+        .sede-card:hover::before {
+            opacity: 1;
+        }
+
+        .sede-card:hover::after {
+            opacity: 1;
+        }
+
+        /* ── Region colors ── */
+        .sede-card[data-region="cundinamarca"] {
+            --card-accent: #4ADE80;
+            --card-glow: rgba(34, 197, 94, 0.06);
+        }
+
+        .sede-card[data-region="bogota"] {
+            --card-accent: #60A5FA;
+            --card-glow: rgba(59, 130, 246, 0.06);
+        }
+
+        .sede-card[data-region="otras"] {
+            --card-accent: #FB923C;
+            --card-glow: rgba(249, 115, 22, 0.06);
+        }
+
+        /* Iconos por región */
+        .sede-card[data-region="cundinamarca"] .sede-icon {
+            background: linear-gradient(135deg, #16A34A, #22C55E) !important;
+            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2) !important;
+        }
+
+        .sede-card[data-region="bogota"] .sede-icon {
+            background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2) !important;
+        }
+
+        .sede-card[data-region="otras"] .sede-icon {
+            background: linear-gradient(135deg, #EA580C, #F97316) !important;
+            box-shadow: 0 2px 8px rgba(249, 115, 22, 0.2) !important;
+        }
+
+        .sede-icon {
+            width: 48px !important;
+            height: 48px !important;
+            border-radius: 14px !important;
+            font-size: 1.25rem !important;
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.15, 1) !important;
+        }
+
+        .sede-icon::after {
+            display: none !important;
+        }
+
+        .sede-card:hover .sede-icon {
+            transform: scale(1.08) !important;
+        }
+
+        /* Nombre */
+        .sede-name {
+            font-size: 1.0625rem !important;
+            font-weight: 700 !important;
+            color: var(--text-primary) !important;
+            letter-spacing: -0.02em !important;
+            margin-bottom: 0.25rem !important;
+            transition: color 0.3s ease !important;
+        }
+
+        .sede-card:hover .sede-name {
+            color: var(--text-primary) !important;
+        }
+
+        /* Descripción */
+        .sede-desc {
+            font-size: 0.8125rem !important;
+            color: var(--text-muted) !important;
+            line-height: 1.5 !important;
+            margin-bottom: 0 !important;
+        }
+
+        /* Region tag */
+        .sede-region-tag {
+            display: inline-block;
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0.175rem 0.5rem;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .sede-card[data-region="cundinamarca"] .sede-region-tag {
+            background: rgba(34, 197, 94, 0.08);
+            color: #15803D;
+        }
+
+        .sede-card[data-region="bogota"] .sede-region-tag {
+            background: rgba(59, 130, 246, 0.08);
+            color: #1D4ED8;
+        }
+
+        .sede-card[data-region="otras"] .sede-region-tag {
+            background: rgba(249, 115, 22, 0.08);
+            color: #C2410C;
+        }
+
+        /* Flecha */
+        .sede-arrow {
+            width: 34px !important;
+            height: 34px !important;
+            background: rgba(0,0,0,0.03) !important;
+            border-radius: 10px !important;
+            color: var(--text-muted) !important;
+            font-size: 0.8rem !important;
+            margin-top: 0 !important;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.15, 1) !important;
+            border: 1px solid transparent !important;
+        }
+
+        .sede-arrow::before {
+            display: none !important;
+        }
+
+        .sede-card:hover .sede-arrow {
+            background: var(--text-primary) !important;
+            color: #fff !important;
+            transform: translateX(2px) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+        }
+
+        /* Status dot */
+        .sede-status {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            margin-top: 0.625rem;
+        }
+
+        .sede-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22C55E;
+            animation: statusPulse 2.5s ease-in-out infinite;
+        }
+
+        .sede-status-text {
+            font-size: 0.6875rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        @keyframes statusPulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.3); }
+            50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0); }
+        }
+
+
+        /* ── DEVOLUCIONES: Rojo ── */
+        .devolucion-card {
+            --card-accent: #FCA5A5;
+            --card-glow: rgba(220, 38, 38, 0.05);
+            border-color: rgba(220, 38, 38, 0.03) !important;
+        }
+
+        .devolucion-card .sede-icon {
+            background: linear-gradient(135deg, #DC2626, #EF4444) !important;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2) !important;
+        }
+
+        .devolucion-card:hover .sede-arrow {
+            background: #DC2626 !important;
+        }
+
+        .devolucion-card .sede-status-dot {
+            background: #EF4444;
+            animation-name: statusPulseRed;
+        }
+
+        @keyframes statusPulseRed {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
+            50% { opacity: 0.6; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+        }
+
+
+        /* ── "Más sedes" sutil ── */
+        .sedes-more {
+            text-align: center;
+            padding: 2rem 0 0;
+        }
+
+        .sedes-more-inner {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8125rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            padding: 0.5rem 1.25rem;
+            border-radius: 999px;
+            border: 1px dashed var(--gray-200);
+        }
+
+        .sedes-more-inner i {
+            font-size: 0.75rem;
+            color: var(--orange-400);
+        }
+
+
+        /* ── INFO SECTION ── */
+        .info-section {
+            padding: clamp(0.5rem, 2vw, 1rem) 0 !important;
+        }
+
+        .info-card {
+            background: rgba(255, 255, 255, 0.7) !important;
+            backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(0,0,0,0.03) !important;
+            border-radius: 16px !important;
+            padding: 1rem 1.25rem !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.02) !important;
+        }
+
+        .info-card::before,
+        .info-card::after {
+            display: none !important;
+        }
+
+        .info-card:hover {
+            transform: none !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 4px 12px rgba(0,0,0,0.02) !important;
+        }
+
+        .info-icon {
+            width: 40px !important;
+            height: 40px !important;
+            border-radius: 12px !important;
+            background: rgba(59, 130, 246, 0.06) !important;
+            color: var(--blue-600) !important;
+            font-size: 1rem !important;
+            box-shadow: none !important;
+        }
+
+        .info-icon::after {
+            display: none !important;
+        }
+
+        .info-card:hover .info-icon {
+            transform: none !important;
+        }
+
+        .info-card:hover .info-icon i {
+            color: var(--blue-600) !important;
+            transform: none !important;
+        }
+
+        .info-content h4 {
+            font-size: 0.875rem !important;
+            font-weight: 650 !important;
+        }
+
+        .info-content p {
+            font-size: 0.8125rem !important;
+        }
+
+
+        /* ── FOOTER ── */
+        .footer-pro {
+            text-align: center;
+            padding: 2.5rem 0 1.5rem;
+            position: relative;
+        }
+
+        .footer-pro-divider {
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--gray-200), transparent);
+            margin-bottom: 2rem;
+        }
+
+        .footer-pro-brand {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.625rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .footer-pro-logo {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #166534, #1E3A8A);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 0.8rem;
+        }
+
+        .footer-pro-name {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            letter-spacing: -0.01em;
+        }
+
+        .footer-pro-copy {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .footer-pro-links {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 0.75rem;
+        }
+
+        .footer-pro-links a {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .footer-pro-links a:hover {
+            color: var(--text-secondary);
+        }
+
+
+        /* ── TRANSICIÓN VISTA ── */
+        .view-enter {
+            animation: viewEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes viewEnter {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+
+        /* ── TOAST override ── */
+        .toast {
+            border-radius: 14px !important;
+            padding: 0.875rem 1.125rem !important;
+            font-size: 0.875rem !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(255,255,255,0.1) !important;
+        }
+
+        .toast::before {
+            display: none !important;
+        }
+
+
+        /* ── ANIMACIONES ENTRADA — Desactivar las del CSS viejo ── */
+        .sedes-grid .sede-card:nth-child(1),
+        .sedes-grid .sede-card:nth-child(2),
+        .sedes-grid .sede-card:nth-child(3),
+        .sedes-grid .sede-card:nth-child(4),
+        .sedes-grid .sede-card:nth-child(5),
+        .sedes-grid .sede-card:nth-child(6) {
+            animation: none !important;
+        }
+
+
+        /* =============================================
+           RESPONSIVE
+           ============================================= */
+        @media (max-width: 768px) {
+            .sede-card {
+                padding: 1.125rem !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                gap: 0.875rem !important;
+            }
+
+            .sede-region-tag {
+                display: none;
+            }
+
+            .sede-status {
+                display: none;
+            }
+
+            .sede-icon {
+                width: 44px !important;
+                height: 44px !important;
+                font-size: 1.1rem !important;
+            }
+
+            .sede-name {
+                font-size: 1rem !important;
+                margin-bottom: 0.125rem !important;
+            }
+
+            .sede-desc {
+                font-size: 0.75rem !important;
+                display: -webkit-box;
+                -webkit-line-clamp: 1;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+
+            .sede-arrow {
+                width: 32px !important;
+                height: 32px !important;
+            }
+
+            .sede-card:hover {
+                transform: translateY(-3px) !important;
+            }
+
+            .region-legend {
+                display: none !important;
+            }
+
+            .hero-greeting {
+                font-size: 0.6875rem;
+                padding: 0.25rem 0.75rem;
+            }
+
+            .info-card {
+                padding: 0.875rem 1rem !important;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .top-nav {
+                margin: 12px 0 0 !important;
+                justify-content: flex-start !important;
+                padding: 0 1rem !important;
+            }
+
+            .nav-container {
+                width: auto !important;
+                justify-content: flex-start !important;
+                padding: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+                border-radius: 0 !important;
+                overflow: visible !important;
+            }
+
+            .hamburger {
+                display: flex !important;
+                width: 48px !important;
+                height: 48px !important;
+                background: rgba(255, 255, 255, 0.8) !important;
+                backdrop-filter: blur(12px) !important;
+                -webkit-backdrop-filter: blur(12px) !important;
+                border-radius: 14px !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03) !important;
+            }
+
+            .nav-pill {
+                display: none;
+            }
+
+            .nav-tabs {
+                position: fixed !important;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(15, 23, 42, 0.5) !important;
+                backdrop-filter: blur(24px) !important;
+                -webkit-backdrop-filter: blur(24px) !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: center !important;
+                gap: 14px !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+                transition: all 0.35s ease !important;
+                z-index: 100 !important;
+                padding: 2rem !important;
+            }
+
+            .nav-tabs.active {
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+
+            .nav-tab {
+                width: 85% !important;
+                max-width: 280px !important;
+                text-align: center !important;
+                padding: 18px 24px !important;
+                font-size: 1rem !important;
+                background: rgba(255, 255, 255, 0.9) !important;
+                backdrop-filter: blur(8px) !important;
+                border-radius: 16px !important;
+                box-shadow: 0 8px 32px rgba(0,0,0,0.08) !important;
+                transform: scale(0.9) translateY(20px) !important;
+                opacity: 0 !important;
+                transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+                color: var(--text-primary) !important;
+            }
+
+            .nav-tabs.active .nav-tab {
+                transform: scale(1) translateY(0) !important;
+                opacity: 1 !important;
+            }
+
+            .nav-tabs.active .nav-tab:nth-child(2) {
+                transition-delay: 60ms !important;
+            }
+            .nav-tabs.active .nav-tab:nth-child(3) {
+                transition-delay: 120ms !important;
+            }
+
+            .nav-tab.active {
+                background: linear-gradient(135deg, #16A34A, #2563EB) !important;
+                color: #fff !important;
+                box-shadow: 0 8px 32px rgba(22, 163, 74, 0.25) !important;
+            }
+
+            .nav-tab:hover {
+                background: rgba(255, 255, 255, 0.95) !important;
+                color: var(--text-primary) !important;
+            }
+
+            .nav-tab.active:hover {
+                background: linear-gradient(135deg, #15803D, #1D4ED8) !important;
+                color: #fff !important;
+            }
+
+            .hero {
+                padding: 1.5rem 0 1rem !important;
+            }
+
+            .hero-floats {
+                display: none !important;
+            }
+
+            .main-logo {
+                max-height: 42px !important;
+                max-width: 155px !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sede-card {
+                padding: 0.875rem 1rem !important;
+                gap: 0.75rem !important;
+            }
+
+            .sede-icon {
+                width: 40px !important;
+                height: 40px !important;
+                font-size: 1rem !important;
+                border-radius: 12px !important;
+            }
+
+            .sede-name {
+                font-size: 0.9375rem !important;
+            }
+
+            .sede-desc {
+                font-size: 0.6875rem !important;
+            }
+
+            .sede-arrow {
+                width: 28px !important;
+                height: 28px !important;
+                font-size: 0.7rem !important;
+            }
+
+            .footer-pro-links {
+                gap: 1rem !important;
+            }
+        }
+
+        /* ── Dark mode adjustments ── */
+        @media (prefers-color-scheme: dark) {
+            .sede-card {
+                background: rgba(22, 34, 32, 0.8) !important;
+                border-color: rgba(255,255,255,0.04) !important;
+            }
+
+            .sede-card:hover {
+                box-shadow:
+                    0 4px 8px rgba(0,0,0,0.2),
+                    0 12px 40px rgba(0,0,0,0.25) !important;
+            }
+
+            .sede-arrow {
+                background: rgba(255,255,255,0.05) !important;
+                color: var(--text-muted) !important;
+            }
+
+            .sede-card:hover .sede-arrow {
+                background: #E2E8F0 !important;
+                color: #0F172A !important;
+            }
+
+            .hero-title {
+                background: linear-gradient(
+                    160deg,
+                    #E8F0EC 0%,
+                    #86EFAC 30%,
+                    #93C5FD 60%,
+                    #E8F0EC 100%
+                ) !important;
+                background-size: 200% 200% !important;
+                -webkit-background-clip: text !important;
+                background-clip: text !important;
+            }
+
+            .nav-container {
+                background: rgba(22, 34, 32, 0.6) !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 8px 32px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.04) !important;
+            }
+
+            .nav-pill {
+                box-shadow: 0 2px 12px rgba(34, 197, 94, 0.25) !important;
+            }
+
+            .hamburger {
+                background: rgba(22, 34, 32, 0.8) !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2), 0 4px 16px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.04) !important;
+            }
+
+            .info-card {
+                background: rgba(22, 34, 32, 0.7) !important;
+                border-color: rgba(255,255,255,0.04) !important;
+            }
+
+            .info-icon {
+                background: rgba(59, 130, 246, 0.1) !important;
+            }
+
+            .hero-greeting {
+                background: rgba(34, 197, 94, 0.1) !important;
+                color: var(--green-400) !important;
+            }
+
+            .sedes-more-inner {
+                border-color: var(--gray-100) !important;
+            }
+
+            .footer-pro-divider {
+                background: linear-gradient(90deg, transparent, var(--gray-100), transparent) !important;
+            }
+        }
+
+        /* ── Reduced motion ── */
+        @media (prefers-reduced-motion: reduce) {
+            .bg-mesh .orb,
+            .hero-float,
+            .sede-status-dot {
+                animation: none !important;
+            }
+        }
+
+        /* ── Print ── */
+        @media print {
+            .grain-overlay,
+            .bg-mesh,
+            .hero-floats,
+            .top-nav,
+            .toast-container {
+                display: none !important;
+            }
+        }
+    </style>
 </head>
 <body>
-    <!-- Main Container -->
+
+    <!-- Grain texture -->
+    <div class="grain-overlay"></div>
+
+    <!-- Animated gradient mesh -->
+    <div class="bg-mesh">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+    </div>
+
+    <nav class="top-nav">
+        <div class="nav-container">
+            <button class="hamburger" id="hamburgerBtn" aria-label="Menú">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-tabs" id="navTabs">
+                <div class="nav-pill" id="navPill"></div>
+                <button class="nav-tab active" onclick="mostrarVista('docentes'); cerrarMenu();">
+                    <i class="fas fa-laptop"></i>Docentes
+                </button>
+                <button class="nav-tab" onclick="mostrarVista('soporte'); cerrarMenu();">
+                    <i class="fas fa-rotate-left"></i>Devoluciones
+                </button>
+            </div>
+        </div>
+    </nav>
+
     <div class="main-container">
-        <!-- Header con Logo -->
         <header class="header">
             <div class="logo-container">
-                <!-- REEMPLAZA ESTA LÍNEA CON TU LOGO -->
-                <img src="./img/Innova_Schools_escudo.webp" alt="Logo Empresa" class="main-logo" id="mainLogo">
-                <!-- Si no tienes imagen, se mostrará el texto alternativo -->
-                <span class="logo-fallback" style="display: none;">
+                <img src="./img/Innova_Schools_escudo.webp" alt="Logo" class="main-logo" id="mainLogo">
+                <span class="logo-fallback" style="display:none;">
                     <i class="fas fa-clipboard-check"></i>
                     <span>Sistema de Equipos</span>
                 </span>
             </div>
         </header>
-        <nav class="top-nav">
-            <div class="nav-container">
-                <button class="hamburger" id="hamburgerBtn" aria-label="Menú">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-                <div class="nav-tabs" id="navTabs">
-                    <button class="nav-tab active" onclick="mostrarVista('docentes'); cerrarMenu();">Docentes</button>
-                    <button class="nav-tab" onclick="mostrarVista('soporte'); cerrarMenu();">Devoluciones</button>
+
+        <section class="hero">
+            <div class="hero-floats">
+                <div class="hero-float"></div>
+                <div class="hero-float"></div>
+                <div class="hero-float"></div>
+            </div>
+            <div class="hero-content">
+                <div class="hero-greeting" id="heroGreeting">
+                    <i class="fas fa-sun"></i>
+                    <span>Buenos días</span>
+                </div>
+                <h1 class="hero-title" id="heroTitle">¿En qué sede te encuentras?</h1>
+                <p class="hero-subtitle" id="heroSubtitle">Selecciona tu ubicación para acceder al formulario correspondiente de recepción de equipos</p>
+                <div class="hero-divider"></div>
+                <div class="region-legend" id="regionLegend">
+                    <div class="legend-item"><div class="legend-dot cundinamarca"></div>Cundinamarca</div>
+                    <div class="legend-item"><div class="legend-dot bogota"></div>Bogotá</div>
+                    <div class="legend-item"><div class="legend-dot otras"></div>Otras regiones</div>
                 </div>
             </div>
-        </nav>
-        <section class="sedes-section" id="vistaDocentes">
+        </section>
+
+        <!-- DOCENTES -->
+        <section class="sedes-section view-enter" id="vistaDocentes">
             <div class="sedes-grid">
-                <!-- tus tarjetas actuales -->
+                <a href="/view/Fzipa.html" class="sede-card" data-region="cundinamarca">
+                    <div class="sede-icon"><i class="fas fa-building"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Cundinamarca</span>
+                        <h3 class="sede-name">Zipaquirá</h3>
+                        <p class="sede-desc">Recepción de equipos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Activo</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
+                <a href="/view/Fcota.html" class="sede-card" data-region="cundinamarca">
+                    <div class="sede-icon"><i class="fas fa-building"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Cundinamarca</span>
+                        <h3 class="sede-name">Cota</h3>
+                        <p class="sede-desc">Recepción de equipos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Activo</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
+                <a href="/view/Fmosquera.html" class="sede-card" data-region="cundinamarca">
+                    <div class="sede-icon"><i class="fas fa-building"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Cundinamarca</span>
+                        <h3 class="sede-name">Mosquera</h3>
+                        <p class="sede-desc">Recepción de equipos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Activo</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
+                <a href="/view/Fniza.html" class="sede-card" data-region="bogota">
+                    <div class="sede-icon"><i class="fas fa-city"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Bogotá</span>
+                        <h3 class="sede-name">Niza</h3>
+                        <p class="sede-desc">Recepción de equipos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Activo</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
+                <a href="/view/Fusa.html" class="sede-card" data-region="bogota">
+                    <div class="sede-icon"><i class="fas fa-city"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Bogotá</span>
+                        <h3 class="sede-name">Usaquén</h3>
+                        <p class="sede-desc">Recepción de equipos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Activo</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
+                <a href="/view/Ftunja.html" class="sede-card" data-region="otras">
+                    <div class="sede-icon"><i class="fas fa-map-marker-alt"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Boyacá</span>
+                        <h3 class="sede-name">Tunja</h3>
+                        <p class="sede-desc">Recepción de equipos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Activo</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
+                <a href="/view/Fbarranquilla.html" class="sede-card" data-region="otras">
+                    <div class="sede-icon"><i class="fas fa-map-marker-alt"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Atlántico</span>
+                        <h3 class="sede-name">Barranquilla</h3>
+                        <p class="sede-desc">Recepción de equipos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Activo</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+            </div>
+
+            <div class="sedes-more">
+                <div class="sedes-more-inner">
+                    <i class="fas fa-clock"></i>
+                    <span>Más sedes próximamente</span>
+                </div>
             </div>
         </section>
+
+        <!-- DEVOLUCIONES -->
         <section class="sedes-section" id="vistaSoporte" style="display:none;">
             <div class="sedes-grid">
-                <a href="/view/devolucion.html?sede=zipaquira" class="sede-card">
+                <a href="/view/devolucion.html?sede=zipaquira" class="sede-card devolucion-card">
                     <div class="sede-icon"><i class="fas fa-tools"></i></div>
                     <div class="sede-content">
-                        <h3 class="sede-name">Devolucion Zipaquirá</h3>
-                        <p class="sede-desc">Ver equipos en curso de Zipaquirá</p>
-                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                        <h3 class="sede-name">Devolución Zipaquirá</h3>
+                        <p class="sede-desc">Equipos en curso</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente</span></div>
                     </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
                 </a>
 
-                <a href="/view/devolucion.html?sede=niza" class="sede-card">
+                <a href="/view/devolucion.html?sede=niza" class="sede-card devolucion-card">
                     <div class="sede-icon"><i class="fas fa-tools"></i></div>
                     <div class="sede-content">
-                        <h3 class="sede-name">Devolucion Niza</h3>
-                        <p class="sede-desc">Ver equipos en curso de Niza</p>
-                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                        <h3 class="sede-name">Devolución Niza</h3>
+                        <p class="sede-desc">Equipos en curso</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente</span></div>
                     </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
                 </a>
 
-                <a href="/view/devolucion.html?sede=usaquen" class="sede-card">
+                <a href="/view/devolucion.html?sede=usaquen" class="sede-card devolucion-card">
                     <div class="sede-icon"><i class="fas fa-tools"></i></div>
                     <div class="sede-content">
-                        <h3 class="sede-name">Devolucion Usaquén</h3>
-                        <p class="sede-desc">Ver equipos en curso de Usaquén</p>
-                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                        <h3 class="sede-name">Devolución Usaquén</h3>
+                        <p class="sede-desc">Equipos en curso</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente</span></div>
                     </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
                 </a>
 
-                <a href="/view/devolucion.html?sede=cota" class="sede-card">
+                <a href="/view/devolucion.html?sede=cota" class="sede-card devolucion-card">
                     <div class="sede-icon"><i class="fas fa-tools"></i></div>
                     <div class="sede-content">
-                        <h3 class="sede-name">Devolucion Cota</h3>
-                        <p class="sede-desc">Ver equipos en curso de Cota</p>
-                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                        <h3 class="sede-name">Devolución Cota</h3>
+                        <p class="sede-desc">Equipos en curso</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente</span></div>
                     </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
                 </a>
 
-                <a href="/view/devolucion.html?sede=mosquera" class="sede-card">
+                <a href="/view/devolucion.html?sede=mosquera" class="sede-card devolucion-card">
                     <div class="sede-icon"><i class="fas fa-tools"></i></div>
                     <div class="sede-content">
-                        <h3 class="sede-name">Devolucion Mosquera</h3>
-                        <p class="sede-desc">Ver equipos en curso de Mosquera</p>
-                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                        <h3 class="sede-name">Devolución Mosquera</h3>
+                        <p class="sede-desc">Equipos en curso</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente</span></div>
                     </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
                 </a>
 
-                <a href="/view/devolucion.html?sede=tunja" class="sede-card">
+                <a href="/view/devolucion.html?sede=tunja" class="sede-card devolucion-card">
                     <div class="sede-icon"><i class="fas fa-tools"></i></div>
                     <div class="sede-content">
-                        <h3 class="sede-name">Devolucion Tunja</h3>
-                        <p class="sede-desc">Ver equipos en curso de Tunja</p>
-                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                        <h3 class="sede-name">Devolución Tunja</h3>
+                        <p class="sede-desc">Equipos en curso</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente</span></div>
                     </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
                 </a>
 
-                <a href="/view/devolucion.html?sede=barranquilla" class="sede-card">
+                <a href="/view/devolucion.html?sede=barranquilla" class="sede-card devolucion-card">
                     <div class="sede-icon"><i class="fas fa-tools"></i></div>
                     <div class="sede-content">
-                        <h3 class="sede-name">Devolucion Barranquilla</h3>
-                        <p class="sede-desc">Ver equipos en curso de Barranquilla</p>
-                        <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                        <h3 class="sede-name">Devolución Barranquilla</h3>
+                        <p class="sede-desc">Equipos en curso</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente</span></div>
                     </div>
-                </a>
-            </div>
-        </section>
-        <!-- Hero Section -->
-        <section class="hero">
-            <div class="hero-content">
-                <h1 class="hero-title">¿En qué sede te encuentras?</h1>
-                <p class="hero-subtitle">Selecciona tu ubicación para acceder al formulario correspondiente de recepción de equipos</p>
-            </div>
-        </section>
-
-        <!-- Sedes Grid -->
-        <section class="sedes-section">
-            <div class="sedes-grid">
-                <!-- Zipaquirá -->
-                <a href="/view/Fzipa.html" class="sede-card" data-sede="zipaquira">
-                    <div class="sede-icon">
-                        <i class="fas fa-building"></i>
-                    </div>
-                    <div class="sede-content">
-                        <h3 class="sede-name">Zipaquirá</h3>
-                        <p class="sede-desc">Formulario de recepción de equipos - Sede Zipaquirá</p>
-                        <div class="sede-arrow">
-                            <i class="fas fa-arrow-right"></i>
-                        </div>
-                    </div>
-                </a>
-
-                <!-- Niza -->
-                <a href="/view/Fniza.html" class="sede-card" data-sede="niza">
-                    <div class="sede-icon">
-                        <i class="fas fa-building"></i>
-                    </div>
-                    <div class="sede-content">
-                        <h3 class="sede-name">Niza</h3>
-                        <p class="sede-desc">Formulario de recepción de equipos - Sede Niza</p>
-                        <div class="sede-arrow">
-                            <i class="fas fa-arrow-right"></i>
-                        </div>
-                    </div>
-                </a>
-
-                <!-- Usaquén -->
-                <a href="/view/Fusa.html" class="sede-card" data-sede="usaquen">
-                    <div class="sede-icon">
-                        <i class="fas fa-building"></i>
-                    </div>
-                    <div class="sede-content">
-                        <h3 class="sede-name">Usaquén</h3>
-                        <p class="sede-desc">Formulario de recepción de equipos - Sede Usaquén</p>
-                        <div class="sede-arrow">
-                            <i class="fas fa-arrow-right"></i>
-                        </div>
-                    </div>
-                </a>
-
-                <!-- Cota -->
-                <a href="/view/Fcota.html" class="sede-card" data-sede="cota">
-                    <div class="sede-icon">
-                        <i class="fas fa-building"></i>
-                    </div>
-                    <div class="sede-content">
-                        <h3 class="sede-name">Cota</h3>
-                        <p class="sede-desc">Formulario de recepción de equipos - Sede Cota</p>
-                        <div class="sede-arrow">
-                            <i class="fas fa-arrow-right"></i>
-                        </div>
-                    </div>
-                </a>
-
-                <!-- Mosquera -->
-                <a href="/view/Fmosquera.html" class="sede-card" data-sede="mosquera">
-                    <div class="sede-icon">
-                        <i class="fas fa-building"></i>
-                    </div>
-                    <div class="sede-content">
-                        <h3 class="sede-name">Mosquera</h3>
-                        <p class="sede-desc">Formulario de recepción de equipos - Sede Mosquera</p>
-                        <div class="sede-arrow">
-                            <i class="fas fa-arrow-right"></i>
-                        </div>
-                    </div>
-                </a>
-
-                <!-- Tunja -->
-                <a href="/view/Ftunja.html" class="sede-card" data-sede="tunja">
-                    <div class="sede-icon">
-                        <i class="fas fa-building"></i>
-                    </div>
-                    <div class="sede-content">
-                        <h3 class="sede-name">Tunja</h3>
-                        <p class="sede-desc">Formulario de recepción de equipos - Sede Tunja</p>
-                        <div class="sede-arrow">
-                            <i class="fas fa-arrow-right"></i>
-                        </div>
-                    </div>
-                </a>
-
-                <!-- Barranquilla -->
-                <a href="/view/Fbarranquilla.html" class="sede-card" data-sede="barranquilla">
-                    <div class="sede-icon">
-                        <i class="fas fa-building"></i>
-                    </div>
-                    <div class="sede-content">
-                        <h3 class="sede-name">Barranquilla</h3>
-                        <p class="sede-desc">Formulario de recepción de equipos - Sede Barranquilla</p>
-                        <div class="sede-arrow">
-                            <i class="fas fa-arrow-right"></i>
-                        </div>
-                    </div>
-                </a>
-
-                <!-- Otras Sedes -->
-                <a href="#" class="sede-card sede-disabled" data-sede="otros" onclick="showComingSoon(event)">
-                    <div class="sede-icon">
-                        <i class="fas fa-ellipsis-h"></i>
-                    </div>
-                    <div class="sede-content">
-                        <h3 class="sede-name">Otras Sedes</h3>
-                        <p class="sede-desc">Próximamente más ubicaciones disponibles</p>
-                        <div class="sede-badge">Pronto</div>
-                    </div>
-                </a>
-                <!-- DEVOLUCIONES -->
-                <a href="/view/devolucion.html" class="sede-card">
-                    <div class="sede-icon">
-                        <i class="fas fa-undo"></i>
-                    </div>
-                    <div class="sede-content">
-                        <h3 class="sede-name">Devoluciones</h3>
-                        <p class="sede-desc">Cerrar solicitudes de equipos</p>
-                        <div class="sede-arrow">
-                            <i class="fas fa-arrow-right"></i>
-                        </div>
-                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
                 </a>
             </div>
         </section>
 
-        <!-- Info Section -->
         <section class="info-section">
             <div class="info-card">
-                <div class="info-icon">
-                    <i class="fas fa-info-circle"></i>
-                </div>
+                <div class="info-icon"><i class="fas fa-headset"></i></div>
                 <div class="info-content">
                     <h4>¿Necesitas ayuda?</h4>
-                    <p>Si no encuentras tu sede o tienes problemas para acceder al formulario, contacta al administrador del sistema.</p>
+                    <p>Si no encuentras tu sede o tienes problemas, contacta al administrador del sistema.</p>
                 </div>
             </div>
         </section>
 
-        <!-- Footer -->
-        <footer class="footer">
-            <p>&copy; 2026 Sistema de Recepción de Equipos. Todos los derechos reservados.</p>
+        <footer class="footer-pro">
+            <div class="footer-pro-divider"></div>
+            <div class="footer-pro-brand">
+                <div class="footer-pro-logo"><i class="fas fa-clipboard-check"></i></div>
+                <span class="footer-pro-name">Sistema de Recepción de Equipos</span>
+            </div>
+            <p class="footer-pro-copy">&copy; 2026 Innova Schools. Todos los derechos reservados.</p>
+            <div class="footer-pro-links">
+                <a href="#">Soporte técnico</a>
+                <a href="#">Privacidad</a>
+                <a href="#">Términos</a>
+            </div>
         </footer>
     </div>
 
-    <!-- Toast Notification -->
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
-        // Verificar si el logo cargó, si no mostrar fallback
-        document.addEventListener('DOMContentLoaded', function() {
-            const logo = document.getElementById('mainLogo');
-            const fallback = document.querySelector('.logo-fallback');
-            
-            logo.onerror = function() {
-                this.style.display = 'none';
-                fallback.style.display = 'flex';
-            };
+        // ── Greeting por hora ──
+        (function() {
+            const h = new Date().getHours();
+            const el = document.getElementById('heroGreeting');
+            let text, icon;
+            if (h < 12) { text = 'Buenos días'; icon = 'fa-sun'; }
+            else if (h < 18) { text = 'Buenas tardes'; icon = 'fa-cloud-sun'; }
+            else { text = 'Buenas noches'; icon = 'fa-moon'; }
+            el.innerHTML = `<i class="fas ${icon}"></i><span>${text}</span>`;
+        })();
 
-            // Animación de entrada para las tarjetas
-            const cards = document.querySelectorAll('.sede-card:not(.sede-disabled)');
-            cards.forEach((card, index) => {
-                card.style.opacity = '0';
-                card.style.transform = 'translateY(30px)';
-                
-                setTimeout(() => {
-                    card.style.transition = 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)';
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                }, index * 150);
+        // ── Logo fallback ──
+        document.getElementById('mainLogo').onerror = function() {
+            this.style.display = 'none';
+            document.querySelector('.logo-fallback').style.display = 'flex';
+        };
+
+        // ── Sliding pill ──
+        function updatePill() {
+            const pill = document.getElementById('navPill');
+            const activeTab = document.querySelector('.nav-tab.active');
+            if (!pill || !activeTab) return;
+            const container = document.getElementById('navTabs');
+            const cRect = container.getBoundingClientRect();
+            const tRect = activeTab.getBoundingClientRect();
+            pill.style.left = (tRect.left - cRect.left) + 'px';
+            pill.style.width = tRect.width + 'px';
+        }
+
+        // Init pill after fonts load
+        document.fonts.ready.then(updatePill);
+        window.addEventListener('resize', updatePill);
+
+        // ── Mouse-follow glow en cards ──
+        document.querySelectorAll('.sede-card').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const r = card.getBoundingClientRect();
+                card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+                card.style.setProperty('--my', (e.clientY - r.top) + 'px');
             });
         });
 
-        function showComingSoon(event) {
-            event.preventDefault();
-            showToast('Más sedes disponibles próximamente', 'info');
-        }
-
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            
-            const icons = {
-                success: 'fa-check-circle',
-                error: 'fa-exclamation-circle',
-                info: 'fa-info-circle',
-                warning: 'fa-exclamation-triangle'
-            };
-            
-            toast.innerHTML = `
-                <i class="fas ${icons[type]}</i>
-                <span>${message}</span>
-            `;
-            
-            container.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.classList.add('hide');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
-        }
+        // ── Vista switching ──
         function mostrarVista(tipo) {
-            const vistaDocentes = document.getElementById('vistaDocentes');
-            const vistaSoporte = document.getElementById('vistaSoporte');
+            const vd = document.getElementById('vistaDocentes');
+            const vs = document.getElementById('vistaSoporte');
             const tabs = document.querySelectorAll('.nav-tab');
+            const pill = document.getElementById('navPill');
+            const title = document.getElementById('heroTitle');
+            const sub = document.getElementById('heroSubtitle');
+            const legend = document.getElementById('regionLegend');
 
-            tabs.forEach(tab => tab.classList.remove('active'));
+            tabs.forEach(t => t.classList.remove('active'));
 
             if (tipo === 'docentes') {
-                vistaDocentes.style.display = 'block';
-                vistaSoporte.style.display = 'none';
+                vd.style.display = 'block';
+                vs.style.display = 'none';
                 tabs[0].classList.add('active');
+                pill.classList.remove('dev-mode');
+                title.textContent = '¿En qué sede te encuentras?';
+                sub.textContent = 'Selecciona tu ubicación para acceder al formulario correspondiente de recepción de equipos';
+                legend.style.display = 'flex';
+                animateCards(vd);
             } else {
-                vistaDocentes.style.display = 'none';
-                vistaSoporte.style.display = 'block';
+                vd.style.display = 'none';
+                vs.style.display = 'block';
                 tabs[1].classList.add('active');
+                pill.classList.add('dev-mode');
+                title.textContent = 'Módulo de Devoluciones';
+                sub.textContent = 'Selecciona la sede para consultar y cerrar solicitudes de equipos';
+                legend.style.display = 'none';
+                animateCards(vs);
             }
+
+            // Transición hero
+            const hc = document.querySelector('.hero-content');
+            hc.style.transition = 'none';
+            hc.style.opacity = '0';
+            hc.style.transform = 'translateY(8px)';
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    hc.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+                    hc.style.opacity = '1';
+                    hc.style.transform = 'translateY(0)';
+                });
+            });
+
+            updatePill();
         }
 
+        function animateCards(container) {
+            container.classList.remove('view-enter');
+            void container.offsetWidth;
+            container.classList.add('view-enter');
+
+            const cards = container.querySelectorAll('.sede-card');
+            cards.forEach((c, i) => {
+                c.style.transition = 'none';
+                c.style.opacity = '0';
+                c.style.transform = 'translateY(16px)';
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        c.style.transition = `all 0.45s cubic-bezier(0.16, 1, 0.3, 1) ${i * 60}ms`;
+                        c.style.opacity = '1';
+                        c.style.transform = 'translateY(0)';
+                    });
+                });
+            });
+        }
+
+        // ── Menu ──
         function cerrarMenu() {
-            const navTabs = document.getElementById('navTabs');
-            const hamburger = document.getElementById('hamburgerBtn');
-            navTabs.classList.remove('active');
-            hamburger.classList.remove('active');
+            document.getElementById('navTabs').classList.remove('active');
+            document.getElementById('hamburgerBtn').classList.remove('active');
         }
 
-        // Toggle hamburger menu
         document.getElementById('hamburgerBtn').addEventListener('click', function() {
             this.classList.toggle('active');
             document.getElementById('navTabs').classList.toggle('active');
         });
+
+        // ── Toast ──
+        function showToast(msg, type = 'info') {
+            const c = document.getElementById('toastContainer');
+            const t = document.createElement('div');
+            t.className = `toast ${type}`;
+            const icons = { success:'fa-check-circle', error:'fa-exclamation-circle', info:'fa-info-circle', warning:'fa-exclamation-triangle' };
+            t.innerHTML = `<i class="fas ${icons[type]}"></i><span>${msg}</span>`;
+            c.appendChild(t);
+            setTimeout(() => { t.classList.add('hide'); setTimeout(() => t.remove(), 300); }, 3000);
+        }
     </script>
 </body>
 </html>

@@ -308,11 +308,14 @@ let records = [
 function setDefaultDate() {
     const fechaInput = document.getElementById('fecha');
     const hoy = new Date();
+
     const year = hoy.getFullYear();
     const month = String(hoy.getMonth() + 1).padStart(2, '0');
     const day = String(hoy.getDate()).padStart(2, '0');
     const hours = String(hoy.getHours()).padStart(2, '0');
     const minutes = String(hoy.getMinutes()).padStart(2, '0');
+
+    // Para input datetime-local
     fechaInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
     fechaInput.disabled = true;
 }
@@ -761,7 +764,7 @@ async function collectFormData() {
     }
     
     let data = {
-        fecha: document.getElementById('fecha').value,
+        fecha: document.getElementById('fecha').value.split('T')[0],
         nombre: document.getElementById('nombre').value.trim(),
         cedula: document.getElementById('cedula').value.trim(),
         correo: document.getElementById('correo').value.trim(),
@@ -1450,125 +1453,177 @@ function toggleDescripcionDevolucion() {
     value === "Sí" ? "block" : "none";
 }
 let canvasDev, ctxDev, isDrawingDev = false;
+let lastXDev = 0, lastYDev = 0;
 
 function initSignatureDevolucion() {
-  canvasDev = document.getElementById("signatureCanvasDevolucion");
-  if (!canvasDev) return;
+    canvasDev = document.getElementById("signatureCanvasDevolucion");
+    if (!canvasDev) return;
 
-  ctxDev = canvasDev.getContext("2d");
-  ctxDev.fillStyle = "white";
-  ctxDev.fillRect(0, 0, canvasDev.width, canvasDev.height);
-  ctxDev.strokeStyle = "#111827";
-  ctxDev.lineWidth = 2;
-  ctxDev.lineCap = "round";
+    ctxDev = canvasDev.getContext("2d", { willReadFrequently: true });
+    ctxDev.fillStyle = "white";
+    ctxDev.fillRect(0, 0, canvasDev.width, canvasDev.height);
+    ctxDev.strokeStyle = "#111827";
+    ctxDev.lineWidth = 2;
+    ctxDev.lineCap = "round";
+    ctxDev.lineJoin = "round";
 
-  canvasDev.addEventListener("mousedown", () => isDrawingDev = true);
-  canvasDev.addEventListener("mouseup", () => {
-    isDrawingDev = false;
-    ctxDev.beginPath();
-  });
-  canvasDev.addEventListener("mouseout", () => {
-    isDrawingDev = false;
-    ctxDev.beginPath();
-  });
-  canvasDev.addEventListener("mousemove", drawDevolucion);
+    canvasDev.addEventListener("mousedown", startDev);
+    canvasDev.addEventListener("mouseup", stopDev);
+    canvasDev.addEventListener("mouseout", stopDev);
+    canvasDev.addEventListener("mousemove", drawDev);
+    canvasDev.addEventListener("touchstart", startDevTouch, { passive: false });
+    canvasDev.addEventListener("touchmove", drawDevTouch, { passive: false });
+    canvasDev.addEventListener("touchend", stopDev);
 }
 
-function drawDevolucion(e) {
-  if (!isDrawingDev) return;
+function getPosDev(e) {
+    const rect = canvasDev.getBoundingClientRect();
+    const scaleX = canvasDev.width / rect.width;
+    const scaleY = canvasDev.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+    };
+}
 
-  const rect = canvasDev.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+function startDev(e) {
+    isDrawingDev = true;
+    const p = getPosDev(e);
+    lastXDev = p.x;
+    lastYDev = p.y;
+    ctxDev.beginPath();
+    ctxDev.moveTo(p.x, p.y);
+}
 
-  ctxDev.lineTo(x, y);
-  ctxDev.stroke();
-  ctxDev.beginPath();
-  ctxDev.moveTo(x, y);
+function startDevTouch(e) {
+    e.preventDefault();
+    startDev(e);
+}
+
+function drawDev(e) {
+    if (!isDrawingDev) return;
+    const p = getPosDev(e);
+    ctxDev.beginPath();
+    ctxDev.moveTo(lastXDev, lastYDev);
+    ctxDev.lineTo(p.x, p.y);
+    ctxDev.stroke();
+    lastXDev = p.x;
+    lastYDev = p.y;
+}
+
+function drawDevTouch(e) {
+    e.preventDefault();
+    drawDev(e);
+}
+
+function stopDev() {
+    isDrawingDev = false;
+    ctxDev.beginPath();
 }
 
 function clearSignatureDevolucion() {
-  if (!ctxDev || !canvasDev) return;
-  ctxDev.clearRect(0, 0, canvasDev.width, canvasDev.height);
-  ctxDev.fillStyle = "white";
-  ctxDev.fillRect(0, 0, canvasDev.width, canvasDev.height);
+    if (!ctxDev || !canvasDev) return;
+    ctxDev.clearRect(0, 0, canvasDev.width, canvasDev.height);
+    ctxDev.fillStyle = "white";
+    ctxDev.fillRect(0, 0, canvasDev.width, canvasDev.height);
 }
 
 function getSignatureDevolucionBase64() {
-  if (!canvasDev || !ctxDev) return "";
+    if (!canvasDev || !ctxDev) return "";
 
-  const imageData = ctxDev.getImageData(0, 0, canvasDev.width, canvasDev.height).data;
-  let hasContent = false;
+    const imageData = ctxDev.getImageData(0, 0, canvasDev.width, canvasDev.height).data;
+    let hasContent = false;
 
-  for (let i = 0; i < imageData.length; i += 4) {
-    if (imageData[i] < 250 || imageData[i + 1] < 250 || imageData[i + 2] < 250) {
-      hasContent = true;
-      break;
+    for (let i = 0; i < imageData.length; i += 4) {
+        if (imageData[i] < 250 || imageData[i + 1] < 250 || imageData[i + 2] < 250) {
+            hasContent = true;
+            break;
+        }
     }
-  }
 
-  return hasContent ? canvasDev.toDataURL("image/png") : "";
+    return hasContent ? canvasDev.toDataURL("image/png") : "";
 }
 async function cerrarSolicitudFrontend() {
-  const id_solicitud = document.getElementById("devolucion_id_solicitud").value;
-  const cantidad_devuelta = document.getElementById("cantidad_devuelta").value;
-  const estado_final = document.getElementById("estado_final").value;
-  const novedad_devolucion = document.getElementById("novedad_devolucion").value;
-  const descripcion_devolucion = document.getElementById("descripcion_devolucion").value;
-  const firma_devolucion = getSignatureDevolucionBase64();
+    const id_solicitud = document.getElementById("devolucion_id_solicitud").value;
+    const cantidad_devuelta = document.getElementById("cantidad_devuelta").value;
+    const estado_final = document.getElementById("estado_final").value;
+    const novedad_devolucion = document.getElementById("novedad_devolucion").value;
+    const descripcion_devolucion = document.getElementById("descripcion_devolucion").value;
+    const firma_devolucion = getSignatureDevolucionBase64();
 
-  if (!id_solicitud) {
-    alert("No hay solicitud seleccionada");
-    return;
-  }
-
-  if (!cantidad_devuelta) {
-    alert("Debes ingresar la cantidad devuelta");
-    return;
-  }
-
-  if (!estado_final) {
-    alert("Debes seleccionar el estado final");
-    return;
-  }
-
-  if (novedad_devolucion === "Sí" && !descripcion_devolucion.trim()) {
-    alert("Debes describir la novedad de devolución");
-    return;
-  }
-
-  try {
-    const payload = {
-      action: "cerrarSolicitud",
-      id_solicitud,
-      cantidad_devuelta,
-      estado_final,
-      novedad_devolucion,
-      descripcion_devolucion,
-      firma_devolucion
-    };
-
-    const res = await fetch(URL_GOOGLE_SCRIPT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const result = await res.json();
-
-    if (result.status === "ok") {
-      alert("Solicitud cerrada correctamente");
-      document.getElementById("formCerrarBox").style.display = "none";
-      cargarSolicitudesEnCurso();
-    } else {
-      alert("Error: " + (result.error || "No se pudo cerrar la solicitud"));
+    if (!id_solicitud) {
+        showToast("No hay solicitud seleccionada", "error");
+        return;
     }
-  } catch (err) {
-    console.error(err);
-    alert("Error de conexión al cerrar la solicitud");
-  }
+
+    if (!cantidad_devuelta) {
+        showToast("Debes ingresar la cantidad devuelta", "error");
+        return;
+    }
+
+    if (!estado_final) {
+        showToast("Debes seleccionar el estado final", "error");
+        return;
+    }
+
+    // Si hay novedad, validar descripción y foto
+    if (novedad_devolucion === "Sí") {
+        if (!descripcion_devolucion.trim()) {
+            showToast("Debes describir la novedad", "error");
+            return;
+        }
+
+        const fotoInput = document.getElementById("foto_devolucion");
+        if (!fotoInput.files || !fotoInput.files[0]) {
+            showToast("Debes adjuntar la foto de la novedad", "error");
+            return;
+        }
+    }
+
+    try {
+        const payload = {
+            action: "cerrarSolicitud",
+            id_solicitud,
+            cantidad_devuelta,
+            estado_final,
+            novedad_devolucion,
+            descripcion_devolucion,
+            firma_devolucion
+        };
+
+        // Convertir foto a base64 si hay novedad
+        if (novedad_devolucion === "Sí") {
+            const fotoFile = document.getElementById("foto_devolucion").files[0];
+            payload.foto_devolucion = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(fotoFile);
+            });
+        }
+
+        const res = await fetch(URL_GOOGLE_SCRIPT, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+
+        if (result.status === "ok") {
+            showToast("Solicitud cerrada correctamente", "success");
+            document.getElementById("formCerrarBox").style.display = "none";
+            removeFotoDevolucion();
+            cargarSolicitudesEnCurso();
+        } else {
+            showToast("Error: " + (result.error || "No se pudo cerrar"), "error");
+        }
+    } catch (err) {
+        console.error(err);
+        showToast("Error de conexión al cerrar la solicitud", "error");
+    }
 }
 function obtenerSedeDesdeURL() {
     const params = new URLSearchParams(window.location.search);

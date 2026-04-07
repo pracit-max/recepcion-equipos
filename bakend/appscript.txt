@@ -1,26 +1,29 @@
-IMPORTANTEEEEE NO ES BASE DE DATOS SOLO ES EL SCRIPT DEL BACK DE GOOGLE DONDE SE SUBE SOLO EL CODIGO CON LO NUEVO Y YA LOS CMABIOS SE HACEN EN EL APPSCRIPT DE GOOGLE 
-
-
 const SHEET_ID = "187Dt7o7S_ytt68pzWo2n_Yd61q366ctb4Iv1JUfDgTk";
 
 const FOLDER_DANO = "142sGQTK_pLLSlCncrA0BjjY0EfeTsLPl";
 const FOLDER_CAMBIO = "1WPQNyVCJlqvDVjF-omPojbLuqblb0dV3";
 const FOLDER_FIRMA = "1qUBfDoSq9aJAChD_Tn5tSUPs5vrPnO9B";
 const FOLDER_PDF = "1S9rWLkhH3gut8MlAXM8xpBhib9QGxBPm";
-
-function doPost(e){
+const FOLDER_PDF_DEVOLUCION = "1JdKJOc2KnUvLwQVmTCXrZZ3SuVp5j631";
+const FOLDER_FOTO_DEVOLUCION = "1P9aVtwyzEf4dwoxOoO9WHKV16D3osql_";
+function doPost(e) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(10000);
+    Logger.log("=== INICIO doPost ===");
     
     const data = JSON.parse(e.postData.contents);
+    Logger.log("Acción recibida: " + (data.action || "registro_normal"));
+    
+    // Si es cierre de solicitud, redirigir
     if (data.action === "cerrarSolicitud") {
       return cerrarSolicitud(data);
     }
-    // === VALIDACIÓN DE DISPONIBILIDAD (CORREGIDA Y CON LOCK) ===
+    
+    // === VALIDACIÓN DE DISPONIBILIDAD ===
     if (data.equipo && data.equipo !== "Otros equipos" && data.sede && data.hora_devolucion) {
-      const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
-      const registros = sheet.getDataRange().getValues();
+      const sheetVal = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+      const registros = sheetVal.getDataRange().getValues();
       registros.shift(); 
 
       const fechaHoy = new Date().toISOString().split('T')[0];
@@ -39,8 +42,6 @@ function doPost(e){
 
         const sedeRegistrada = String(row[4] || "").trim();
         const equipoRegistrado = String(row[5] || "").trim();
-
-        // === FIX: Convertir correctamente la hora ===
         let horaDevolucionStr = "16:00";
         const horaRaw = row[23];
         if (horaRaw instanceof Date) {
@@ -49,141 +50,200 @@ function doPost(e){
           horaDevolucionStr = String(horaRaw).trim();
         }
 
+        const estadoRegistro = String(row[25] || "").trim().toUpperCase();
+
         if (fechaRegistro === fechaHoy && 
             equipoRegistrado === data.equipo && 
-            sedeRegistrada.toLowerCase() === data.sede.toLowerCase()) {
+            sedeRegistrada.toLowerCase() === data.sede.toLowerCase() &&
+            estadoRegistro === "EN_CURSO") {
 
           if (horaActualStr < horaDevolucionStr) {
-            return ContentService
-              .createTextOutput(JSON.stringify({
-                status: "error",
-                error: `El ${data.equipo} está ocupado hasta las ${horaDevolucionStr} por ${row[1] || 'alguien'}`,
-                ocupado: true,
-                hora_devolucion: horaDevolucionStr
-              }))
-              .setMimeType(ContentService.MimeType.JSON);
+            return ContentService.createTextOutput(JSON.stringify({
+              status: "error",
+              error: `El ${data.equipo} está ocupado hasta las ${horaDevolucionStr} por ${row[1] || 'alguien'}`,
+              ocupado: true,
+              hora_devolucion: horaDevolucionStr
+            })).setMimeType(ContentService.MimeType.JSON);
           }
         }
       }
     }
     
-    
-    // === Si pasó la validación → Guardar el registro ===
-    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
-    
-    const fotoDanoURL = data.foto_dano ? guardarImagen(data.foto_dano,"dano",FOLDER_DANO) : "";
-    const firmaBase64 = data.firma || "";
+    // === GUARDAR IMÁGENES PRIMERO ===
+    let fotoDanoURL = "";
+    try {
+      if (data.foto_dano && String(data.foto_dano).startsWith("data:image")) {
+        fotoDanoURL = guardarImagen(data.foto_dano, "dano", FOLDER_DANO);
+        Logger.log("Foto daño guardada: " + fotoDanoURL);
+      }
+    } catch (imgError) {
+      Logger.log("Error guardando foto daño: " + imgError);
+    }
+
     const idSolicitud = Utilities.getUuid();
     const zonaHoraria = Session.getScriptTimeZone();
     const ahoraFecha = new Date();
     const horaEntrega = Utilities.formatDate(ahoraFecha, zonaHoraria, "HH:mm");
     const estadoInicial = "EN_CURSO";
+    const firmaBase64 = data.firma || "";
 
-    // === SEGUNDO CHEQUEO ANTI-RACE-CONDITION (CORREGIDO) ===
+    // === SEGUNDO CHEQUEO ANTI-RACE-CONDITION ===
     if (data.equipo && data.equipo !== "Otros equipos") {
-      const check = sheet.getDataRange().getValues();
-      check.shift();
-      const hoy = new Date().toISOString().split('T')[0];
-      const zonaHoraria = Session.getScriptTimeZone();
-      const ahora = Utilities.formatDate(new Date(), zonaHoraria, "HH:mm");
+      const sheetCheck = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+      const lastRowCheck = sheetCheck.getLastRow();
+      if (lastRowCheck > 1) {
+        const rows = sheetCheck.getRange(2, 1, lastRowCheck - 1, 26).getValues();
+        const hoy = Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd");
+        const normalizar = (txt) => String(txt || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-      for (let r of check) {
-        if (r.length < 24) continue;
-
-        let f = r[0];
-        if (f instanceof Date) {
-          f = Utilities.formatDate(f, zonaHoraria, "yyyy-MM-dd");
-        } else {
-          f = String(f).split('T')[0].split(' ')[0];
-        }
-
-        const sedeRegistrada = String(r[4] || "").trim();
-        const equipoRegistrado = String(r[5] || "").trim();
-
-        // === FIX: Convertir correctamente la hora ===
-        let horaDevolucionStr = "16:00";
-        const horaRaw = r[23];
-        if (horaRaw instanceof Date) {
-          horaDevolucionStr = Utilities.formatDate(horaRaw, zonaHoraria, "HH:mm");
-        } else if (horaRaw) {
-          horaDevolucionStr = String(horaRaw).trim();
-        }
-
-        if (f === hoy && 
-            equipoRegistrado === data.equipo && 
-            sedeRegistrada.toLowerCase() === (data.sede || "").toLowerCase() &&
-            ahora < horaDevolucionStr) {
+        for (let row of rows) {
+          let fechaReg = row[0];
+          if (fechaReg instanceof Date) {
+            fechaReg = Utilities.formatDate(fechaReg, zonaHoraria, "yyyy-MM-dd");
+          } else {
+            fechaReg = String(fechaReg).split("T")[0].split(" ")[0];
+          }
           
-          return ContentService.createTextOutput(JSON.stringify({
-            status: "error",
-            error: `El equipo acaba de ser reservado por otro usuario mientras completabas el formulario. Recarga la página.`,
-            ocupado: true
-          })).setMimeType(ContentService.MimeType.JSON);
+          const est = String(row[25] || "").trim().toUpperCase();
+          const eq = String(row[5] || "").trim();
+          const sed = normalizar(row[4] || "");
+
+          if (fechaReg === hoy && eq === data.equipo && sed === normalizar(data.sede || "") && est === "EN_CURSO") {
+            return ContentService.createTextOutput(JSON.stringify({
+              status: "error",
+              error: "El equipo acaba de ser reservado por otro usuario. Recarga la página.",
+              ocupado: true
+            })).setMimeType(ContentService.MimeType.JSON);
+          }
         }
       }
     }
-    sheet.appendRow([
-      data.fecha || "",
-      data.nombre || "",
-      data.cedula || "",
-      data.correo || "",
-      data.sede || "",
-      data.equipo || "",
-      data.cantidad || "",
-      data.cargador || "",
-      data.novedad || "No",
-      data.descripcion || "",
-      fotoDanoURL || "",
-      "", "", "", "", "", "", 
-      data.observacion || "",
-      firmaBase64,
-      data.detalle_equipos || "",
-      data.es_otros_equipos || "No",
-      data.rango_inicio || "",
-      data.rango_fin || "",
-      data.hora_devolucion || "16:00",
-      // NUEVAS COLUMNAS
-      idSolicitud,
-      estadoInicial,
-      horaEntrega,
-      "", // fecha_devolucion
-      "", // hora_devolucion_real
-      "", // cantidad_devuelta
-      "", // estado_final
-      "", // novedad_devolucion
-      "", // descripcion_devolucion
-      "", // firma_devolucion
-      ""  // pdf_resumen_url
-    ]);
-
-    // Anti-duplicado
+    
+    // === ANTI-DUPLICADO ===
     const cache = CacheService.getScriptCache();
     const key = (data.cedula || "") + "_" + (data.fecha || "");
     if (cache.get(key)) {
-      return ContentService.createTextOutput(JSON.stringify({status: "error", error: "Registro duplicado detectado"})).setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error", 
+        error: "Registro duplicado detectado"
+      })).setMimeType(ContentService.MimeType.JSON);
     }
     cache.put(key, "1", 60);
 
-    // PDF
+    // === PREPARAR ARRAY EXACTO (35 columnas) ===
+    // Orden según tu estructura: fecha, nombre, cedula, correo, sede, equipo, cantidad, 
+    // cargador, novedad, descripcion, foto_dano, solicita_cambio, serial_cambio, foto_cambio, 
+    // equipos_adicionales, serial_adicional, observacion, ACTA, firma, detalle_equipos, 
+    // es_otros_equipos, rango_, rango_fin, hora_devolucion, id_solicitud, estado, hora_entrega,
+    // fecha_devolucion, hora_devolucion_real, cantidad_devuelta, estado_final, novedad_devolucion,
+    // descripcion_devolucion, firma_devolucion, pdf_resumen_url
+    
+    const rowData = [
+      data.fecha || "",                    // 0 fecha
+      data.nombre || "",                   // 1 nombre
+      data.cedula || "",                   // 2 cedula
+      data.correo || "",                   // 3 correo
+      data.sede || "",                     // 4 sede
+      data.equipo || "",                   // 5 equipo
+      data.cantidad || "",                 // 6 cantidad
+      data.cargador || "",                 // 7 cargador
+      data.novedad || "No",                // 8 novedad
+      data.descripcion || "",              // 9 descripcion
+      fotoDanoURL,                         // 10 foto_dano
+      data.solicita_cambio || "",          // 11 solicita_cambio
+      data.serial_cambio || "",            // 12 serial_cambio
+      data.foto_cambio || "",              // 13 foto_cambio
+      data.equipos_adicionales || "",      // 14 equipos_adicionales
+      data.serial_adicional || "",         // 15 serial_adicional
+      data.observacion || "",              // 16 observacion
+      "",                                  // 17 acta
+      firmaBase64,                         // 18 segundo "acta" (aquí realmente estás guardando la firma)
+      data.detalle_equipos || "",          // 19 serial y placa  ← aquí realmente quedará detalle_equipos
+      data.es_otros_equipos || "No",       // 20 es_otros_equipos
+      data.rango_inicio || "",             // 21 rango_
+      data.rango_fin || "",                // 22 rango_fin
+      data.hora_devolucion || "16:00",     // 23 hora_devolucion
+      idSolicitud,                         // 24 id_solicitud
+      estadoInicial,                       // 25 estado
+      horaEntrega,                         // 26 hora_entrega
+      "",                                  // 27 fecha_devolucion
+      "",                                  // 28 hora_devolucion_real
+      "",                                  // 29 cantidad_devuelta
+      "",                                  // 30 estado_final
+      "",                                  // 31 novedad_devolucion
+      "",                                  // 32 descripcion_devolucion
+      "",                                  // 33 firma_devolucion
+      "",                                  // 34 pdf_resumen_url
+      "",                                  // 35 detalle_equipos
+      ""                                   // 36 foto_devolucion
+    ];
+    
+    Logger.log("Insertando fila con " + rowData.length + " columnas");
+    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+    sheet.appendRow(rowData);
+    
     const lastRow = sheet.getLastRow();
-    const pdfUrl = enviarPDFporCorreo(data);
+    Logger.log("Fila insertada en: " + lastRow);
 
-    if (pdfUrl) {
-      sheet.getRange(lastRow, 18).setValue(pdfUrl);
+    // === GENERAR Y GUARDAR PDF ===
+    // Preparar datos limpios para el PDF
+    const datosPDF = {
+      nombre: data.nombre || "",
+      cedula: data.cedula || "",
+      correo: data.correo || "",
+      sede: data.sede || "",
+      equipo: data.equipo || "",
+      cantidad: data.cantidad || "",
+      cargador: data.cargador || "",
+      novedad: data.novedad || "No",
+      descripcion: data.descripcion || "",
+      foto_dano: fotoDanoURL, // URL de Drive (ya procesada)
+      observacion: data.observacion || "",
+      firma: data.firma, // base64 original
+      detalle_equipos: data.detalle_equipos || "",
+      fecha: data.fecha || "",
+      solicita_cambio: data.solicita_cambio || "No",
+      serial_cambio: data.serial_cambio || "",
+      foto_cambio: data.foto_cambio || "",
+      equipos_adicionales: data.equipos_adicionales || "No"
+    };
+    
+    const pdfUrl = enviarPDFporCorreo(datosPDF);
+    Logger.log("Resultado PDF: " + pdfUrl);
+
+    // === GUARDAR URL EN COLUMNA FIJA (18) ===
+    const COLUMNA_ACTA = 19; // Columna R
+    
+    if (pdfUrl && pdfUrl.includes("drive.google.com")) {
+      sheet.getRange(lastRow, COLUMNA_ACTA).setValue(pdfUrl);
+      Logger.log("✅ PDF guardado en columna " + COLUMNA_ACTA);
+    } else {
+      Logger.log("❌ URL de PDF inválida, no se guardó en Excel");
     }
+
     // === ENVIAR CORREO DE ALERTA SI HAY NOVEDAD ===
     if (data.novedad === 'Sí' && data.descripcion) {
-      data.foto_dano = fotoDanoURL; // Pasa la URL de Drive
-      enviarCorreoNovedad(data);
+      try {
+        data.foto_dano = fotoDanoURL;
+        enviarCorreoNovedad(data);
+      } catch(e) {
+        Logger.log("Error enviando correo de novedad: " + e);
+      }
     }
+    
+    Logger.log("=== FIN doPost OK ===");
     return ContentService.createTextOutput(JSON.stringify({
       status: "ok",
       id_solicitud: idSolicitud
     })).setMimeType(ContentService.MimeType.JSON);
       
   } catch(err) {
-    console.error("Error en doPost:", err);
-    return ContentService.createTextOutput(JSON.stringify({status:"error", error: err.toString()})).setMimeType(ContentService.MimeType.JSON);
+    Logger.log("❌ ERROR CRÍTICO doPost: " + err.toString());
+    Logger.log("Stack: " + err.stack);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error", 
+      error: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
   } finally {
     lock.releaseLock();
   }
@@ -204,20 +264,46 @@ function guardarImagen(base64,nombre,folderId){
 }
 function enviarPDFporCorreo(data) {
   try {
-    // 1. Procesar imágenes: detectar si son base64 (nuevas) o URLs de Drive (guardadas)
+    Logger.log("=== INICIANDO PDF para: " + (data.nombre || "Sin nombre"));
+    
+    // Validación mínima
+    if (!data.nombre || !data.cedula) {
+      Logger.log("ERROR: Faltan datos mínimos");
+      return "";
+    }
+
+    // Función segura para procesar imágenes
     const procesarImagen = (imgData) => {
-      if (!imgData) return null;
-      // Si ya es base64 (del formulario), usar directo
-      if (imgData.startsWith('data:image')) return imgData;
-      // Si es URL de Drive, convertir a base64
-      return obtenerImagenBase64(imgData);
+      try {
+        if (!imgData) return null;
+        const str = String(imgData);
+        
+        if (str.startsWith('data:image')) {
+          return str;
+        }
+        if (str.includes('drive.google.com')) {
+          return obtenerImagenBase64(str);
+        }
+        return null;
+      } catch(e) {
+        Logger.log("Error procesando imagen: " + e);
+        return null;
+      }
     };
 
+    // Procesar imágenes con logs
+    Logger.log("Procesando imágenes...");
     const fotoDanoBase64 = procesarImagen(data.foto_dano);
     const fotoCambioBase64 = procesarImagen(data.foto_cambio);
     const firmaBase64 = procesarImagen(data.firma);
+    
+    Logger.log("Estado imágenes - Daño:" + (fotoDanoBase64 ? "OK" : "NO") + 
+                " Cambio:" + (fotoCambioBase64 ? "OK" : "NO") + 
+                " Firma:" + (firmaBase64 ? "OK" : "NO"));
 
-    // 2. Construir el HTML COMPLETO (copia todo tu HTML aquí igual)
+    // Construir HTML de forma segura
+    const safe = (str) => String(str || "").replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    
     let htmlContent = `
       <html>
         <head>
@@ -234,147 +320,146 @@ function enviarPDFporCorreo(data) {
             .label { font-weight: bold; color: #666; }
             .value { font-size: 1.1em; }
             .image-container { margin: 10px 0; page-break-inside: avoid; }
-            .signature { max-width: 300px; border: 1px solid #4ECDC4; padding: 5px; background: white; }
-            .legal-text { 
-              text-align: justify; 
-              line-height: 1.5; 
-              margin: 15px 0; 
-              font-size: 11px; 
-              border-top: 2px solid #FF6B6B;
-              border-bottom: 2px solid #FF6B6B;
-              padding: 15px;
-              background: #fafafa;
-            }
-            .legal-title {
-              color: #d32f2f;
-              font-weight: bold;
-              text-align: center;
-              margin-bottom: 10px;
-              font-size: 13px;
-            }
+            .firma-box { border: 2px solid #333; padding: 10px; display: inline-block; margin: 10px 0; background: white; }
             img { max-width: 400px; height: auto; border: 1px solid #ddd; }
             .page-break { page-break-before: always; }
-            .firma-box { 
-              border: 2px solid #333; 
-              padding: 10px; 
-              display: inline-block; 
-              margin: 10px 0;
-              background: white;
-            }
+            .legal-text { text-align: justify; line-height: 1.5; margin: 15px 0; font-size: 11px; 
+                         border-top: 2px solid #FF6B6B; border-bottom: 2px solid #FF6B6B; padding: 15px; background: #fafafa; }
+            .legal-title { color: #d32f2f; font-weight: bold; text-align: center; margin-bottom: 10px; font-size: 13px; }
           </style>
         </head>
         <body>
-          <h1>Recepción de Equipos - ${data.sede || 'N/A'}</h1>
-          <p><strong>Fecha:</strong> ${data.fecha}</p>
+          <h1>Recepción de Equipos - ${safe(data.sede)}</h1>
+          <p><strong>Fecha:</strong> ${safe(data.fecha)}</p>
           
           <h2>Información general</h2>
           <div class="info-grid">
-            <div class="info-item"><span class="label">Nombre:</span> <span class="value">${data.nombre}</span></div>
-            <div class="info-item"><span class="label">Cédula:</span> <span class="value">${data.cedula}</span></div>
-            <div class="info-item"><span class="label">Correo:</span> <span class="value">${data.correo}</span></div>
-            <div class="info-item"><span class="label">Cargador:</span> <span class="value">${data.cargador}</span></div>
+            <div class="info-item"><span class="label">Nombre:</span> <span class="value">${safe(data.nombre)}</span></div>
+            <div class="info-item"><span class="label">Cédula:</span> <span class="value">${safe(data.cedula)}</span></div>
+            <div class="info-item"><span class="label">Correo:</span> <span class="value">${safe(data.correo)}</span></div>
+            <div class="info-item"><span class="label">Cargador:</span> <span class="value">${safe(data.cargador)}</span></div>
           </div>
 
           <h2>Equipos recibidos</h2>
-          <p><strong>Carro:</strong> ${data.equipo} (${data.cantidad} unidades)</p>
+          <p><strong>Equipo:</strong> ${safe(data.equipo)} (${safe(data.cantidad)} unidades)</p>
     `;
 
     // Tabla de equipos
     if (data.detalle_equipos) {
       htmlContent += `<table><thead><tr><th>#</th><th>Detalle</th></tr></thead><tbody>`;
-      const lineas = data.detalle_equipos.split('\n');
+      const lineas = String(data.detalle_equipos).split('\n');
       lineas.forEach((linea, idx) => {
-        if(linea.trim()) htmlContent += `<tr><td>${idx+1}</td><td>${linea}</td></tr>`;
+        if(linea.trim()) htmlContent += `<tr><td>${idx+1}</td><td>${safe(linea)}</td></tr>`;
       });
       htmlContent += `</tbody></table>`;
     }
 
-    // Novedad
+    // Novedad (solo si existe imagen)
     if (data.novedad === 'Sí') {
-      htmlContent += `<h2 style="color: #FF6B6B;">Novedad reportada</h2><p><strong>Descripción:</strong> ${data.descripcion || 'Sin descripción'}</p>`;
+      htmlContent += `<h2 style="color: #FF6B6B;">Novedad reportada</h2>
+                      <p><strong>Descripción:</strong> ${safe(data.descripcion)}</p>`;
       if (fotoDanoBase64) {
-        htmlContent += `<div class="image-container"><p><strong>Foto del daño:</strong></p><img src="${fotoDanoBase64}"></div>`;
+        htmlContent += `<div class="image-container"><p><strong>Foto del daño:</strong></p>
+                        <img src="${fotoDanoBase64}"></div>`;
       }
     }
 
     // Cambio
     if (data.solicita_cambio === 'Sí') {
-      htmlContent += `<h2 style="color: #4ECDC4;">Cambio solicitado</h2><p><strong>Serial/Placa:</strong> ${data.serial_cambio || 'No especificado'}</p>`;
+      htmlContent += `<h2 style="color: #4ECDC4;">Cambio solicitado</h2>
+                      <p><strong>Serial/Placa:</strong> ${safe(data.serial_cambio)}</p>`;
       if (fotoCambioBase64) {
-        htmlContent += `<div class="image-container"><p><strong>Foto del cambio:</strong></p><img src="${fotoCambioBase64}"></div>`;
+        htmlContent += `<div class="image-container"><p><strong>Foto del cambio:</strong></p>
+                        <img src="${fotoCambioBase64}"></div>`;
       }
     }
 
     // Adicionales
     if (data.equipos_adicionales === 'Sí') {
-      htmlContent += `<h2 style="color: #FFD93D;">Equipos adicionales (${data.cant_adicional})</h2><p><strong>Seriales:</strong> ${data.serial_adicional || 'N/A'}</p><p><strong>Obs:</strong> ${data.observacion || 'N/A'}</p>`;
+      htmlContent += `<h2 style="color: #FFD93D;">Equipos adicionales</h2>
+                      <p><strong>Obs:</strong> ${safe(data.observacion)}</p>`;
     }
 
-    // FIRMA EN PRIMERA PÁGINA
+    // Firma primera página
     htmlContent += `<h2>Firma de responsabilidad</h2>`;
     if (firmaBase64) {
-      htmlContent += `<div class="image-container"><div class="firma-box"><img src="${firmaBase64}" style="max-width: 300px; max-height: 100px;"></div></div>`;
+      htmlContent += `<div class="image-container"><div class="firma-box">
+                      <img src="${firmaBase64}" style="max-width: 300px; max-height: 100px;"></div></div>`;
     } else {
       htmlContent += `<p><em>No se registró firma digital.</em></p>`;
     }
 
-    // PÁGINA DEL TEXTO LEGAL
+    // Página legal
     htmlContent += `
         <div class="page-break"></div>
-        
         <div class="legal-text">
           <div class="legal-title">AUTORIZACIÓN DE DESCUENTOS</div>
-          
-          <p>Yo, <strong>${data.nombre}</strong> identificado con cédula de ciudadanía No. <strong>${data.cedula}</strong> de Bogotá. En mi calidad de TRABAJADOR, autorizo expresamente a mi empleador, <strong>COLEGIOS COLOMBIANOS S.A.S.</strong>, para que descuente de mi Salario, primas, cesantías, auxilios legales y extralegales, bonificaciones, indemnizaciones y liquidaciones, el valor de (los) elementos, equipos y/o herramientas de trabajo que me fueron entregados mediante acta suscrita en fecha <strong>${data.fecha}</strong> en caso de pérdida, hurto o daños por descuido, negligencia y/o impericia que por mi culpa o dolo se generen a los mismos.</p>
-          
-          <p>De igual manera AUTORIZO a mi empleador, COLEGIOS COLOMBIANOS S.A.S a que los descuentos aquí permitidos se realicen por el valor total de los elementos, equipo y/o herramientas o en caso de ser requerido mediante cuotas fijas a mi salario incluyendo primas, cesantías, auxilios legales y extralegales o bonificaciones. En caso de retiro definitivo, AUTORIZO a mi empleador, COLEGIOS COLOMBIANOS S.A.S., descontar de mi liquidación final, el valor total o faltante por pagar de los elementos, equipo y/o herramientas de trabajo en caso de pérdida, hurto o daños a mi atribuibles.</p>
-          
-          <p>La deducción autorizada se realiza en los términos establecidos en el Artículo 149 del Código Sustantivo del Trabajo.</p>
-          
-          <p><strong>Nota:</strong> Un original del presente documento reposará en la carpeta del trabajador, en la Gerencia de GDH.</p>
+          <p>Yo, <strong>${safe(data.nombre)}</strong> identificado con cédula No. <strong>${safe(data.cedula)}</strong> de Bogotá. 
+          En mi calidad de TRABAJADOR, autorizo expresamente a mi empleador, <strong>COLEGIOS COLOMBIANOS S.A.S.</strong>, 
+          para que descuente de mi Salario, primas, cesantías, auxilios legales y extralegales, bonificaciones, 
+          indemnizaciones y liquidaciones, el valor de los elementos entregados en fecha <strong>${safe(data.fecha)}</strong> 
+          en caso de pérdida, hurto o daños por descuido.</p>
           
           <div style="margin-top: 40px; text-align: center;">
             <p style="margin-bottom: 10px; font-weight: bold;">Firma del trabajador:</p>
             ${firmaBase64 ? 
               `<div class="firma-box"><img src="${firmaBase64}" style="max-width: 280px; max-height: 120px;"></div>` : 
-              '<div style="border-top: 1px solid #333; width: 300px; margin: 0 auto; padding-top: 50px;">Firma y huella</div>'
-            }
-            <p style="margin-top: 15px; font-size: 11px; font-weight: bold;">${data.nombre}<br>C.C. ${data.cedula}</p>
+              '<div style="border-top: 1px solid #333; width: 300px; margin: 0 auto; padding-top: 50px;">Firma y huella</div>'}
+            <p style="margin-top: 15px; font-size: 11px; font-weight: bold;">${safe(data.nombre)}<br>C.C. ${safe(data.cedula)}</p>
           </div>
         </div>
         
-        <div style="margin-top: 30px; font-size: 9px; color: #666; text-align: center; border-top: 1px solid #ccc; padding-top: 10px;">
-          Documento generado el ${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss")} | Sistema de Recepción de Equipos
+        <div style="margin-top: 30px; font-size: 9px; color: #666; text-align: center;">
+          Documento generado: ${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss")}
         </div>
         </body>
       </html>
     `;
 
     // Crear PDF
-    const tempFile = DriveApp.createFile('temp_reporte.html', htmlContent, 'text/html');
-    const pdfBlob = tempFile.getAs('application/pdf').setName(`Acta_${data.nombre}_${data.fecha}.pdf`);
+    Logger.log("Creando archivo temporal...");
+    const tempFile = DriveApp.createFile('temp_' + Date.now() + '.html', htmlContent, 'text/html');
     
-    // ⬇️⬇️⬇️ NUEVO: Guardar en Drive
+    Logger.log("Convirtiendo a PDF...");
+    const pdfBlob = tempFile.getAs('application/pdf').setName(`Acta_${safe(data.nombre)}_${safe(data.fecha)}.pdf`);
+    
+    // Guardar en Drive
+    Logger.log("Guardando en Drive...");
     const folder = DriveApp.getFolderById(FOLDER_PDF);
     const pdfFile = folder.createFile(pdfBlob);
     const pdfUrl = pdfFile.getUrl();
-    // ⬆️⬆️⬆️ FIN NUEVO
+    Logger.log("PDF subido: " + pdfUrl);
     
-    // Enviar correo (igual que antes)
+    // Enviar correos (usuario + fijo)
+    const destinatarios = [];
+    if (data.correo && String(data.correo).includes('@')) {
+      destinatarios.push(data.correo);
+    }
+    destinatarios.push("prac.it@innovaschools.edu.co");
+    
+    Logger.log("Enviando correo a: " + destinatarios.join(", "));
+    
     GmailApp.sendEmail(
-      "prac.it@innovaschools.edu.co",
-      `Nuevo Registro - ${data.nombre} - ${data.fecha}`,
-      `Adjunto PDF de recepción de equipos. También disponible en: ${pdfUrl}`,
-      { attachments: [pdfBlob] }
+      destinatarios.join(","),
+      `RECEPCION | ${safe(data.nombre)} | ${safe(data.cedula)} | ${new Date().getTime()}`,
+      `Adjunto PDF de recepción de equipos.\nVer en Drive: ${pdfUrl}`,
+      { 
+        attachments: [pdfBlob],
+        name: "Sistema de Recepción de Equipos"
+      }
     );
-
+    
+    Logger.log("Correo enviado exitosamente");
+    
+    // Limpiar
     tempFile.setTrashed(true);
     
-    return pdfUrl; // ⬅️ Retorna el link para guardar en el Excel
+    return pdfUrl;
     
   } catch (error) {
-    Logger.log("Error: " + error.toString());
-    return null;
+    Logger.log("❌ ERROR en enviarPDFporCorreo: " + error.toString());
+    Logger.log("Stack: " + error.stack);
+    return ""; // Nunca retornar null
   }
 }
 /**
@@ -504,81 +589,85 @@ if (action === "ocupados") {
     .setMimeType(ContentService.MimeType.JSON);
 }
 if (action === 'verificarDisponibilidad') {
-    try {
-      const carro = e.parameter.carro;
-      const fecha = e.parameter.fecha || new Date().toISOString().split('T')[0];
-      const sedeParam = e.parameter.sede || '';
+  try {
+    const carro = String(e.parameter.carro || "").trim();
+    const fecha = String(e.parameter.fecha || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd")).trim();
+    const sedeParam = String(e.parameter.sede || "").trim();
 
-      if (!carro) {
-        return ContentService.createTextOutput(JSON.stringify({ocupado: false}))
-          .setMimeType(ContentService.MimeType.JSON);
-      }
-
-      const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
-      const data = sheet.getDataRange().getValues();
-      data.shift(); // Quitar headers
-
-      const ahora = new Date();
-      const zonaHoraria = Session.getScriptTimeZone();
-      const horaActualStr = Utilities.formatDate(ahora, zonaHoraria, "HH:mm");
-
-      console.log("==== VERIFICANDO DISPONIBILIDAD ====");
-      console.log(`Carro: ${carro} | Sede: ${sedeParam} | Fecha: ${fecha} | Hora actual: ${horaActualStr}`);
-
-      for (let row of data) {
-        if (row.length < 24) continue;
-
-        // Fecha del registro
-        let fechaRegistro;
-        if (row[0] instanceof Date) {
-          fechaRegistro = Utilities.formatDate(row[0], zonaHoraria, "yyyy-MM-dd");
-        } else {
-          fechaRegistro = String(row[0]).split('T')[0].split(' ')[0];
-        }
-
-        // COLUMNAS CORRECTAS
-        const sedeRegistrada = String(row[4] || "").trim();
-        const equipoRegistrado = String(row[5] || "").trim();
-
-        // === AQUÍ ESTÁ EL FIX IMPORTANTE ===
-        let horaDevolucionStr = "16:00";
-        const horaRaw = row[23];
-
-        if (horaRaw instanceof Date) {
-          horaDevolucionStr = Utilities.formatDate(horaRaw, zonaHoraria, "HH:mm");
-        } else if (horaRaw) {
-          horaDevolucionStr = String(horaRaw).trim();
-        }
-
-        if (fechaRegistro === fecha &&
-            equipoRegistrado === carro &&
-            sedeRegistrada.toLowerCase() === sedeParam.toLowerCase()) {
-
-          console.log(`Registro encontrado → ${equipoRegistrado} en ${sedeRegistrada} hasta ${horaDevolucionStr}`);
-
-          if (horaActualStr < horaDevolucionStr) {
-            console.log(`🔴 OCUPADO`);
-            return ContentService.createTextOutput(JSON.stringify({
-              ocupado: true,
-              hora_devolucion: horaDevolucionStr,   // ← Ahora siempre es "HH:mm"
-              usuario: row[1] || 'Usuario desconocido'
-            })).setMimeType(ContentService.MimeType.JSON);
-          } else {
-            console.log(`🟢 Ya pasó la hora`);
-          }
-        }
-      }
-
-      console.log(`🟢 DISPONIBLE`);
-      return ContentService.createTextOutput(JSON.stringify({ocupado: false}))
-        .setMimeType(ContentService.MimeType.JSON);
-
-    } catch(err) {
-      console.error("Error en verificarDisponibilidad:", err);
-      return ContentService.createTextOutput(JSON.stringify({ocupado: false, error: err.toString()}))
+    if (!carro) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ocupado: false }))
         .setMimeType(ContentService.MimeType.JSON);
     }
+
+    const sheet = getMainSheet();
+    const colMap = getColumnMap(sheet);
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+
+    if (lastRow <= 1) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ocupado: false }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    const zonaHoraria = Session.getScriptTimeZone();
+    const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    const normalizar = (txt) =>
+      String(txt || "")
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+
+    for (let row of rows) {
+      const r = getRowDataObject(row, colMap);
+
+      let fechaRegistro = r.fecha || "";
+      if (fechaRegistro instanceof Date) {
+        fechaRegistro = Utilities.formatDate(fechaRegistro, zonaHoraria, "yyyy-MM-dd");
+      } else {
+        fechaRegistro = String(fechaRegistro).split("T")[0].split(" ")[0];
+      }
+
+      const equipoRegistrado = String(r.equipo || "").trim();
+      const sedeRegistrada = normalizar(r.sede || "");
+      const estadoRegistro = String(r.estado || "").trim().toUpperCase();
+
+      Logger.log(
+        `CHECK DISPONIBILIDAD => fecha:${fechaRegistro} | sede:${sedeRegistrada} | carro:${equipoRegistrado} | estado:${estadoRegistro}`
+      );
+
+      if (
+        fechaRegistro === fecha &&
+        equipoRegistrado === carro &&
+        sedeRegistrada === normalizar(sedeParam) &&
+        estadoRegistro === "EN_CURSO"
+      ) {
+        return ContentService
+          .createTextOutput(JSON.stringify({
+            ocupado: true,
+            usuario: r.nombre || "Usuario desconocido",
+            id_solicitud: r.id_solicitud || ""
+          }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    return ContentService
+      .createTextOutput(JSON.stringify({ ocupado: false }))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        ocupado: false,
+        error: err.toString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
+}
   
   // === CASO 1: Enviar código de verificación ===
   if (action === 'sendVerifyCode') {
@@ -692,7 +781,8 @@ if (action === 'verificarDisponibilidad') {
       novedad_devolucion: row[31] || "",
       descripcion_devolucion: row[32] || "",
       firma_devolucion: row[33] || "",
-      pdf_resumen_url: row[34] || ""
+      pdf_resumen_url: row[34] || "",
+      foto_devolucion: row[36] || ""
     }));
     return ContentService
       .createTextOutput(JSON.stringify(registros))
@@ -750,38 +840,38 @@ function enviarCodigoVerificacion(email, code) {
   }
 }
 function getCarrosDisponibles() {
-  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
-  const data = sheet.getDataRange().getValues();
-  data.shift();
+  const sheet = getMainSheet();
+  const colMap = getColumnMap(sheet);
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
 
-  const ahora = new Date();
+  if (lastRow <= 1) return [];
+
+  const zonaHoraria = Session.getScriptTimeZone();
+  const fechaHoy = Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd");
+  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
   const ocupados = [];
 
-  data.forEach(row => {
-    const equipo = row[5]; // CORREGIDO
-    const horaDevolucion = row[23]; // CORREGIDO
+  rows.forEach(row => {
+    const r = getRowDataObject(row, colMap);
 
-    if (!horaDevolucion || !equipo) return;
-
-    let horaTexto = "";
-    if (horaDevolucion instanceof Date) {
-      horaTexto = Utilities.formatDate(horaDevolucion, Session.getScriptTimeZone(), "HH:mm");
+    let fechaRegistro = r.fecha || "";
+    if (fechaRegistro instanceof Date) {
+      fechaRegistro = Utilities.formatDate(fechaRegistro, zonaHoraria, "yyyy-MM-dd");
     } else {
-      horaTexto = String(horaDevolucion).trim();
+      fechaRegistro = String(fechaRegistro).split("T")[0].split(" ")[0];
     }
 
-    if (!horaTexto.includes(":")) return;
+    const equipo = String(r.equipo || "").trim();
+    const estado = String(r.estado || "").trim().toUpperCase();
 
-    const [hora, minuto] = horaTexto.split(":");
-    const fecha = new Date();
-    fecha.setHours(Number(hora), Number(minuto), 0, 0);
-
-    if (ahora < fecha) {
+    if (fechaRegistro === fechaHoy && estado === "EN_CURSO" && equipo) {
       ocupados.push(equipo);
     }
   });
 
-  return ocupados;
+  return [...new Set(ocupados)];
 }
 function enviarCorreoNovedad(data) {
   const asunto = `⚠️ NOVEDAD EQUIPO - ${data.nombre} (${data.sede})`;
@@ -898,6 +988,7 @@ function getColumnMap(sheet) {
   map.descripcion_devolucion = buscarColumna("descripcion_devolucion");
   map.firma_devolucion = buscarColumna("firma_devolucion");
   map.pdf_resumen_url = buscarColumna("pdf_resumen_url");
+  map.foto_devolucion = buscarColumna("foto_devolucion");
 
   Logger.log("MAP COLUMNAS: " + JSON.stringify(map));
   return map;
@@ -918,10 +1009,7 @@ function cerrarSolicitud(data) {
 
     if (!data.id_solicitud) {
       return ContentService
-        .createTextOutput(JSON.stringify({
-          status: "error",
-          error: "Falta id_solicitud"
-        }))
+        .createTextOutput(JSON.stringify({ status: "error", error: "Falta id_solicitud" }))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -930,10 +1018,7 @@ function cerrarSolicitud(data) {
 
     if (lastRow <= 1) {
       return ContentService
-        .createTextOutput(JSON.stringify({
-          status: "error",
-          error: "No hay registros para cerrar"
-        }))
+        .createTextOutput(JSON.stringify({ status: "error", error: "No hay registros" }))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -944,9 +1029,8 @@ function cerrarSolicitud(data) {
 
     for (let i = 0; i < rows.length; i++) {
       const rowObj = getRowDataObject(rows[i], colMap);
-
       if (String(rowObj.id_solicitud || "").trim() === String(data.id_solicitud).trim()) {
-        targetRowNumber = i + 2; // porque empieza en fila 2
+        targetRowNumber = i + 2;
         targetRow = rowObj;
         break;
       }
@@ -954,19 +1038,13 @@ function cerrarSolicitud(data) {
 
     if (targetRowNumber === -1) {
       return ContentService
-        .createTextOutput(JSON.stringify({
-          status: "error",
-          error: "No se encontró la solicitud"
-        }))
+        .createTextOutput(JSON.stringify({ status: "error", error: "No se encontró la solicitud" }))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
     if (String(targetRow.estado || "").trim().toUpperCase() === "CERRADO") {
       return ContentService
-        .createTextOutput(JSON.stringify({
-          status: "error",
-          error: "La solicitud ya está cerrada"
-        }))
+        .createTextOutput(JSON.stringify({ status: "error", error: "La solicitud ya está cerrada" }))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -975,53 +1053,55 @@ function cerrarSolicitud(data) {
     const fechaDevolucion = Utilities.formatDate(ahora, zonaHoraria, "yyyy-MM-dd");
     const horaDevolucionReal = Utilities.formatDate(ahora, zonaHoraria, "HH:mm");
 
-    const cantidadDevuelta = data.cantidad_devuelta || "";
-    const estadoFinal = data.estado_final || "";
-    const novedadDevolucion = data.novedad_devolucion || "No";
-    const descripcionDevolucion = data.descripcion_devolucion || "";
-    const firmaDevolucion = data.firma_devolucion || "";
+    // === GUARDAR FOTO EN DRIVE SI HAY NOVEDAD ===
+    let fotoDevolucionURL = "";
+    const novedadDev = String(data.novedad_devolucion || "").trim().toUpperCase();
 
-    // Actualizar SOLO esa fila
-    if (colMap.fecha_devolucion) {
-      sheet.getRange(targetRowNumber, colMap.fecha_devolucion).setValue(fechaDevolucion);
-    }
-    if (colMap.hora_devolucion_real) {
-      sheet.getRange(targetRowNumber, colMap.hora_devolucion_real).setValue(horaDevolucionReal);
-    }
-    if (colMap.cantidad_devuelta) {
-      sheet.getRange(targetRowNumber, colMap.cantidad_devuelta).setValue(cantidadDevuelta);
-    }
-    if (colMap.estado_final) {
-      sheet.getRange(targetRowNumber, colMap.estado_final).setValue(estadoFinal);
-    }
-    if (colMap.novedad_devolucion) {
-      sheet.getRange(targetRowNumber, colMap.novedad_devolucion).setValue(novedadDevolucion);
-    }
-    if (colMap.descripcion_devolucion) {
-      sheet.getRange(targetRowNumber, colMap.descripcion_devolucion).setValue(descripcionDevolucion);
-    }
-    if (colMap.firma_devolucion) {
-      sheet.getRange(targetRowNumber, colMap.firma_devolucion).setValue(firmaDevolucion);
-    }
-    if (colMap.estado) {
-      sheet.getRange(targetRowNumber, colMap.estado).setValue("CERRADO");
+    Logger.log("=== CIERRE SOLICITUD ===");
+    Logger.log("ID solicitud: " + data.id_solicitud);
+    Logger.log("Novedad devolución: " + data.novedad_devolucion);
+    Logger.log("Trae foto devolución: " + !!data.foto_devolucion);
+
+    if ((novedadDev === "SÍ" || novedadDev === "SI") &&
+        data.foto_devolucion &&
+        String(data.foto_devolucion).startsWith("data:image")) {
+      try {
+        fotoDevolucionURL = guardarImagen(
+          data.foto_devolucion,
+          "devolucion_" + data.id_solicitud,
+          FOLDER_FOTO_DEVOLUCION
+        );
+        Logger.log("✅ Foto devolución guardada: " + fotoDevolucionURL);
+      } catch (imgErr) {
+        Logger.log("❌ Error guardando foto devolución: " + imgErr);
+      }
+    } else {
+      Logger.log("⚠️ No se guardó foto devolución. Condición no cumplida.");
     }
 
-    // Refrescar fila actualizada
+    // Actualizar campos
+    if (colMap.fecha_devolucion) sheet.getRange(targetRowNumber, colMap.fecha_devolucion).setValue(fechaDevolucion);
+    if (colMap.hora_devolucion_real) sheet.getRange(targetRowNumber, colMap.hora_devolucion_real).setValue(horaDevolucionReal);
+    if (colMap.cantidad_devuelta) sheet.getRange(targetRowNumber, colMap.cantidad_devuelta).setValue(data.cantidad_devuelta || "");
+    if (colMap.estado_final) sheet.getRange(targetRowNumber, colMap.estado_final).setValue(data.estado_final || "");
+    if (colMap.novedad_devolucion) sheet.getRange(targetRowNumber, colMap.novedad_devolucion).setValue(data.novedad_devolucion || "No");
+    if (colMap.descripcion_devolucion) sheet.getRange(targetRowNumber, colMap.descripcion_devolucion).setValue(data.descripcion_devolucion || "");
+    if (colMap.firma_devolucion) sheet.getRange(targetRowNumber, colMap.firma_devolucion).setValue(data.firma_devolucion || "");
+    if (colMap.foto_devolucion) sheet.getRange(targetRowNumber, colMap.foto_devolucion).setValue(fotoDevolucionURL);
+    if (colMap.estado) sheet.getRange(targetRowNumber, colMap.estado).setValue("CERRADO");
+
+    // Refrescar fila
     const updatedRow = sheet.getRange(targetRowNumber, 1, 1, lastCol).getValues()[0];
     const updatedObj = getRowDataObject(updatedRow, colMap);
 
-    // Generar PDF final
+    // PDF
     const pdfResumenUrl = generarPdfResumenFinal(updatedObj);
+    if (colMap.pdf_resumen_url) sheet.getRange(targetRowNumber, colMap.pdf_resumen_url).setValue(pdfResumenUrl || "");
 
-    if (colMap.pdf_resumen_url) {
-      sheet.getRange(targetRowNumber, colMap.pdf_resumen_url).setValue(pdfResumenUrl || "");
-    }
-    // Enviar correo al usuario
-    // Enviar correo al usuario
+    // Correo
     try {
       if (updatedObj.correo) {
-        MailApp.sendEmail({
+        GmailApp.sendEmail({
           to: String(updatedObj.correo).trim(),
           subject: "Devolución de equipo registrada",
           htmlBody: `
@@ -1029,58 +1109,58 @@ function cerrarSolicitud(data) {
             <p><strong>Nombre:</strong> ${updatedObj.nombre || ""}</p>
             <p><strong>Sede:</strong> ${updatedObj.sede || ""}</p>
             <p><strong>Equipo:</strong> ${updatedObj.equipo || ""}</p>
-            <p><strong>Cantidad devuelta:</strong> ${cantidadDevuelta}</p>
-            <p><strong>Estado final:</strong> ${estadoFinal}</p>
+            <p><strong>Cantidad devuelta:</strong> ${data.cantidad_devuelta || ""}</p>
+            <p><strong>Estado final:</strong> ${data.estado_final || ""}</p>
             <p><strong>Fecha devolución:</strong> ${fechaDevolucion}</p>
             <p><strong>Hora devolución:</strong> ${horaDevolucionReal}</p>
-            ${
-              pdfResumenUrl
-                ? `<p><a href="${pdfResumenUrl}">Ver acta final PDF</a></p>`
-                : ""
-            }
-            <hr>
-            <p>Sistema de recepción de equipos</p>
+            ${fotoDevolucionURL ? '<p><a href="' + fotoDevolucionURL + '">Ver foto de la novedad</a></p>' : ""}
+            ${pdfResumenUrl ? '<p><a href="' + pdfResumenUrl + '">Ver acta final PDF</a></p>' : ""}
+            <hr><p>Sistema de recepción de equipos</p>
           `
         });
-
         Logger.log("Correo devolución enviado a: " + updatedObj.correo);
-      } else {
-        Logger.log("No se envió correo porque updatedObj.correo está vacío");
       }
     } catch (mailError) {
-      Logger.log("Error enviando correo de devolución: " + mailError);
+      Logger.log("Error enviando correo: " + mailError);
     }
+
     return ContentService
-      .createTextOutput(JSON.stringify({
-        status: "ok",
-        message: "Solicitud cerrada correctamente",
-        pdf_resumen_url: pdfResumenUrl || ""
-      }))
+      .createTextOutput(JSON.stringify({ status: "ok", message: "Solicitud cerrada correctamente", pdf_resumen_url: pdfResumenUrl || "" }))
       .setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
     return ContentService
-      .createTextOutput(JSON.stringify({
-        status: "error",
-        error: err.toString()
-      }))
+      .createTextOutput(JSON.stringify({ status: "error", error: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
 function generarPdfResumenFinal(data) {
   try {
-    const folder = DriveApp.getFolderById(FOLDER_PDF);
+    const folder = DriveApp.getFolderById(FOLDER_PDF_DEVOLUCION);
 
-    const fechaEntrega = data.fecha || "";
-    const horaEntrega = data.hora_entrega || "";
-    const fechaDev = data.fecha_devolucion || "";
-    const horaDev = data.hora_devolucion_real || "";
+    const fechaEntregaRaw = data.fecha || "";
+    const horaEntregaRaw = data.hora_entrega || "";
+    const fechaDevRaw = data.fecha_devolucion || "";
+    const horaDevRaw = data.hora_devolucion_real || "";
+    const horaMaxRaw = data.hora_devolucion || "";
+
+    const fechaEntrega = formatearFechaPdf(fechaEntregaRaw);
+    const horaEntrega = formatearHoraPdf(horaEntregaRaw);
+    const fechaDev = formatearFechaPdf(fechaDevRaw);
+    const horaDev = formatearHoraPdf(horaDevRaw);
+    const horaMax = formatearHoraPdf(horaMaxRaw);
 
     const conclusion = construirConclusionAutomatica(data);
-    const tiempoUso = calcularTiempoUsoTexto(fechaEntrega, horaEntrega, fechaDev, horaDev);
+    const tiempoUso = calcularTiempoUsoTexto(
+      normalizarFechaTexto(fechaEntregaRaw),
+      formatearHoraPdf(horaEntregaRaw),
+      normalizarFechaTexto(fechaDevRaw),
+      formatearHoraPdf(horaDevRaw)
+    );
 
     const firmaEntrega = data.firma ? procesarImagenPdf(data.firma) : null;
     const firmaDevolucion = data.firma_devolucion ? procesarImagenPdf(data.firma_devolucion) : null;
+    const fotoDevolucion = data.foto_devolucion ? procesarImagenPdf(data.foto_devolucion) : null;
 
     let html = `
       <html>
@@ -1095,10 +1175,13 @@ function generarPdfResumenFinal(data) {
           th { background: #f3f4f6; }
           .box { background: #f8fafc; border: 1px solid #e5e7eb; padding: 12px; border-radius: 8px; margin: 10px 0; }
           .firma { border: 1px solid #cbd5e1; padding: 10px; display: inline-block; background: white; }
-          img { max-width: 280px; max-height: 100px; }
+          img.firma-img { max-width: 280px; max-height: 100px; }
+          img.foto-evidencia { max-width: 400px; max-height: 300px; border: 1px solid #ddd; border-radius: 4px; }
           .ok { color: #15803d; font-weight: bold; }
           .warn { color: #b45309; font-weight: bold; }
           .bad { color: #b91c1c; font-weight: bold; }
+          .novedad-box { background: #fef2f2; border: 1px solid #fca5a5; padding: 12px; border-radius: 8px; margin: 10px 0; }
+          .novedad-title { color: #b91c1c; font-weight: bold; font-size: 13px; margin-bottom: 8px; }
         </style>
       </head>
       <body>
@@ -1120,7 +1203,7 @@ function generarPdfResumenFinal(data) {
         <table>
           <tr><th>Fecha entrega</th><td>${fechaEntrega}</td></tr>
           <tr><th>Hora entrega</th><td>${horaEntrega}</td></tr>
-          <tr><th>Hora máxima pactada</th><td>${data.hora_devolucion || ""}</td></tr>
+          <tr><th>Hora máxima pactada</th><td>${horaMax}</td></tr>
           <tr><th>Detalle equipos</th><td>${(data.detalle_equipos || "").toString().replace(/\n/g, "<br>")}</td></tr>
         </table>
 
@@ -1130,24 +1213,46 @@ function generarPdfResumenFinal(data) {
           <tr><th>Hora devolución real</th><td>${horaDev}</td></tr>
           <tr><th>Estado final</th><td>${data.estado_final || ""}</td></tr>
           <tr><th>Novedad devolución</th><td>${data.novedad_devolucion || "No"}</td></tr>
-          <tr><th>Descripción devolución</th><td>${data.descripcion_devolucion || ""}</td></tr>
+          <tr><th>Descripción devolución</th><td>${data.descripcion_devolucion || "Sin novedad"}</td></tr>
         </table>
 
         <h2>Tiempo de uso</h2>
         <div class="box">${tiempoUso}</div>
 
         <h2>Conclusión automática</h2>
-        <div class="box">${conclusion}</div>
+        <div class="box">${conclusion}</div>`;
 
+    // === SECCIÓN NOVEDAD CON FOTO ===
+    if ((data.novedad_devolucion || "").toUpperCase() === "SÍ" || (data.novedad_devolucion || "").toUpperCase() === "SI") {
+      html += `
+        <h2 style="color: #b91c1c;">Novedad en la devolución</h2>
+        <div class="novedad-box">
+          <div class="novedad-title">⚠️ NOVEDAD REPORTADA AL DEVOLVER</div>
+          <p><strong>Descripción:</strong> ${data.descripcion_devolucion || "Sin descripción"}</p>`;
+
+      if (fotoDevolucion) {
+        html += `
+          <p style="margin-top: 10px;"><strong>Evidencia fotográfica:</strong></p>
+          <div style="margin-top: 8px;">
+            <img class="foto-evidencia" src="${fotoDevolucion}">
+          </div>
+          <p style="margin-top: 6px; font-size: 10px; color: #666;">Ver en Drive: ${data.foto_devolucion || ""}</p>`;
+      } else if (data.foto_devolucion && data.foto_devolucion.includes("drive.google.com")) {
+        html += `<p style="margin-top: 10px;"><strong>Evidencia:</strong> <a href="${data.foto_devolucion}">Ver foto en Drive</a></p>`;
+      } else {
+        html += `<p style="margin-top: 10px; color: #b91c1c; font-style: italic;">No se adjuntó evidencia fotográfica.</p>`;
+      }
+
+      html += `</div>`;
+    }
+
+    html += `
         <h2>Firmas</h2>
         <table>
+          <tr><th>Firma entrega</th><th>Firma devolución</th></tr>
           <tr>
-            <th>Firma entrega</th>
-            <th>Firma devolución</th>
-          </tr>
-          <tr>
-            <td>${firmaEntrega ? `<div class="firma"><img src="${firmaEntrega}"></div>` : "Sin firma"}</td>
-            <td>${firmaDevolucion ? `<div class="firma"><img src="${firmaDevolucion}"></div>` : "Sin firma"}</td>
+            <td>${firmaEntrega ? '<div class="firma"><img class="firma-img" src="' + firmaEntrega + '"></div>' : "Sin firma"}</td>
+            <td>${firmaDevolucion ? '<div class="firma"><img class="firma-img" src="' + firmaDevolucion + '"></div>' : "Sin firma"}</td>
           </tr>
         </table>
 
@@ -1155,20 +1260,40 @@ function generarPdfResumenFinal(data) {
           Documento generado automáticamente el ${Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss")}
         </p>
       </body>
-      </html>
-    `;
+      </html>`;
 
-    const tempFile = DriveApp.createFile(
-      `temp_resumen_${data.id_solicitud}.html`,
-      html,
-      MimeType.HTML
-    );
-
-    const pdfBlob = tempFile.getAs(MimeType.PDF).setName(`Resumen_${data.id_solicitud}.pdf`);
+    const tempFile = DriveApp.createFile('temp_resumen_' + data.id_solicitud + '.html', html, MimeType.HTML);
+    const pdfBlob = tempFile.getAs(MimeType.PDF).setName('Resumen_' + data.id_solicitud + '.pdf');
     const pdfFile = folder.createFile(pdfBlob);
     const pdfUrl = pdfFile.getUrl();
-
     tempFile.setTrashed(true);
+
+    const destinatarios = ["prac.it@innovaschools.edu.co"];
+    if (data.correo && String(data.correo).trim() !== "") {
+      destinatarios.push(String(data.correo).trim());
+    }
+
+    GmailApp.sendEmail(
+      destinatarios.join(","),
+      'DEVOLUCION | ' + (data.nombre || "Usuario") + ' | ' + (data.id_solicitud || "") + ' | ' + new Date().getTime(),
+      'Se adjunta el PDF final de devolución.\n\nVer en Drive: ' + pdfUrl,
+      {
+        attachments: [pdfBlob],
+        htmlBody: `
+          <h2>Acta final de devolución</h2>
+          <p><strong>Nombre:</strong> ${data.nombre || ""}</p>
+          <p><strong>Sede:</strong> ${data.sede || ""}</p>
+          <p><strong>Equipo:</strong> ${data.equipo || ""}</p>
+          <p><strong>Cantidad devuelta:</strong> ${data.cantidad_devuelta || ""}</p>
+          <p><strong>Estado final:</strong> ${data.estado_final || ""}</p>
+          <p><strong>Fecha devolución:</strong> ${fechaDev}</p>
+          <p><strong>Hora devolución:</strong> ${horaDev}</p>
+          ${data.foto_devolucion ? '<p><a href="' + data.foto_devolucion + '">Ver foto de novedad</a></p>' : ''}
+          <p><a href="${pdfUrl}">Ver PDF en Drive</a></p>
+          <hr><p>Sistema de recepción de equipos</p>
+        `
+      }
+    );
 
     return pdfUrl;
 
@@ -1186,15 +1311,25 @@ function procesarImagenPdf(imgData) {
 
 function calcularTiempoUsoTexto(fechaEntrega, horaEntrega, fechaDev, horaDev) {
   try {
-    if (!fechaEntrega || !horaEntrega || !fechaDev || !horaDev) {
+    const fechaEntregaLimpia = normalizarFechaTexto(fechaEntrega);
+    const fechaDevLimpia = normalizarFechaTexto(fechaDev);
+    const horaEntregaLimpia = formatearHoraPdf(horaEntrega);
+    const horaDevLimpia = formatearHoraPdf(horaDev);
+
+    if (!fechaEntregaLimpia || !horaEntregaLimpia || !fechaDevLimpia || !horaDevLimpia) {
       return "No fue posible calcular el tiempo de uso.";
     }
 
-    const inicio = new Date(`${fechaEntrega}T${horaEntrega}:00`);
-    const fin = new Date(`${fechaDev}T${horaDev}:00`);
+    const inicio = new Date(`${fechaEntregaLimpia}T${horaEntregaLimpia}:00`);
+    const fin = new Date(`${fechaDevLimpia}T${horaDevLimpia}:00`);
 
-    const diffMs = fin - inicio;
-    if (isNaN(diffMs) || diffMs < 0) {
+    if (isNaN(inicio.getTime()) || isNaN(fin.getTime())) {
+      return "No fue posible calcular el tiempo de uso.";
+    }
+
+    const diffMs = fin.getTime() - inicio.getTime();
+
+    if (diffMs < 0) {
       return "No fue posible calcular el tiempo de uso.";
     }
 
@@ -1207,7 +1342,6 @@ function calcularTiempoUsoTexto(fechaEntrega, horaEntrega, fechaDev, horaDev) {
     return "No fue posible calcular el tiempo de uso.";
   }
 }
-
 function construirConclusionAutomatica(data) {
   const cantidad = Number(data.cantidad || 0);
   const devuelta = Number(data.cantidad_devuelta || 0);
@@ -1227,4 +1361,87 @@ function construirConclusionAutomatica(data) {
   }
 
   return `<span class="warn">La solicitud fue cerrada. Revisar manualmente el estado final para validar la conclusión.</span>`;
+}
+function normalizarFechaTexto(valor) {
+  const zonaHoraria = Session.getScriptTimeZone();
+
+  if (!valor) return "";
+
+  if (valor instanceof Date) {
+    return Utilities.formatDate(valor, zonaHoraria, "yyyy-MM-dd");
+  }
+
+  const texto = String(valor).trim();
+
+  if (texto.includes("T")) {
+    return texto.split("T")[0];
+  }
+
+  if (texto.includes(" ")) {
+    return texto.split(" ")[0];
+  }
+
+  return texto;
+}
+function formatearFechaPdf(valor) {
+  const zona = Session.getScriptTimeZone();
+
+  if (!valor) return "N/A";
+
+  if (valor instanceof Date) {
+    return Utilities.formatDate(valor, zona, "dd/MM/yyyy");
+  }
+
+  const texto = String(valor).trim();
+
+  // Si viene como yyyy-MM-dd
+  if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    const [y, m, d] = texto.split("-");
+    return `${d}/${m}/${y}`;
+  }
+
+  // Si viene como yyyy-MM-ddTHH:mm
+  if (texto.includes("T")) {
+    const fecha = texto.split("T")[0];
+    const [y, m, d] = fecha.split("-");
+    return `${d}/${m}/${y}`;
+  }
+
+  return texto;
+}
+
+function formatearHoraPdf(valor) {
+  const zona = Session.getScriptTimeZone();
+
+  if (!valor) return "N/A";
+
+  try {
+    // 1) Si ya es Date real de Sheets
+    if (valor instanceof Date) {
+      return Utilities.formatDate(valor, zona, "HH:mm");
+    }
+
+    const texto = String(valor).trim();
+
+    // 2) Si ya viene bien tipo 11:09
+    const hhmm = texto.match(/\b(\d{1,2}:\d{2})\b/);
+    if (hhmm) {
+      const partes = hhmm[1].split(":");
+      const hh = String(partes[0]).padStart(2, "0");
+      const mm = partes[1];
+      return `${hh}:${mm}`;
+    }
+
+    // 3) Si viene raro pero aún parseable
+    const limpio = texto.replace(/\s*\(.*?\)\s*$/, ""); // quita "(hora estándar de Colombia)"
+    const fecha = new Date(limpio);
+
+    if (!isNaN(fecha.getTime())) {
+      return Utilities.formatDate(fecha, zona, "HH:mm");
+    }
+
+    return "N/A";
+  } catch (e) {
+    return "N/A";
+  }
 }
