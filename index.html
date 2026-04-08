@@ -1228,6 +1228,24 @@
                 <span></span>
                 <span></span>
             </button>
+            <div class="role-switcher" id="roleSwitcher">
+                <button class="role-btn active" id="roleDocente" onclick="setRole('DOCENTE')">
+                    <i class="fas fa-user"></i>Docente
+                </button>
+                <button class="role-btn" id="roleSoporte" onclick="setRole('SOPORTE')">
+                    <i class="fas fa-user-shield"></i>Soporte
+                </button>
+                <select id="sedeSoporteSelect" class="sede-select" onchange="setSedeSoporte(this.value)" style="display: none;">
+                    <option value="">Selecciona tu sede...</option>
+                    <option value="zipaquira">Zipaquirá</option>
+                    <option value="cota">Cota</option>
+                    <option value="mosquera">Mosquera</option>
+                    <option value="niza">Niza</option>
+                    <option value="usaquen">Usaquén</option>
+                    <option value="tunja">Tunja</option>
+                    <option value="barranquilla">Barranquilla</option>
+                </select>
+            </div>
             <div class="nav-tabs" id="navTabs">
                 <div class="nav-pill" id="navPill"></div>
                 <button class="nav-tab active" onclick="mostrarVista('docentes'); cerrarMenu();">
@@ -1235,6 +1253,9 @@
                 </button>
                 <button class="nav-tab" onclick="mostrarVista('soporte'); cerrarMenu();">
                     <i class="fas fa-rotate-left"></i>Devoluciones
+                </button>
+                <button class="nav-tab soporte-only" id="navAdmin" onclick="mostrarVista('admin'); cerrarMenu();" style="display: none;">
+                    <i class="fas fa-cogs"></i>Admin
                 </button>
             </div>
         </div>
@@ -1437,6 +1458,49 @@
             </div>
         </section>
 
+        <!-- ADMINISTRACIÓN (SOPORTE) -->
+        <section class="sedes-section" id="vistaAdmin" style="display:none;">
+            <div class="admin-header">
+                <h2 id="adminTitle"><i class="fas fa-shield-alt"></i> Panel de Administración</h2>
+                <p id="adminSubtitle">Gestión de equipos por sede</p>
+            </div>
+            <div class="admin-actions">
+                <button class="btn-add-equipo" onclick="mostrarFormularioEquipo()" id="btnAddEquipo" style="display: none;">
+                    <i class="fas fa-plus-circle"></i> Agregar Equipo
+                </button>
+            </div>
+            <div class="admin-filters" id="adminFilters">
+                <div class="filter-group" id="filterSedeGroup">
+                    <label><i class="fas fa-filter"></i> Filtrar por carro:</label>
+                    <select id="filterCarro" onchange="filtrarEquiposSoporte()">
+                        <option value="">Todos los carros</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label><i class="fas fa-search"></i> Buscar:</label>
+                    <input type="text" id="filterBusqueda" placeholder="Placa o serial..." onkeyup="filtrarEquiposSoporte()">
+                </div>
+                <button class="btn-refresh" onclick="cargarEquiposSoporte(currentSedeSoporte)">
+                    <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+            </div>
+            <div class="admin-table-container">
+                <table class="admin-table" id="adminTable">
+                    <thead>
+                        <tr>
+                            <th>Carro</th>
+                            <th>Placa</th>
+                            <th>Serial</th>
+                            <th style="text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminTableBody">
+                        <tr><td colspan="4" style="text-align:center;">Cargando equipos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <section class="info-section">
             <div class="info-card">
                 <div class="info-icon"><i class="fas fa-headset"></i></div>
@@ -1465,6 +1529,9 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <script>
+        // ── Configuración Global ──
+        const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbztaEB5Li8RS-8S37ZwNEYFGCeNN_eBW2gtebU6qCK61l2eIML7yjWebA1R9LU37FmZsA/exec";
+
         // ── Greeting por hora ──
         (function() {
             const h = new Date().getHours();
@@ -1511,6 +1578,7 @@
         function mostrarVista(tipo) {
             const vd = document.getElementById('vistaDocentes');
             const vs = document.getElementById('vistaSoporte');
+            const va = document.getElementById('vistaAdmin');
             const tabs = document.querySelectorAll('.nav-tab');
             const pill = document.getElementById('navPill');
             const title = document.getElementById('heroTitle');
@@ -1522,21 +1590,53 @@
             if (tipo === 'docentes') {
                 vd.style.display = 'block';
                 vs.style.display = 'none';
+                if (va) va.style.display = 'none';
                 tabs[0].classList.add('active');
                 pill.classList.remove('dev-mode');
                 title.textContent = '¿En qué sede te encuentras?';
                 sub.textContent = 'Selecciona tu ubicación para acceder al formulario correspondiente de recepción de equipos';
                 legend.style.display = 'flex';
                 animateCards(vd);
-            } else {
+            } else if (tipo === 'soporte') {
                 vd.style.display = 'none';
                 vs.style.display = 'block';
+                if (va) va.style.display = 'none';
                 tabs[1].classList.add('active');
                 pill.classList.add('dev-mode');
                 title.textContent = 'Módulo de Devoluciones';
                 sub.textContent = 'Selecciona la sede para consultar y cerrar solicitudes de equipos';
                 legend.style.display = 'none';
                 animateCards(vs);
+            } else if (tipo === 'admin') {
+                vd.style.display = 'none';
+                vs.style.display = 'none';
+                if (va) va.style.display = 'block';
+                
+                const adminTab = document.getElementById('navAdmin');
+                if (adminTab) adminTab.classList.add('active');
+                
+                pill.classList.add('dev-mode');
+                
+                // Si es soporte sin sede, mostrar mensaje
+                if (currentRole === 'SOPORTE' && !currentSedeSoporte) {
+                    title.textContent = 'Panel de Soporte';
+                    sub.textContent = 'Selecciona tu sede de soporte para ver los equipos';
+                } else {
+                    const sedeDisplay = currentSedeSoporte ? currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1) : 'Admin';
+                    title.textContent = 'Panel de ' + (currentRole === 'SOPORTE' ? 'Soporte' : 'Administración');
+                    sub.textContent = currentRole === 'SOPORTE' 
+                        ? 'Gestión de equipos de ' + sedeDisplay
+                        : 'Gestión completa de registros y solicitudes de todas las sedes';
+                }
+                
+                legend.style.display = 'none';
+                
+                // Cargar datos según el rol
+                if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                    cargarEquiposSoporte(currentSedeSoporte);
+                } else {
+                    cargarTodosRegistros();
+                }
             }
 
             // Transición hero
@@ -1596,6 +1696,626 @@
             c.appendChild(t);
             setTimeout(() => { t.classList.add('hide'); setTimeout(() => t.remove(), 300); }, 3000);
         }
+
+        // ── GESTIÓN DE ROLES ──
+        let currentRole = localStorage.getItem('role') || 'DOCENTE';
+        let currentSedeSoporte = localStorage.getItem('sedeSoporte') || '';
+        let equiposSoporte = [];
+        let carrosSoporte = [];
+
+        function setRole(role) {
+            currentRole = role;
+            localStorage.setItem('role', role);
+            updateRoleButtons();
+            
+            if (role === 'SOPORTE') {
+                document.getElementById('sedeSoporteSelect').style.display = 'inline-block';
+                document.getElementById('navAdmin').style.display = 'none';
+                // Si ya hay una sede seleccionada, mostrar panel
+                if (currentSedeSoporte) {
+                    mostrarVista('admin');
+                } else {
+                    showToast('Por favor selecciona tu sede de soporte', 'info');
+                }
+            } else {
+                document.getElementById('sedeSoporteSelect').style.display = 'none';
+                document.getElementById('navAdmin').style.display = 'none';
+                mostrarVista('docentes');
+            }
+            
+            showToast(`Rol cambiado a: ${role}`, 'info');
+        }
+
+        function setSedeSoporte(sede) {
+            currentSedeSoporte = sede;
+            localStorage.setItem('sedeSoporte', sede);
+            
+            if (currentRole === 'SOPORTE' && sede) {
+                cargarEquiposSoporte(sede);
+                mostrarVista('admin');
+            }
+        }
+
+        async function cargarEquiposSoporte(sede) {
+            const tbody = document.getElementById('adminTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Cargando equipos de ' + sede + '...</td></tr>';
+
+            try {
+                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getEquipos&sede=' + encodeURIComponent(sede));
+                const data = await response.json();
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    equiposSoporte = data;
+                    
+                    // Obtener carros únicos
+                    carrosSoporte = [...new Set(data.map(e => e.carro))].sort((a, b) => {
+                        const numA = a.match(/\d+/) ? parseInt(a.match(/\d+/)[0]) : 999;
+                        const numB = b.match(/\d+/) ? parseInt(b.match(/\d+/)[0]) : 999;
+                        return numA - numB;
+                    });
+                    
+                    renderEquiposSoporte(data);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">No hay equipos para esta sede</td></tr>';
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: red;">Error de conexión</td></tr>';
+            }
+        }
+
+        function renderEquiposSoporte(equipos) {
+            const tbody = document.getElementById('adminTableBody');
+            const btnAdd = document.getElementById('btnAddEquipo');
+            
+            // Mostrar botón agregar solo si es soporte
+            if (currentRole === 'SOPORTE') {
+                btnAdd.style.display = 'inline-flex';
+            } else {
+                btnAdd.style.display = 'none';
+            }
+            
+            if (!tbody) return;
+
+            if (equipos.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay equipos registrados</td></tr>';
+                return;
+            }
+
+            // Agrupar por carro
+            const porCarro = {};
+            equipos.forEach(e => {
+                if (!porCarro[e.carro]) porCarro[e.carro] = [];
+                porCarro[e.carro].push(e);
+            });
+
+            const sedeDisplay = currentSedeSoporte ? currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1) : '';
+
+            let html = `
+                <tr style="background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%); color: white;">
+                    <th colspan="6" style="text-align: left; padding: 12px;">
+                        <i class="fas fa-desktop"></i> Equipos de ${sedeDisplay}
+                        <span style="float: right; font-size: 0.85rem; font-weight: normal;">
+                            Total: ${equipos.length} equipos | ${carrosSoporte.length} carros
+                        </span>
+                    </th>
+                </tr>
+                <tr style="background: #f8fafc;">
+                    <th style="text-align: left;">Carro</th>
+                    <th style="text-align: left;">Placa</th>
+                    <th style="text-align: left;">Serial</th>
+                    <th style="text-align: center;">Estado</th>
+                    <th colspan="3" style="text-align: center;">Acciones</th>
+                </tr>
+            `;
+
+            Object.keys(porCarro).sort((a, b) => {
+                const numA = a.match(/\d+/) ? parseInt(a.match(/\d+/)[0]) : 999;
+                const numB = b.match(/\d+/) ? parseInt(b.match(/\d+/)[0]) : 999;
+                return numA - numB;
+            }).forEach(carro => {
+                const equiposCarro = porCarro[carro];
+                
+                equiposCarro.forEach((eq, idx) => {
+                    const editBtn = currentRole === 'SOPORTE' ? `
+                        <button class="action-btn" onclick="editarEquipo('${eq.serial || ''}', '${eq.placa || ''}')" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                    ` : '';
+                    
+                    const deleteBtn = currentRole === 'SOPORTE' ? `
+                        <button class="action-btn danger" onclick="eliminarEquipo('${eq.serial || ''}', '${eq.placa || ''}')" title="Eliminar">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    ` : '';
+                    
+                    html += `
+                        <tr>
+                            <td>${idx === 0 ? '<strong>' + carro + '</strong>' : ''}</td>
+                            <td><span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem;">${eq.placa || '-'}</span></td>
+                            <td><span style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">${eq.serial || '-'}</span></td>
+                            <td style="text-align: center;"><span class="status-badge status-active">Activo</span></td>
+                            <td style="text-align: center;">
+                                <button class="action-btn" onclick="verDetalleEquipo('${eq.serial || ''}', '${eq.placa || ''}')" title="Ver">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                            <td style="text-align: center;">${editBtn}</td>
+                            <td style="text-align: center;">${deleteBtn}</td>
+                        </tr>
+                    `;
+                });
+            });
+
+            tbody.innerHTML = html;
+        }
+
+        function verDetalleEquipo(serial, placa) {
+            const eq = equiposSoporte.find(e => e.serial === serial);
+            if (!eq) return;
+
+            showToast(`Equipo: ${placa} - Serial: ${serial}`, 'info');
+        }
+
+        // ==================== CRUD EQUIPOS ====================
+        function mostrarFormularioEquipo(equipo = null) {
+            const isEdit = equipo !== null;
+            const titulo = isEdit ? 'Editar Equipo' : 'Agregar Nuevo Equipo';
+            
+            const sedeDisplay = currentSedeSoporte ? currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1) : '';
+            
+            const html = `
+                <div class="modal-overlay" id="equipoModal" onclick="cerrarFormularioEquipo(event)">
+                    <div class="modal-content-equipo" onclick="event.stopPropagation()">
+                        <div class="modal-header-equipo">
+                            <h3><i class="fas fa-${isEdit ? 'edit' : 'plus-circle'}"></i> ${titulo}</h3>
+                            <button class="close-btn" onclick="cerrarFormularioEquipo()"><i class="fas fa-times"></i></button>
+                        </div>
+                        <form id="formEquipo" onsubmit="guardarEquipo(event)">
+                            <input type="hidden" id="equipoSerialOriginal" value="${equipo ? equipo.serial : ''}">
+                            <input type="hidden" id="equipoSede" value="${currentSedeSoporte}">
+                            
+                            <div class="form-group-equipo">
+                                <label for="equipoCarro"><i class="fas fa-truck"></i> Carro:</label>
+                                <input type="text" id="equipoCarro" required value="${equipo ? equipo.carro : ''}" placeholder="Ej: Carro 1">
+                            </div>
+                            
+                            <div class="form-group-equipo">
+                                <label for="equipoPlaca"><i class="fas fa-tag"></i> Placa:</label>
+                                <input type="text" id="equipoPlaca" required value="${equipo ? equipo.placa : ''}" placeholder="Ej: ZIP-001">
+                            </div>
+                            
+                            <div class="form-group-equipo">
+                                <label for="equipoSerial"><i class="fas fa-barcode"></i> Serial:</label>
+                                <input type="text" id="equipoSerial" required value="${equipo ? equipo.serial : ''}" placeholder="Número de serie">
+                            </div>
+                            
+                            <div class="form-actions-equipo">
+                                <button type="button" class="btn-cancelar" onclick="cerrarFormularioEquipo()">Cancelar</button>
+                                <button type="submit" class="btn-guardar">
+                                    <i class="fas fa-save"></i> ${isEdit ? 'Actualizar' : 'Guardar'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            `;
+            
+            const existingModal = document.getElementById('equipoModal');
+            if (existingModal) existingModal.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', html);
+            document.getElementById('equipoModal').classList.add('active');
+            
+            // Focus en el primer campo
+            setTimeout(() => document.getElementById('equipoCarro').focus(), 100);
+        }
+
+        function cerrarFormularioEquipo(e) {
+            if (!e || e.target === e.currentTarget) {
+                const modal = document.getElementById('equipoModal');
+                if (modal) {
+                    modal.classList.remove('active');
+                    setTimeout(() => modal.remove(), 300);
+                }
+            }
+        }
+
+        async function guardarEquipo(e) {
+            e.preventDefault();
+            
+            const submitBtn = e.target.querySelector('.btn-guardar');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            submitBtn.disabled = true;
+            
+            const serialOriginal = document.getElementById('equipoSerialOriginal').value;
+            const sede = document.getElementById('equipoSede').value;
+            const carro = document.getElementById('equipoCarro').value.trim();
+            const placa = document.getElementById('equipoPlaca').value.trim();
+            const serial = document.getElementById('equipoSerial').value.trim();
+            
+            if (!carro || !placa || !serial) {
+                showToast('Todos los campos son requeridos', 'error');
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                return;
+            }
+
+            const action = serialOriginal ? 'updateEquipo' : 'addEquipo';
+            
+            const payload = {
+                action: action,
+                sede: sede,
+                equipo: 'Carro',
+                carro: carro,
+                placa: placa,
+                serial: serial
+            };
+            
+            if (serialOriginal) {
+                payload.serialOriginal = serialOriginal;
+            }
+            
+            console.log('Enviando:', payload);
+            
+            try {
+                const response = await fetch(URL_GOOGLE_SCRIPT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const text = await response.text();
+                console.log('Respuesta:', text);
+                
+                let result;
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    showToast('Error de formato: ' + text.substring(0, 100), 'error');
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                    return;
+                }
+                
+                if (result.status === 'ok') {
+                    showToast(serialOriginal ? 'Equipo actualizado correctamente' : 'Equipo agregado correctamente', 'success');
+                    cerrarFormularioEquipo();
+                    cargarEquiposSoporte(currentSedeSoporte);
+                } else {
+                    showToast(result.error || 'Error al guardar', 'error');
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                showToast('Error de conexión: ' + err.message, 'error');
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function editarEquipo(serial, placa) {
+            const eq = equiposSoporte.find(e => e.serial === serial);
+            if (eq) {
+                mostrarFormularioEquipo(eq);
+            }
+        }
+
+        async function eliminarEquipo(serial, placa) {
+            if (!confirm('¿Estás seguro de eliminar el equipo?\n\nPlaca: ' + placa + '\nSerial: ' + serial)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(URL_GOOGLE_SCRIPT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'deleteEquipo',
+                        sede: currentSedeSoporte,
+                        serial: serial
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'ok') {
+                    showToast('Equipo eliminado correctamente', 'success');
+                    cargarEquiposSoporte(currentSedeSoporte);
+                } else {
+                    showToast(result.error || 'Error al eliminar', 'error');
+                }
+            } catch (err) {
+                showToast('Error de conexión', 'error');
+                console.error(err);
+            }
+        }
+
+        function getRole() {
+            return currentRole;
+        }
+
+        function isSoporte() {
+            return currentRole === 'SOPORTE';
+        }
+
+        function updateRoleButtons() {
+            document.getElementById('roleDocente').classList.toggle('active', currentRole === 'DOCENTE');
+            document.getElementById('roleSoporte').classList.toggle('active', currentRole === 'SOPORTE');
+            
+            const sedeSelect = document.getElementById('sedeSoporteSelect');
+            sedeSelect.style.display = currentRole === 'SOPORTE' ? 'inline-block' : 'none';
+            
+            if (currentSedeSoporte) {
+                sedeSelect.value = currentSedeSoporte;
+            }
+        }
+
+        // ── PANEL DE ADMINISTRACIÓN (SOPORTE) ──
+        async function cargarTodosRegistros() {
+            const tbody = document.getElementById('adminTableBody');
+            if (!tbody) return;
+
+            // Si es soporte con sede, cargar equipos de esa sede
+            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                cargarEquiposSoporte(currentSedeSoporte);
+                return;
+            }
+
+            // Original: cargar registros de hoja principal
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Cargando registros...</td></tr>';
+
+            try {
+                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
+                const data = await response.json();
+                
+                if (Array.isArray(data)) {
+                    todosLosRegistros = data;
+                    renderAdminTable(data);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: red;">Error al cargar registros</td></tr>';
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: red;">Error de conexión</td></tr>';
+            }
+        }
+
+        function renderAdminTable(registros) {
+            const tbody = document.getElementById('adminTableBody');
+            if (!tbody) return;
+
+            if (registros.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">No hay registros</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = registros.map(r => {
+                const estadoClass = r.estado === 'CERRADO' ? 'status-closed' : 'status-active';
+                const estadoText = r.estado === 'CERRADO' ? 'Cerrado' : 'En curso';
+                
+                const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-ES') : '-';
+                
+                return `
+                    <tr data-id="${r.id_solicitud || r.id}">
+                        <td>${r.id_solicitud ? r.id_solicitud.substring(0, 8) : r.id}</td>
+                        <td>${fecha}</td>
+                        <td>${r.nombre || '-'}</td>
+                        <td>${r.cedula || '-'}</td>
+                        <td>${r.sede || '-'}</td>
+                        <td>${r.equipo || '-'}</td>
+                        <td>${r.cantidad || '-'}</td>
+                        <td><span class="status-badge ${estadoClass}">${estadoText}</span></td>
+                        <td>
+                            <button class="action-btn" onclick="verDetalleRegistro('${r.id_solicitud || r.id}')" title="Ver detalle">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            ${r.estado === 'EN_CURSO' ? `
+                            <button class="action-btn warning" onclick="cerrarDesdeAdmin('${r.id_solicitud || r.id}')" title="Cerrar solicitud">
+                                <i class="fas fa-check-circle"></i>
+                            </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filtrarEquiposSoporte() {
+            const carroFiltro = document.getElementById('filterCarro').value;
+            const busqueda = document.getElementById('filterBusqueda').value.toLowerCase();
+
+            // Actualizar opciones de carros en el filtro
+            const filterCarro = document.getElementById('filterCarro');
+            if (filterCarro.options.length <= 1) {
+                carrosSoporte.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    filterCarro.appendChild(opt);
+                });
+            }
+
+            let filtrados = [...equiposSoporte];
+
+            if (carroFiltro) {
+                filtrados = filtrados.filter(e => e.carro === carroFiltro);
+            }
+
+            if (busqueda) {
+                filtrados = filtrados.filter(e => 
+                    (e.placa || '').toLowerCase().includes(busqueda) || 
+                    (e.serial || '').toLowerCase().includes(busqueda)
+                );
+            }
+
+            renderEquiposSoporte(filtrados);
+        }
+
+        function filtrarRegistrosAdmin() {
+            const sedeFiltro = document.getElementById('filterSede').value;
+            const estadoFiltro = document.getElementById('filterEstado').value;
+            const busqueda = document.getElementById('filterBusqueda').value.toLowerCase();
+
+            let filtrados = [...todosLosRegistros];
+
+            if (sedeFiltro) {
+                filtrados = filtrados.filter(r => {
+                    const sedeNorm = (r.sede || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    return sedeNorm === sedeFiltro.toLowerCase();
+                });
+            }
+
+            if (estadoFiltro) {
+                filtrados = filtrados.filter(r => (r.estado || '').toUpperCase() === estadoFiltro);
+            }
+
+            if (busqueda) {
+                filtrados = filtrados.filter(r => 
+                    (r.nombre || '').toLowerCase().includes(busqueda) || 
+                    (r.cedula || '').includes(busqueda)
+                );
+            }
+
+            renderAdminTable(filtrados);
+        }
+
+        async function verDetalleRegistro(id) {
+            try {
+                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getRegistroDetalle&id=' + encodeURIComponent(id));
+                const data = await response.json();
+                
+                if (data.error) {
+                    showToast(data.error, 'error');
+                    return;
+                }
+
+                mostrarModalDetalle(data);
+            } catch (err) {
+                showToast('Error al cargar detalle', 'error');
+            }
+        }
+
+        function mostrarModalDetalle(data) {
+            const modalHtml = `
+                <div class="modal-overlay" id="detalleModal" onclick="cerrarModalDetalle(event)">
+                    <div class="modal-content-admin" onclick="event.stopPropagation()">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-file-alt"></i> Detalle del Registro</h3>
+                            <button class="close-btn" onclick="cerrarModalDetalle()"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="detail-section">
+                                <h4>Información General</h4>
+                                <div class="detail-grid">
+                                    <div class="detail-item"><span class="label">ID:</span><span class="value">${data.id_solicitud || data.id || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Fecha:</span><span class="value">${data.fecha ? new Date(data.fecha).toLocaleDateString('es-ES') : '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Nombre:</span><span class="value">${data.nombre || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Cédula:</span><span class="value">${data.cedula || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Correo:</span><span class="value">${data.correo || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Sede:</span><span class="value">${data.sede || '-'}</span></div>
+                                </div>
+                            </div>
+                            <div class="detail-section">
+                                <h4>Equipo</h4>
+                                <div class="detail-grid">
+                                    <div class="detail-item"><span class="label">Equipo:</span><span class="value">${data.equipo || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Cantidad:</span><span class="value">${data.cantidad || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Cargador:</span><span class="value">${data.cargador || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Hora devolución:</span><span class="value">${data.hora_devolucion || '-'}</span></div>
+                                </div>
+                            </div>
+                            <div class="detail-section">
+                                <h4>Estado</h4>
+                                <div class="detail-grid">
+                                    <div class="detail-item"><span class="label">Estado:</span><span class="value ${data.estado === 'CERRADO' ? 'text-red' : 'text-green'}">${data.estado || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Hora entrega:</span><span class="value">${data.hora_entrega || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Fecha devolución:</span><span class="value">${data.fecha_devolucion || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Hora real:</span><span class="value">${data.hora_devolucion_real || '-'}</span></div>
+                                </div>
+                            </div>
+                            ${data.novedad === 'Sí' ? `
+                            <div class="detail-section">
+                                <h4>Novedad</h4>
+                                <div class="detail-grid">
+                                    <div class="detail-item full"><span class="label">Descripción:</span><span class="value">${data.descripcion || '-'}</span></div>
+                                    ${data.foto_dano ? `<div class="detail-item full"><span class="label">Foto:</span><span class="value"><a href="${data.foto_dano}" target="_blank">Ver foto</a></span></div>` : ''}
+                                </div>
+                            </div>
+                            ` : ''}
+                            ${data.estado === 'CERRADO' ? `
+                            <div class="detail-section">
+                                <h4>Devolución</h4>
+                                <div class="detail-grid">
+                                    <div class="detail-item"><span class="label">Cantidad devuelta:</span><span class="value">${data.cantidad_devuelta || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Estado final:</span><span class="value">${data.estado_final || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Novedad:</span><span class="value">${data.novedad_devolucion || 'No'}</span></div>
+                                    ${data.descripcion_devolucion ? `<div class="detail-item full"><span class="label">Descripción:</span><span class="value">${data.descripcion_devolucion}</span></div>` : ''}
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const existingModal = document.getElementById('detalleModal');
+            if (existingModal) existingModal.remove();
+            
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            document.getElementById('detalleModal').classList.add('active');
+        }
+
+        function cerrarModalDetalle(e) {
+            if (!e || e.target === e.currentTarget) {
+                const modal = document.getElementById('detalleModal');
+                if (modal) {
+                    modal.classList.remove('active');
+                    setTimeout(() => modal.remove(), 300);
+                }
+            }
+        }
+
+        async function cerrarDesdeAdmin(id) {
+            if (!confirm('¿Estás seguro de cerrar esta solicitud?')) return;
+
+            try {
+                const response = await fetch(URL_GOOGLE_SCRIPT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'cerrarSolicitud',
+                        id_solicitud: id,
+                        cantidad_devuelta: '0',
+                        estado_final: 'CERRADO_POR_SOPORTE',
+                        novedad_devolucion: 'No',
+                        descripcion_devolucion: 'Cerrado por soporte técnico',
+                        firma_devolucion: ''
+                    })
+                });
+
+                const result = await response.json();
+                if (result.status === 'ok') {
+                    showToast('Solicitud cerrada correctamente', 'success');
+                    cargarTodosRegistros();
+                } else {
+                    showToast(result.error || 'Error al cerrar', 'error');
+                }
+            } catch (err) {
+                showToast('Error de conexión', 'error');
+            }
+        }
+
+        // Inicializar rol al cargar
+        document.addEventListener('DOMContentLoaded', function() {
+            updateRoleButtons();
+            if (currentRole === 'SOPORTE') {
+                document.getElementById('navAdmin').style.display = 'flex';
+            }
+        });
     </script>
 </body>
 </html>

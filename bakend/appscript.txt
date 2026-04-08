@@ -20,6 +20,19 @@ function doPost(e) {
       return cerrarSolicitud(data);
     }
     
+    // === ACCIONES CRUD DE EQUIPOS (SOPORTE) ===
+    if (data.action === "addEquipo") {
+      return agregarEquipo(data);
+    }
+    
+    if (data.action === "updateEquipo") {
+      return actualizarEquipo(data);
+    }
+    
+    if (data.action === "deleteEquipo") {
+      return eliminarEquipo(data);
+    }
+    
     // === VALIDACIÓN DE DISPONIBILIDAD ===
     if (data.equipo && data.equipo !== "Otros equipos" && data.sede && data.hora_devolucion) {
       const sheetVal = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
@@ -737,6 +750,155 @@ if (action === 'verificarDisponibilidad') {
     }
   }
   
+  // === SOPORTE: Obtener todos los registros (sin filtro de fecha) ===
+  if (action === 'getAllRecords') {
+    try {
+      const sheet = getMainSheet();
+      const colMap = getColumnMap(sheet);
+      const lastRow = sheet.getLastRow();
+      const lastCol = sheet.getLastColumn();
+
+      if (lastRow <= 1) {
+        return ContentService
+          .createTextOutput(JSON.stringify([]))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+      const registros = rows
+        .map(row => getRowDataObject(row, colMap))
+        .map((r, index) => ({
+          id: index + 1,
+          id_solicitud: r.id_solicitud || "",
+          fecha: r.fecha || "",
+          nombre: r.nombre || "",
+          cedula: r.cedula || "",
+          correo: r.correo || "",
+          sede: r.sede || "",
+          equipo: r.equipo || "",
+          cantidad: r.cantidad || "",
+          cargador: r.cargador || "",
+          novedad: r.novedad || "No",
+          descripcion: r.descripcion || "",
+          foto_dano: r.foto_dano || "",
+          hora_devolucion: r.hora_devolucion || "",
+          hora_entrega: r.hora_entrega || "",
+          estado: r.estado || "",
+          fecha_devolucion: r.fecha_devolucion || "",
+          hora_devolucion_real: r.hora_devolucion_real || "",
+          cantidad_devuelta: r.cantidad_devuelta || "",
+          estado_final: r.estado_final || "",
+          novedad_devolucion: r.novedad_devolucion || "",
+          descripcion_devolucion: r.descripcion_devolucion || ""
+        }))
+        .sort((a, b) => {
+          const fechaA = new Date(a.fecha || 0);
+          const fechaB = new Date(b.fecha || 0);
+          return fechaB - fechaA;
+        });
+
+      return ContentService
+        .createTextOutput(JSON.stringify(registros))
+        .setMimeType(ContentService.MimeType.JSON);
+
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ error: err.toString() }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // === SOPORTE: Obtener detalle de un registro específico ===
+  if (action === 'getRegistroDetalle' && e.parameter.id) {
+    try {
+      const sheet = getMainSheet();
+      const colMap = getColumnMap(sheet);
+      const lastRow = sheet.getLastRow();
+      const lastCol = sheet.getLastColumn();
+
+      if (lastRow <= 1) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ error: "No hay registros" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const targetId = String(e.parameter.id).trim();
+      const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+      for (let row of rows) {
+        const r = getRowDataObject(row, colMap);
+        const rowId = String(r.id_solicitud || r.id || "").trim();
+
+        if (rowId === targetId) {
+          return ContentService
+            .createTextOutput(JSON.stringify(r))
+            .setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+
+      return ContentService
+        .createTextOutput(JSON.stringify({ error: "Registro no encontrado" }))
+        .setMimeType(ContentService.MimeType.JSON);
+
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ error: err.toString() }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // === SOPORTE: Actualizar estado de una solicitud ===
+  if (action === 'updateStatus' && e.parameter.id && e.parameter.estado) {
+    try {
+      const sheet = getMainSheet();
+      const colMap = getColumnMap(sheet);
+      const lastRow = sheet.getLastRow();
+      const lastCol = sheet.getLastColumn();
+
+      if (lastRow <= 1) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ status: "error", error: "No hay registros" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const targetId = String(e.parameter.id).trim();
+      const nuevoEstado = String(e.parameter.estado).trim();
+      const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+      let targetRowNumber = -1;
+
+      for (let i = 0; i < rows.length; i++) {
+        const r = getRowDataObject(rows[i], colMap);
+        const rowId = String(r.id_solicitud || r.id || "").trim();
+
+        if (rowId === targetId) {
+          targetRowNumber = i + 2;
+          break;
+        }
+      }
+
+      if (targetRowNumber === -1) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ status: "error", error: "No se encontró la solicitud" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      if (colMap.estado) {
+        sheet.getRange(targetRowNumber, colMap.estado).setValue(nuevoEstado);
+      }
+
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "ok", message: "Estado actualizado" }))
+        .setMimeType(ContentService.MimeType.JSON);
+
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "error", error: err.toString() }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+   
   // === CASO 3: Traer registros guardados (para la vista de registros y PDF) ===
   // Este es el caso por defecto cuando no hay action específico
   try {
@@ -1443,5 +1605,162 @@ function formatearHoraPdf(valor) {
     return "N/A";
   } catch (e) {
     return "N/A";
+  }
+}
+
+// ==================== CRUD EQUIPOS SOPORTE ====================
+
+function getHojaEquipos(sede) {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheetName = "equipos_" + sede.toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    const sheet = ss.getSheetByName(sheetName);
+    return sheet;
+  } catch (e) {
+    Logger.log("Error getHojaEquipos: " + e.toString());
+    return null;
+  }
+}
+
+function agregarEquipo(data) {
+  try {
+    const sede = data.sede;
+    const sheet = getHojaEquipos(sede);
+    
+    if (!sheet) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "error", error: "No existe la hoja de equipos para esta sede" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const nuevaFila = [
+      data.sede || "",
+      data.equipo || "",
+      data.carro || "",
+      data.placa || "",
+      data.serial || ""
+    ];
+    
+    sheet.appendRow(nuevaFila);
+    
+    Logger.log("Equipo agregado: " + data.placa);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "ok", message: "Equipo agregado correctamente" }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (err) {
+    Logger.log("Error agregarEquipo: " + err.toString());
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function actualizarEquipo(data) {
+  try {
+    const sede = data.sede;
+    const serialOriginal = data.serialOriginal;
+    const sheet = getHojaEquipos(sede);
+    
+    if (!sheet) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "error", error: "No existe la hoja de equipos para esta sede" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    
+    if (lastRow <= 1) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "error", error: "No hay equipos para actualizar" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    
+    for (let i = 0; i < dataRange.length; i++) {
+      const rowSerial = String(dataRange[i][4] || "").trim();
+      
+      if (rowSerial === serialOriginal) {
+        const rowNumber = i + 2;
+        
+        sheet.getRange(rowNumber, 1).setValue(data.sede || "");
+        sheet.getRange(rowNumber, 2).setValue(data.equipo || "");
+        sheet.getRange(rowNumber, 3).setValue(data.carro || "");
+        sheet.getRange(rowNumber, 4).setValue(data.placa || "");
+        sheet.getRange(rowNumber, 5).setValue(data.serial || "");
+        
+        Logger.log("Equipo actualizado: " + data.placa);
+        
+        return ContentService
+          .createTextOutput(JSON.stringify({ status: "ok", message: "Equipo actualizado correctamente" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", error: "Equipo no encontrado" }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (err) {
+    Logger.log("Error actualizarEquipo: " + err.toString());
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function eliminarEquipo(data) {
+  try {
+    const sede = data.sede;
+    const serial = data.serial;
+    const sheet = getHojaEquipos(sede);
+    
+    if (!sheet) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "error", error: "No existe la hoja de equipos para esta sede" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    
+    if (lastRow <= 1) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: "error", error: "No hay equipos para eliminar" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    const dataRange = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    
+    for (let i = 0; i < dataRange.length; i++) {
+      const rowSerial = String(dataRange[i][4] || "").trim();
+      
+      if (rowSerial === serial) {
+        const rowNumber = i + 2;
+        
+        sheet.deleteRow(rowNumber);
+        
+        Logger.log("Equipo eliminado: " + serial);
+        
+        return ContentService
+          .createTextOutput(JSON.stringify({ status: "ok", message: "Equipo eliminado correctamente" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", error: "Equipo no encontrado" }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (err) {
+    Logger.log("Error eliminarEquipo: " + err.toString());
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }

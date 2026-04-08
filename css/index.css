@@ -1943,3 +1943,611 @@ body > * {
         contain: layout;
     }
 }
+
+/* ============================================
+   ROLES Y ADMINISTRACIÓN
+   ============================================ */
+.role-switcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px;
+    background: rgba(255, 255, 255, 0.6);
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.role-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.role-btn:hover {
+    color: var(--text-primary);
+}
+
+.role-btn.active {
+    background: linear-gradient(135deg, var(--orange-500) 0%, var(--blue-500) 50%, var(--green-500) 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3);
+}
+
+.role-btn i {
+    font-size: 0.85em;
+}
+
+.sede-select {
+    padding: 8px 12px;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    font-size: 0.85rem;
+    background: white;
+    min-width: 120px;
+    cursor: pointer;
+}
+
+.sede-select:focus {
+    outline: none;
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Panel de Administración */
+.admin-header {
+    text-align: center;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.admin-header h2 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.admin-header h2 i {
+    color: var(--orange-500);
+    margin-right: 8px;
+}
+
+.admin-header p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.admin-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.filter-group label i {
+    margin-right: 4px;
+    color: var(--blue-500);
+}
+
+.filter-group select,
+.filter-group input {
+    padding: 8px 12px;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    background: white;
+    min-width: 140px;
+}
+
+.filter-group select:focus,
+.filter-group input:focus {
+    outline: none;
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.btn-refresh {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    background: var(--blue-600);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: auto;
+    transition: all 0.3s ease;
+    align-self: flex-end;
+}
+
+.btn-refresh:hover {
+    background: var(--blue-700);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-refresh i {
+    font-size: 0.85em;
+}
+
+.admin-table-container {
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.admin-table thead {
+    background: linear-gradient(135deg, var(--orange-500) 0%, var(--blue-500) 50%, var(--green-500) 100%);
+    color: white;
+}
+
+.admin-table th {
+    padding: 12px 8px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.admin-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.admin-table tbody tr:hover {
+    background: rgba(249, 115, 22, 0.05);
+}
+
+.admin-table .status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.admin-table .status-active {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--green-700);
+}
+
+.admin-table .status-closed {
+    background: rgba(100, 116, 139, 0.1);
+    color: var(--text-secondary);
+}
+
+.admin-table .action-btn {
+    padding: 6px 10px;
+    border: none;
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--blue-600);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.admin-table .action-btn:hover {
+    background: var(--blue-600);
+    color: white;
+}
+
+.admin-table .action-btn.warning {
+    background: rgba(249, 115, 22, 0.1);
+    color: var(--orange-600);
+}
+
+.admin-table .action-btn.warning:hover {
+    background: var(--orange-600);
+    color: white;
+}
+
+.admin-table .action-btn.danger {
+    background: rgba(220, 38, 38, 0.1);
+    color: #DC2626;
+}
+
+.admin-table .action-btn.danger:hover {
+    background: #DC2626;
+    color: white;
+}
+
+/* Modal de detalle para admin */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    padding: 1rem;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content-admin {
+    background: white;
+    border-radius: 16px;
+    max-width: 700px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-2xl);
+    transform: scale(0.95);
+    transition: transform 0.3s ease;
+}
+
+.modal-overlay.active .modal-content-admin {
+    transform: scale(1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--gray-200);
+    background: linear-gradient(135deg, var(--orange-500) 0%, var(--blue-500) 100%);
+    color: white;
+    border-radius: 16px 16px 0 0;
+    position: sticky;
+    top: 0;
+}
+
+.modal-header h3 {
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.detail-section {
+    margin-bottom: 1.5rem;
+}
+
+.detail-section h4 {
+    font-size: 0.9rem;
+    color: var(--blue-600);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--blue-100);
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.detail-item {
+    padding: 0.5rem;
+    background: var(--gray-50);
+    border-radius: 8px;
+}
+
+.detail-item.full {
+    grid-column: span 2;
+}
+
+.detail-item .label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 2px;
+}
+
+.detail-item .value {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.detail-item .value.text-green {
+    color: var(--green-600);
+    font-weight: 600;
+}
+
+.detail-item .value.text-red {
+    color: var(--orange-600);
+    font-weight: 600;
+}
+
+.detail-item a {
+    color: var(--blue-600);
+    text-decoration: underline;
+}
+
+/* Responsive para admin */
+@media (max-width: 768px) {
+    .admin-filters {
+        flex-direction: column;
+    }
+    
+    .filter-group {
+        width: 100%;
+    }
+    
+    .filter-group select,
+    .filter-group input {
+        width: 100%;
+    }
+    
+    .btn-refresh {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .admin-table-container {
+        overflow-x: auto;
+    }
+    
+    .admin-table {
+        min-width: 700px;
+    }
+    
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .detail-item.full {
+        grid-column: span 1;
+    }
+}
+
+/* Botón agregar equipo */
+.admin-actions {
+    margin-bottom: 1rem;
+    text-align: right;
+    padding: 0 0.5rem;
+}
+
+.btn-add-equipo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, var(--orange-500) 0%, var(--blue-500) 50%, var(--green-500) 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
+    font-family: 'Inter', sans-serif;
+}
+
+.btn-add-equipo:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.45);
+}
+
+.btn-add-equipo:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.btn-add-equipo i {
+    font-size: 1.1em;
+}
+
+/* Modal de equipo */
+.modal-content-equipo {
+    background: white;
+    border-radius: 20px;
+    max-width: 440px;
+    width: 90%;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transform: scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.modal-overlay.active .modal-content-equipo {
+    transform: scale(1);
+}
+
+.modal-header-equipo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    background: linear-gradient(135deg, var(--orange-500) 0%, var(--blue-500) 100%);
+    color: white;
+}
+
+.modal-header-equipo h3 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Inter', sans-serif;
+}
+
+.modal-header-equipo .close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-size: 1rem;
+}
+
+.modal-header-equipo .close-btn:hover {
+    background: rgba(255, 255, 255, 0.35);
+    transform: scale(1.05);
+}
+
+#formEquipo {
+    padding: 24px;
+}
+
+.form-group-equipo {
+    margin-bottom: 18px;
+}
+
+.form-group-equipo label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.form-group-equipo label i {
+    color: var(--orange-500);
+    margin-right: 8px;
+}
+
+.form-group-equipo input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #E5E7EB;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    font-family: 'Inter', sans-serif;
+}
+
+.form-group-equipo input:focus {
+    outline: none;
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+}
+
+.form-actions-equipo {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.btn-cancelar {
+    flex: 1;
+    padding: 14px;
+    background: #F3F4F6;
+    color: #6B7280;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Inter', sans-serif;
+}
+
+.btn-cancelar:hover {
+    background: #E5E7EB;
+    color: #374151;
+}
+
+.btn-guardar {
+    flex: 1;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--blue-500) 0%, var(--green-500) 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Inter', sans-serif;
+}
+
+.btn-guardar:hover {
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-guardar i {
+    margin-right: 8px;
+}
+
+/* Action buttons danger */
+.admin-table .action-btn.danger {
+    background: rgba(220, 38, 38, 0.1);
+    color: #DC2626;
+}
+
+.admin-table .action-btn.danger:hover {
+    background: #DC2626;
+    color: white;
+}
