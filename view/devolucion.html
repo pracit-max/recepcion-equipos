@@ -834,6 +834,114 @@
             .stat-number {
                 font-size: 1rem;
             }
+
+            /* Evitar saltos */
+            .main-container {
+                contain: layout style;
+            }
+        }
+
+        /* =============================================
+           OPTIMIZACIONES GENERALES MÓVIL
+           ============================================= */
+        @media (max-width: 768px) {
+            /* Evitar layout shifts */
+            .main-container,
+            .container,
+            .section-card {
+                contain: layout style;
+            }
+
+            /* Tablas altura fija */
+            .table-wrapper {
+                max-height: 300px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Toast sticky */
+            .toast-container {
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+            }
+
+            /* Evitar scroll unwanted */
+            html, body {
+                overflow-x: hidden;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Mejorar scroll */
+            body {
+                overscroll-behavior: contain;
+            }
+
+            /* Inputs sin zoom */
+            input[type="number"],
+            input[type="tel"],
+            input[type="email"],
+            input[type="text"],
+            select,
+            textarea,
+            .form-input {
+                font-size: 16px !important;
+                -webkit-text-size-adjust: 100%;
+            }
+
+            /* Scroll suave sin delay */
+            html {
+                scroll-behavior: auto;
+            }
+
+            /* Prevenir scroll bouncing */
+            #formCerrarBox,
+            .stats-row,
+            .section-card {
+                -webkit-overflow-scrolling: touch;
+            }
+
+            /* Viewport fijo para evitar saltos */
+            body {
+                height: 100vh;
+                min-height: 100vh;
+                position: relative;
+            }
+
+            /* Evitar movimiento al abrir teclado */
+            input:focus,
+            select:focus,
+            textarea:focus {
+                scroll-margin-top: 10px;
+            }
+
+            /* Fijar elementos importantes */
+            .navbar,
+            .top-nav {
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+            }
+
+            .section-actions,
+            .btn-row {
+                position: sticky;
+                bottom: 0;
+                background: var(--bg-primary, #F8FAF9);
+            }
+
+            /* Container estable */
+            .container {
+                min-height: calc(100vh - 120px);
+            }
+
+            /* Stats mantener posición */
+            .stats-row {
+                position: sticky;
+                top: 60px;
+                z-index: 50;
+                background: var(--bg-primary, #F8FAF9);
+            }
         }
 
     </style>

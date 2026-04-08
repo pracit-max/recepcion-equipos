@@ -2681,7 +2681,8 @@ input.verified {
 }
 
 #btnVerificar {
-    position: absolute;
+    margin-top: 29px;
+    position: top;
     right: 8px;
     top: 50%;
     transform: translateY(-50%);
@@ -2851,12 +2852,108 @@ input.verified {
 }
 
 /* ============================================
-   13. RESPONSIVE — Adaptación elegante
-   ============================================ */
+    OPTIMIZACIONES GENERALES MÓVIL
+    ============================================ */
 @media (max-width: 768px) {
-    .navbar {
-        padding: 0.75rem 1.25rem;
+    /* ---- EVITAR LAYOUT SHIFTS ---- */
+    .main-container,
+    .sedes-section,
+    .sedes-grid {
+        contain: layout style;
     }
+
+    /* ---- TABLAS: altura fija ---- */
+    .table-wrapper {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    /* ---- TOAST sticky ---- */
+    .toast-container {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+
+    /* ---- Evitar scroll unwanted ---- */
+    html, body {
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ---- MEJORAR SCROLL EN MÓVIL ---- */
+    body {
+        overscroll-behavior: contain;
+    }
+
+    /* ---- Prevenir scroll bouncing ---- */
+    #form,
+    .container,
+    .section {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ---- Inputs no zoom ---- */
+    input[type="number"],
+    input[type="tel"],
+    input[type="email"],
+    input[type="text"],
+    select,
+    textarea {
+        font-size: 16px !important;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ---- Scroll suave pero sin delay ---- */
+    html {
+        scroll-behavior: auto;
+    }
+
+    /* ---- VIEWPORT FIJO PARA EVITAR SALTOS ---- */
+    /* Esto evita que el viewport se mueva cuando aparece el teclado */
+    body {
+        height: 100vh;
+        min-height: 100vh;
+        position: relative;
+    }
+
+    /* ---- EVITAR MOVIMIENTO AL ABRIR TECLADO ---- */
+    .form-section.active {
+        scroll-margin-top: 20px;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+        scroll-margin-top: 10px;
+    }
+
+    /* ---- FIJAR ELEMENTOS IMPORTANTES ---- */
+    .navbar {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+
+    .section-actions {
+        position: sticky;
+        bottom: 0;
+        background: var(--bg-primary, #F8FAF9);
+    }
+
+    /* ---- CONTAINER ESTABLE ---- */
+    .container {
+        min-height: calc(100vh - 120px);
+    }
+
+    /* ---- PROGRESS STEPS: mantener posición ---- */
+    .progress-container {
+        position: sticky;
+        top: 60px;
+        z-index: 50;
+        background: var(--bg-primary, #F8FAF9);
+    }
+}
 
     .records-grid {
         grid-template-columns: 1fr;
@@ -2867,7 +2964,7 @@ input.verified {
         grid-template-columns: 1fr;
         gap: 1rem;
     }
-}
+
 
 @media (max-width: 480px) {
     .navbar {
@@ -3377,5 +3474,177 @@ input.verified {
     .modal-body,
     .modal-footer {
         padding: 1rem !important;
+    }
+}
+
+/* ============================================
+    OPTIMIZACIONES FORMULARIOS MÓVIL
+    Evitar saltos al cambiar pasos
+    ============================================ */
+@media (max-width: 768px) {
+    /* ---- ELIMINAR TRANSICIONES PESADAS EN FORMULARIOS ---- */
+    .form-section {
+        transition: none !important;
+        animation: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+    }
+
+    .form-section.active {
+        display: block !important;
+        transform: none !important;
+        opacity: 1 !important;
+    }
+
+    /* ---- Evitar layout shifts ---- */
+    .section-card {
+        contain: layout style;
+        transform: translateZ(0);
+    }
+
+    /* ---- PROGRESS BAR estable ---- */
+    .progress-bar {
+        contain: layout;
+    }
+
+    .progress-steps {
+        contain: layout;
+    }
+
+    /* ---- Fix botón verificación ---- */
+    #btnVerificar {
+        position: relative !important;
+        right: auto !important;
+        top: auto !important;
+        transform: none !important;
+        margin-top: 0.5rem;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .input-group:has(#btnVerificar) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .input-group:has(#btnVerificar) input {
+        padding-right: 1rem !important;
+    }
+
+    /* ---- Firmas estables ---- */
+    .signature-pad {
+        height: 150px;
+        touch-action: none;
+    }
+
+    /* ---- Section actions sin saltos ---- */
+    .section-actions {
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 0.75rem;
+        position: sticky;
+        bottom: 0;
+        background: var(--bg-primary);
+        padding: 1rem 0;
+        margin-top: 1rem;
+        z-index: 10;
+    }
+
+    .btn-prev,
+    .btn-next,
+    .btn-submit {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* ---- Navbar fixed ---- */
+    .navbar {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+    }
+
+    /* ---- Container padding reducido ---- */
+    .container {
+        padding: 0 1rem;
+        margin: 1rem auto;
+    }
+
+    /* ---- Tables scroll horizontal ---- */
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ---- Records grid simple ---- */
+    .records-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* ---- Modal estable ---- */
+    .modal {
+        align-items: flex-start;
+        padding: 0.5rem;
+        overflow-y: auto;
+    }
+
+    .modal-content {
+        margin-top: 1rem;
+        max-height: none;
+    }
+
+    /* ---- EQUIPOS TABLE: altura fija ---- */
+    .equipos-table-container {
+        max-height: 200px !important;
+    }
+
+    /* ---- SELECT WRAPPER estable ---- */
+    .select-wrapper select {
+        font-size: 16px;
+    }
+
+    /* ---- INPUTS: padding adecuado ---- */
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+        min-height: 44px;
+    }
+
+    /* ---- TOGGLES ---- */
+    .toggle-label-main {
+        padding: 1rem !important;
+    }
+
+    /* ---- FILE UPLOAD ---- */
+    .file-label {
+        padding: 1.5rem 1rem !important;
+    }
+
+    /* ---- FORM GRID simple ---- */
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    /* ---- SEARCH BOX ---- */
+    .search-box input {
+        padding: 0.875rem 1rem 0.875rem 2.5rem !important;
+    }
+
+    /* ---- Verificación input ---- */
+    #codigoVerificacion {
+        font-size: 1.5rem !important;
+        letter-spacing: 0.25rem;
+    }
+
+    /* ---- Detalle items ---- */
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* ---- Empty state ---- */
+    .empty-state {
+        padding: 2rem 1rem;
     }
 }

@@ -1832,4 +1832,114 @@ body > * {
         flex-direction: column;
         gap: 0.5rem;
     }
+
+    /* ---- Contenedor principal estable ---- */
+    .main-container {
+        contain: layout style;
+    }
+
+    /* ---- Formularios: evitar saltos ---- */
+    .sedes-grid {
+        contain: layout;
+    }
+}
+
+/* ============================================
+    OPTIMIZACIONES GENERALES MÓVIL
+    ============================================ */
+@media (max-width: 768px) {
+    /* ---- EVITAR LAYOUT SHIFTS ---- */
+    .main-container,
+    .sedes-section,
+    .sedes-grid {
+        contain: layout style;
+    }
+
+    /* ---- TABLAS: altura fija ---- */
+    .table-wrapper {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    /* ---- TOAST sticky ---- */
+    .toast-container {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+
+    /* ---- Evitar scroll unwanted ---- */
+    html, body {
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ---- MEJORAR SCROLL EN MÓVIL ---- */
+    body {
+        overscroll-behavior: contain;
+    }
+
+    /* ---- Prevenir scroll bouncing ---- */
+    #form,
+    .container,
+    .section {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ---- Inputs no zoom ---- */
+    input[type="number"],
+    input[type="tel"],
+    input[type="email"],
+    input[type="text"],
+    select,
+    textarea {
+        font-size: 16px !important;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* ---- Scroll suave pero sin delay ---- */
+    html {
+        scroll-behavior: auto;
+    }
+
+    /* ---- VIEWPORT FIJO PARA EVITAR SALTOS ---- */
+    body {
+        height: 100vh;
+        min-height: 100vh;
+        position: relative;
+    }
+
+    /* ---- EVITAR MOVIMIENTO AL ABRIR TECLADO ---- */
+    input:focus,
+    select:focus,
+    textarea:focus {
+        scroll-margin-top: 10px;
+    }
+
+    /* ---- FIJAR ELEMENTOS IMPORTANTES ---- */
+    .top-nav {
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+
+    /* ---- CONTAINER ESTABLE ---- */
+    .main-container {
+        min-height: calc(100vh - 100px);
+    }
+
+    /* ---- HERO estable ---- */
+    .hero {
+        contain: layout;
+    }
+
+    /* ---- SEDES GRID estable ---- */
+    .sedes-grid {
+        contain: layout;
+    }
+
+    /* ---- INFO SECTION estable ---- */
+    .info-section {
+        contain: layout;
+    }
 }
