@@ -1464,24 +1464,24 @@
                 <h2 id="adminTitle"><i class="fas fa-shield-alt"></i> Panel de Administración</h2>
                 <p id="adminSubtitle">Gestión de equipos por sede</p>
             </div>
-            <div class="admin-actions">
+            <div class="admin-toolbar">
+                <div class="admin-filters" id="adminFilters">
+                    <div class="filter-group" id="filterSedeGroup">
+                        <label><i class="fas fa-filter"></i> Filtrar:</label>
+                        <select id="filterCarro" onchange="filtrarEquiposSoporte()">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label><i class="fas fa-search"></i> Buscar:</label>
+                        <input type="text" id="filterBusqueda" placeholder="Placa o serial..." onkeyup="filtrarEquiposSoporte()">
+                    </div>
+                </div>
                 <button class="btn-add-equipo" onclick="mostrarFormularioEquipo()" id="btnAddEquipo" style="display: none;">
-                    <i class="fas fa-plus-circle"></i> Agregar Equipo
+                    <i class="fas fa-plus-circle"></i> Agregar
                 </button>
-            </div>
-            <div class="admin-filters" id="adminFilters">
-                <div class="filter-group" id="filterSedeGroup">
-                    <label><i class="fas fa-filter"></i> Filtrar por carro:</label>
-                    <select id="filterCarro" onchange="filtrarEquiposSoporte()">
-                        <option value="">Todos los carros</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label><i class="fas fa-search"></i> Buscar:</label>
-                    <input type="text" id="filterBusqueda" placeholder="Placa o serial..." onkeyup="filtrarEquiposSoporte()">
-                </div>
                 <button class="btn-refresh" onclick="cargarEquiposSoporte(currentSedeSoporte)">
-                    <i class="fas fa-sync-alt"></i> Actualizar
+                    <i class="fas fa-sync-alt"></i>
                 </button>
             </div>
             <div class="admin-table-container">
@@ -1694,7 +1694,7 @@
             const icons = { success:'fa-check-circle', error:'fa-exclamation-circle', info:'fa-info-circle', warning:'fa-exclamation-triangle' };
             t.innerHTML = `<i class="fas ${icons[type]}"></i><span>${msg}</span>`;
             c.appendChild(t);
-            setTimeout(() => { t.classList.add('hide'); setTimeout(() => t.remove(), 300); }, 3000);
+            setTimeout(() => { t.classList.add('hide'); setTimeout(() => t.remove(), 300); }, 5000);
         }
 
         // ── GESTIÓN DE ROLES ──

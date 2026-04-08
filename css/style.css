@@ -2870,9 +2870,12 @@ input.verified {
 
     /* ---- TOAST sticky ---- */
     .toast-container {
-        position: sticky;
-        top: 0;
-        z-index: 1000;
+        position: fixed;
+        top: 10px;
+        left: 0.5rem;
+        right: 0.5rem;
+        width: auto;
+        z-index: 2000;
     }
 
     /* ---- Evitar scroll unwanted ---- */

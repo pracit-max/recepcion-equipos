@@ -1257,9 +1257,15 @@ body > * {
 
     /* Toast más anchos en mobile */
     .toast-container {
-        left: 0.75rem;
-        right: 0.75rem;
-        top: 0.75rem;
+        left: 0.5rem;
+        right: 0.5rem;
+        top: 0.5rem;
+        width: auto;
+    }
+
+    .toast-container {
+        position: fixed;
+        top: 10px;
     }
 
     .toast {
@@ -2029,33 +2035,32 @@ body > * {
 
 .admin-filters {
     display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    padding: 1rem;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
     background: rgba(255, 255, 255, 0.7);
     border-radius: 12px;
-    margin-bottom: 1rem;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(0, 0, 0, 0.05);
+    flex: 1;
+    flex-wrap: wrap;
 }
 
 .filter-group {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    gap: 6px;
 }
 
 .filter-group label {
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    white-space: nowrap;
 }
 
 .filter-group label i {
-    margin-right: 4px;
     color: var(--blue-500);
 }
 
@@ -2343,8 +2348,8 @@ body > * {
     }
     
     .btn-refresh {
-        width: 100%;
-        justify-content: center;
+        width: auto;
+        padding: 10px 14px;
     }
     
     .admin-table-container {
@@ -2352,7 +2357,7 @@ body > * {
     }
     
     .admin-table {
-        min-width: 700px;
+        min-width: 600px;
     }
     
     .detail-grid {
@@ -2362,13 +2367,117 @@ body > * {
     .detail-item.full {
         grid-column: span 1;
     }
+    
+    .admin-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .admin-filters {
+        width: 100%;
+    }
+    
+    .btn-add-equipo {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .role-switcher {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .role-btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .sede-select {
+        min-width: 100%;
+        margin-top: 8px;
+    }
 }
 
 /* Botón agregar equipo */
-.admin-actions {
+.admin-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
     margin-bottom: 1rem;
-    text-align: right;
     padding: 0 0.5rem;
+    flex-wrap: wrap;
+}
+
+.admin-filters {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    flex: 1;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.filter-group label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.filter-group label i {
+    color: var(--blue-500);
+}
+
+.filter-group select,
+.filter-group input {
+    padding: 8px 12px;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    background: white;
+    min-width: 100px;
+}
+
+.filter-group select:focus,
+.filter-group input:focus {
+    outline: none;
+    border-color: var(--blue-500);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.btn-refresh {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    background: var(--blue-600);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-refresh:hover {
+    background: var(--blue-700);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-refresh i {
+    font-size: 1rem;
 }
 
 .btn-add-equipo {
