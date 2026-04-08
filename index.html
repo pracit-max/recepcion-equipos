@@ -1740,29 +1740,46 @@
             const tbody = document.getElementById('adminTableBody');
             if (!tbody) return;
 
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Cargando equipos de ' + sede + '...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Cargando equipos de ' + sede + '...</td></tr>';
 
             try {
-                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getEquipos&sede=' + encodeURIComponent(sede));
-                const data = await response.json();
+                const url = URL_GOOGLE_SCRIPT + '?action=getEquipos&sede=' + encodeURIComponent(sede);
+                const response = await fetch(url);
+                
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+                
+                const text = await response.text();
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch(e) {
+                    data = { error: 'Respuesta inválida: ' + text.substring(0, 100) };
+                }
+                
+                if (data.error) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: red;">Error: ' + data.error + '</td></tr>';
+                    showToast('Error: ' + data.error, 'error');
+                    return;
+                }
                 
                 if (Array.isArray(data) && data.length > 0) {
                     equiposSoporte = data;
-                    
-                    // Obtener carros únicos
                     carrosSoporte = [...new Set(data.map(e => e.carro))].sort((a, b) => {
                         const numA = a.match(/\d+/) ? parseInt(a.match(/\d+/)[0]) : 999;
                         const numB = b.match(/\d+/) ? parseInt(b.match(/\d+/)[0]) : 999;
                         return numA - numB;
                     });
-                    
                     renderEquiposSoporte(data);
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">No hay equipos para esta sede</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No hay equipos para esta sede</td></tr>';
+                    showToast('No hay equipos en esta sede', 'info');
                 }
             } catch (err) {
                 console.error('Error:', err);
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color: red;">Error de conexión</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: red;">Error de conexión</td></tr>';
+                showToast('Error de conexión: ' + err.message, 'error');
             }
         }
 
