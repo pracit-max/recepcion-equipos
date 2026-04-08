@@ -65,11 +65,23 @@ async function cargarEquiposPorSede() {
         equiposZipaquira = await response.json();   // reutilizamos la misma variable global (está bien)
 
         // Obtener carros únicos y ordenarlos
-        carrosDisponibles = [...new Set(equiposZipaquira.map(e => e.carro))].sort((a, b) => {
-            const numA = a.match(/\d+/) ? parseInt(a.match(/\d+/)[0]) : 999;
-            const numB = b.match(/\d+/) ? parseInt(b.match(/\d+/)[0]) : 999;
-            return numA - numB;
+        const carrosSet = new Set();
+        equiposZipaquira.forEach(e => {
+            if (e && e.carro) carrosSet.add(String(e.carro));
         });
+        try {
+            carrosDisponibles = [...carrosSet].sort((a, b) => {
+                const strA = String(a);
+                const strB = String(b);
+                const matchA = strA.match(/\d+/);
+                const matchB = strB.match(/\d+/);
+                const numA = matchA ? parseInt(matchA[0]) : 999;
+                const numB = matchB ? parseInt(matchB[0]) : 999;
+                return numA - numB;
+            });
+        } catch(e) {
+            carrosDisponibles = [...carrosSet];
+        }
 
         // Llenar el select
         const select = document.getElementById('carroSelect');
