@@ -1755,7 +1755,7 @@
                 try {
                     data = JSON.parse(text);
                 } catch(e) {
-                    data = { error: 'Respuesta inválida: ' + text.substring(0, 100) };
+                    data = { error: 'Respuesta inválida del servidor' };
                 }
                 
                 if (data.error) {
@@ -1766,11 +1766,28 @@
                 
                 if (Array.isArray(data) && data.length > 0) {
                     equiposSoporte = data;
-                    carrosSoporte = [...new Set(data.map(e => e.carro))].sort((a, b) => {
-                        const numA = a.match(/\d+/) ? parseInt(a.match(/\d+/)[0]) : 999;
-                        const numB = b.match(/\d+/) ? parseInt(b.match(/\d+/)[0]) : 999;
-                        return numA - numB;
+                    
+                    // Obtener carros únicos con validación
+                    const carrosSet = new Set();
+                    data.forEach(e => {
+                        if (e && e.carro) {
+                            carrosSet.add(String(e.carro));
+                        }
                     });
+                    try {
+                        carrosSoporte = [...carrosSet].sort((a, b) => {
+                            const strA = String(a);
+                            const strB = String(b);
+                            const matchA = strA.match(/\d+/);
+                            const matchB = strB.match(/\d+/);
+                            const numA = matchA ? parseInt(matchA[0]) : 999;
+                            const numB = matchB ? parseInt(matchB[0]) : 999;
+                            return numA - numB;
+                        });
+                    } catch(e) {
+                        carrosSoporte = [...carrosSet];
+                    }
+                    
                     renderEquiposSoporte(data);
                 } else {
                     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No hay equipos para esta sede</td></tr>';
@@ -1797,25 +1814,27 @@
             if (!tbody) return;
 
             if (equipos.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay equipos registrados</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">No hay equipos registrados</td></tr>';
                 return;
             }
 
             // Agrupar por carro
             const porCarro = {};
             equipos.forEach(e => {
-                if (!porCarro[e.carro]) porCarro[e.carro] = [];
-                porCarro[e.carro].push(e);
+                if (e && e.carro) {
+                    if (!porCarro[e.carro]) porCarro[e.carro] = [];
+                    porCarro[e.carro].push(e);
+                }
             });
 
             const sedeDisplay = currentSedeSoporte ? currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1) : '';
 
             let html = `
-                <tr style="background: linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%); color: white;">
-                    <th colspan="6" style="text-align: left; padding: 12px;">
+                <tr style="background: linear-gradient(135deg, var(--orange-500) 0%, var(--blue-500) 100%); color: white;">
+                    <th colspan="4" style="text-align: left; padding: 12px;">
                         <i class="fas fa-desktop"></i> Equipos de ${sedeDisplay}
                         <span style="float: right; font-size: 0.85rem; font-weight: normal;">
-                            Total: ${equipos.length} equipos | ${carrosSoporte.length} carros
+                            Total: ${equipos.length} equipos
                         </span>
                     </th>
                 </tr>
@@ -1823,14 +1842,17 @@
                     <th style="text-align: left;">Carro</th>
                     <th style="text-align: left;">Placa</th>
                     <th style="text-align: left;">Serial</th>
-                    <th style="text-align: center;">Estado</th>
-                    <th colspan="3" style="text-align: center;">Acciones</th>
+                    <th style="text-align: center;">Acciones</th>
                 </tr>
             `;
 
             Object.keys(porCarro).sort((a, b) => {
-                const numA = a.match(/\d+/) ? parseInt(a.match(/\d+/)[0]) : 999;
-                const numB = b.match(/\d+/) ? parseInt(b.match(/\d+/)[0]) : 999;
+                const strA = String(a);
+                const strB = String(b);
+                const matchA = strA.match(/\d+/);
+                const matchB = strB.match(/\d+/);
+                const numA = matchA ? parseInt(matchA[0]) : 999;
+                const numB = matchB ? parseInt(matchB[0]) : 999;
                 return numA - numB;
             }).forEach(carro => {
                 const equiposCarro = porCarro[carro];
@@ -1853,14 +1875,13 @@
                             <td>${idx === 0 ? '<strong>' + carro + '</strong>' : ''}</td>
                             <td><span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.85rem;">${eq.placa || '-'}</span></td>
                             <td><span style="font-family: monospace; font-size: 0.85rem; color: var(--text-secondary);">${eq.serial || '-'}</span></td>
-                            <td style="text-align: center;"><span class="status-badge status-active">Activo</span></td>
                             <td style="text-align: center;">
                                 <button class="action-btn" onclick="verDetalleEquipo('${eq.serial || ''}', '${eq.placa || ''}')" title="Ver">
                                     <i class="fas fa-eye"></i>
                                 </button>
+                                ${editBtn}
+                                ${deleteBtn}
                             </td>
-                            <td style="text-align: center;">${editBtn}</td>
-                            <td style="text-align: center;">${deleteBtn}</td>
                         </tr>
                     `;
                 });
@@ -2329,7 +2350,10 @@
         // Inicializar rol al cargar
         document.addEventListener('DOMContentLoaded', function() {
             updateRoleButtons();
-            if (currentRole === 'SOPORTE') {
+            
+            // Restaurar sede si era soporte
+            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                document.getElementById('sedeSoporteSelect').value = currentSedeSoporte;
                 document.getElementById('navAdmin').style.display = 'flex';
             }
         });
