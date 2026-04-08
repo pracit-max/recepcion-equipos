@@ -3066,8 +3066,8 @@ input.verified {
 
 
 /* ============================================
-   ACCESIBILIDAD — Reduced motion
-   ============================================ */
+    ACCESIBILIDAD — Reduced motion
+    ============================================ */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -3076,5 +3076,306 @@ input.verified {
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
         scroll-behavior: auto !important;
+    }
+}
+
+/* ============================================
+    OPTIMIZACIONES MÓVIL (TABLET + MÓVIL)
+    ============================================ */
+@media (max-width: 768px) {
+    /* ---- RENDIMIENTO: Eliminar backdrop-filter ---- */
+    .navbar,
+    .section-card,
+    .toast,
+    .modal,
+    .progress-container,
+    .record-card,
+    .file-label,
+    .info-card,
+    .checkbox-group,
+    .toggle-label-main,
+    .modal-content,
+    .btn-nav,
+    .btn-nav.secondary {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    /* ---- ESTABILIDAD: Evitar layout inestable ---- */
+    #btnVerificar {
+        position: relative !important;
+        right: auto !important;
+        top: auto !important;
+        transform: none !important;
+        margin-top: 0.5rem;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .input-group:has(#btnVerificar) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .input-group:has(#btnVerificar) input {
+        padding-right: 1rem !important;
+    }
+
+    .verify-badge {
+        position: relative !important;
+        right: auto !important;
+        top: auto !important;
+        transform: none !important;
+        margin-top: 0.5rem;
+        display: inline-flex;
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* ---- INTERACCIÓN: Desactivar :hover en táctil ---- */
+    .nav-brand:hover,
+    .btn-nav:hover,
+    .btn-nav.secondary:hover,
+    .section-card:hover,
+    .section-card:hover .card-header h2,
+    .section-card:hover::before,
+    .section-card:hover::after,
+    .icon-circle:hover,
+    .record-card:hover,
+    .record-card:hover::before,
+    .record-card:hover::after,
+    .record-card:hover .record-title,
+    .record-card:hover .record-equipo,
+    .record-card:hover .status-badge,
+    .custom-checkbox:hover,
+    .checkbox-group:hover,
+    .toggle-label-main:hover,
+    .file-label:hover,
+    .file-label:hover i,
+    .image-preview:hover img,
+    .detail-item:hover,
+    .btn-icon:hover,
+    .btn-clear-signature:hover,
+    .btn-primary:hover,
+    .btn-secondary:hover,
+    .btn-prev:hover,
+    .btn-next:hover,
+    .btn-submit:hover,
+    .search-box:hover,
+    .search-box input:hover {
+        background: transparent !important;
+        transform: none !important;
+        box-shadow: none !important;
+        border-color: transparent !important;
+    }
+
+    /* ---- ANIMACIONES: Simplificar en móvil ---- */
+    .section-card,
+    .icon-circle,
+    .record-card,
+    .record-equipo,
+    .status-badge,
+    .detail-item,
+    .btn-icon,
+    .btn-clear-signature,
+    .btn-primary,
+    .btn-secondary,
+    .file-label,
+    .toggle-label-main,
+    .custom-checkbox,
+    .checkbox-group {
+        transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+    }
+
+    /* ---- INPUTS: Evitar zoom y estables ---- */
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+        min-height: 44px;
+    }
+
+    #codigoVerificacion {
+        font-size: 1.5rem !important;
+    }
+
+    /* ---- TOAST: Sin blur ---- */
+    .toast {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    /* ---- BODY: Fondos estáticos ---- */
+    body {
+        background-attachment: scroll !important;
+    }
+
+    body::before {
+        display: none !important;
+    }
+
+    /* ---- HERO: Animación mínima ---- */
+    .form-header h1 {
+        animation: none !important;
+        background-size: 100% !important;
+    }
+
+    /* ---- MODAL: Evitar scroll issues ---- */
+    .modal {
+        align-items: flex-start;
+        padding: 1rem;
+        overflow-y: auto;
+    }
+
+    .modal-content {
+        margin-top: 2rem;
+        max-height: none;
+    }
+
+    /* ---- PROGRESS STEPS: Simplificar ---- */
+    .progress-steps span {
+        display: none;
+    }
+
+    .step-number {
+        width: 36px;
+        height: 36px;
+        font-size: 0.875rem;
+    }
+
+    /* ---- TOUCH: Mejorar respuesta ---- */
+    .sede-card,
+    .nav-tab,
+    .btn-nav,
+    .btn-icon,
+    .btn-primary,
+    .btn-secondary,
+    .toggle-label-main,
+    .custom-checkbox,
+    .file-label,
+    .hamburger {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+
+    /* ---- FORM GRID: Columna ---- */
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* ---- SECTION ACTIONS: Botones stack ---- */
+    .section-actions {
+        flex-direction: column-reverse;
+    }
+
+    .btn-prev,
+    .btn-next,
+    .btn-submit {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* ---- CARDS: Fondo simple ---- */
+    .section-card,
+    .record-card {
+        background: #FFFFFF !important;
+    }
+
+    .section-card::before,
+    .section-card::after,
+    .record-card::before,
+    .record-card::after {
+        display: none !important;
+    }
+
+    /* ---- SIGNATURE: Canvas táctil ---- */
+    .signature-pad {
+        height: 150px;
+    }
+
+    /* ---- VERIFY MODAL: Adaptar ---- */
+    .verify-modal .modal-content {
+        margin: 0.5rem;
+        max-width: 100%;
+    }
+
+    /* ---- TABLE: Scroll horizontal ---- */
+    .table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ---- RECORDS GRID: 1 columna ---- */
+    .records-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* ---- GRAIN Y MESH: Desactivar ---- */
+    .grain-overlay,
+    .bg-mesh {
+        display: none !important;
+    }
+
+    /* ---- EVITAR SALTOS CON TECLADO ---- */
+    .main-container,
+    .section-card,
+    .progress-container {
+        contain: layout style;
+    }
+}
+
+/* ============================================
+    OPTIMIZACIONES MÓVIL PEQUEÑO
+    ============================================ */
+@media (max-width: 480px) {
+    /* ---- Reducir animaciones ---- */
+    * {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.1ms !important;
+    }
+
+    /* ---- Cards simples ---- */
+    .section-card,
+    .record-card {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
+    }
+
+    /* ---- TOAST: Posición segura ---- */
+    .toast-container {
+        top: auto !important;
+        bottom: 1rem !important;
+        left: 0.5rem !important;
+        right: 0.5rem !important;
+    }
+
+    /* ---- Form inputs: Tamaño adecuado ---- */
+    .form-input,
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+        padding: 12px 14px !important;
+    }
+
+    /* ---- BUTTONS: Full width ---- */
+    .btn-row {
+        flex-direction: column;
+    }
+
+    .btn-custom {
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* ---- DETAIL GRID: 1 columna ---- */
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* ---- MODAL: Padding reducido ---- */
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding: 1rem !important;
     }
 }

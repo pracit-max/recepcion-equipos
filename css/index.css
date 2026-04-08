@@ -1616,8 +1616,8 @@ body > * {
 
 
 /* ============================================
-   ACCESIBILIDAD — Reduced motion
-   ============================================ */
+    ACCESIBILIDAD — Reduced motion
+    ============================================ */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -1654,5 +1654,182 @@ body > * {
 
     body::after {
         animation: none;
+    }
+}
+
+/* ============================================
+    OPTIMIZACIONES MÓVIL (TABLET + MÓVIL)
+    ============================================ */
+@media (max-width: 768px) {
+    /* ---- RENDIMIENTO: Eliminar backdrop-filter ---- */
+    .nav-container,
+    .sede-card,
+    .info-card,
+    .toast,
+    .logo-fallback {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    /* ---- ESTABILIDAD: Evitar layout inestable ---- */
+    .sede-card {
+        position: relative !important;
+        transform: none !important;
+        will-change: auto !important;
+    }
+
+    .sede-card:hover {
+        transform: none !important;
+    }
+
+    .sede-card:hover .sede-icon {
+        transform: none !important;
+    }
+
+    .sede-card:hover .sede-arrow {
+        transform: none !important;
+    }
+
+    /* ---- INTERACCIÓN: Desactivar :hover en táctil ---- */
+    .nav-tab:hover,
+    .sede-card:hover,
+    .sede-card:hover .sede-name,
+    .info-card:hover,
+    .logo-fallback:hover,
+    .main-logo:hover {
+        background: transparent !important;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
+    /* ---- ANIMACIONES: Simplificar en móvil ---- */
+    .sede-card,
+    .sede-icon,
+    .sede-arrow,
+    .info-card,
+    .info-icon {
+        transition: background 0.15s ease, color 0.15s ease !important;
+    }
+
+    /* ---- INPUTS: Evitar zoom y estables ---- */
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+        min-height: 44px;
+    }
+
+    /* ---- BOTÓN VERIFICACIÓN: Evitar position absolute ---- */
+    #btnVerificar {
+        position: relative !important;
+        right: auto !important;
+        top: auto !important;
+        transform: none !important;
+        margin-top: 0.5rem;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .input-group:has(#btnVerificar) input {
+        padding-right: 1rem !important;
+    }
+
+    .input-group:has(#btnVerificar) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* ---- TOAST: Sin blur ---- */
+    .toast {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    /* ---- BODY: Fondos estáticos ---- */
+    body {
+        background-attachment: scroll !important;
+    }
+
+    body::before,
+    body::after {
+        display: none !important;
+    }
+
+    /* ---- HERO: Animación mínima ---- */
+    .hero-title {
+        animation: none !important;
+        background-size: 100% !important;
+    }
+
+    .hero::before,
+    .hero::after {
+        display: none !important;
+    }
+
+    /* ---- GRAIN Y MESH: Desactivar ---- */
+    .grain-overlay,
+    .bg-mesh {
+        display: none !important;
+    }
+
+    /* ---- NAV PILL: Ocultar ---- */
+    .nav-pill {
+        display: none !important;
+    }
+
+    /* ---- TOUCH: Mejorar respuesta ---- */
+    .sede-card,
+    .nav-tab,
+    .btn-nav,
+    .hamburger {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+
+    /* ---- EVITAR SALTOS CON TECLADO ---- */
+    .main-container {
+        min-height: 100vh;
+        contain: layout style;
+    }
+
+    /* ---- CARDS: Fondo simple ---- */
+    .sede-card {
+        background: #FFFFFF !important;
+    }
+
+    .sede-card::before,
+    .sede-card::after {
+        display: none !important;
+    }
+}
+
+/* ============================================
+    OPTIMIZACIONES MÓVIL PEQUEÑO
+    ============================================ */
+@media (max-width: 480px) {
+    /* ---- Reducir animaciones ---- */
+    * {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.1ms !important;
+    }
+
+    /* ---- Cards simples ---- */
+    .sede-card {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
+    }
+
+    /* ---- TOAST: Posición segura ---- */
+    .toast-container {
+        top: auto !important;
+        bottom: 1rem !important;
+        left: 0.5rem !important;
+        right: 0.5rem !important;
+    }
+
+    /* ---- Input verificación: stacked ---- */
+    .input-group:has(#btnVerificar) {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
     }
 }
