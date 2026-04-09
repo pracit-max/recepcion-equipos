@@ -3073,10 +3073,12 @@ input.verified {
     }
 
     .toast-container {
-        left: 0.75rem;
-        right: 0.75rem;
-        top: auto;
-        bottom: 0.75rem;
+        top: 12px !important;
+        bottom: auto !important;
+        left: auto !important;
+        right: 12px !important;
+        width: auto !important;
+        max-width: 90% !important;
     }
 
     .toast {
@@ -3442,10 +3444,13 @@ input.verified {
 
     /* ---- TOAST: Posición segura ---- */
     .toast-container {
-        top: auto !important;
-        bottom: 1rem !important;
-        left: 0.5rem !important;
-        right: 0.5rem !important;
+        top: 12px !important;
+        bottom: auto !important;
+        left: auto !important;
+        right: 12px !important;
+        width: auto !important;
+        max-width: 90% !important;
+        transform: none !important;
     }
 
     /* ---- Form inputs: Tamaño adecuado ---- */

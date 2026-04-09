@@ -1402,33 +1402,67 @@ async function cargarSolicitudesEnCurso() {
       return;
     }
 
-    tbody.innerHTML = "";
-
-    data.forEach(item => {
-      const tr = document.createElement("tr");
-
-      tr.innerHTML = `
-        <td>${item.nombre || ""}</td>
-        <td>${item.sede || ""}</td>
-        <td>${item.equipo || ""}</td>
-        <td>${item.cantidad || ""}</td>
-        <td>${formatearHora(item.hora_entrega)}</td>
-        <td></td>
-      `;
-
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = "Devolver";
-      btn.addEventListener("click", () => abrirFormularioDevolucion(item));
-
-      tr.children[5].appendChild(btn);
-      tbody.appendChild(tr);
-    });
+    // Guardar datos globally para filtrar
+    window.solicitudesEnCurso = data;
+    
+    renderizarSolicitudes(data);
 
   } catch (err) {
     console.error(err);
     tbody.innerHTML = `<tr><td colspan="6">Error cargando solicitudes</td></tr>`;
   }
+}
+
+function renderizarSolicitudes(data) {
+  const tbody = document.getElementById("enCursoTableBody");
+  if (!tbody) return;
+  
+  tbody.innerHTML = "";
+
+  data.forEach(item => {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${item.nombre || ""}</td>
+      <td>${item.sede || ""}</td>
+      <td>${item.equipo || ""}</td>
+      <td>${item.cantidad || ""}</td>
+      <td>${formatearHora(item.hora_entrega)}</td>
+      <td></td>
+    `;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = "Devolver";
+    btn.addEventListener("click", () => abrirFormularioDevolucion(item));
+
+    tr.children[5].appendChild(btn);
+    tbody.appendChild(tr);
+  });
+}
+
+function filtrarSolicitudes() {
+  if (!window.solicitudesEnCurso) return;
+  
+  const busqueda = document.getElementById('buscarSolicitud')?.value.toLowerCase() || '';
+  const limite = document.getElementById('filtroCantidad')?.value || '0';
+  
+  let filtrados = window.solicitudesEnCurso;
+  
+  if (busqueda) {
+    filtrados = filtrados.filter(item => 
+      (item.nombre || '').toLowerCase().includes(busqueda) ||
+      (item.equipo || '').toLowerCase().includes(busqueda) ||
+      (item.sede || '').toLowerCase().includes(busqueda) ||
+      (item.cantidad || '').toString().includes(busqueda)
+    );
+  }
+  
+  if (limite !== '0') {
+    filtrados = filtrados.slice(0, parseInt(limite));
+  }
+  
+  renderizarSolicitudes(filtrados);
 }
 function formatearHora(valor) {
     if (!valor) return "";

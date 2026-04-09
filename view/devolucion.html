@@ -815,10 +815,12 @@
             }
 
             .toast-container {
-                top: auto !important;
-                bottom: 1rem !important;
-                left: 0.5rem !important;
-                right: 0.5rem !important;
+                top: 15px !important;
+                bottom: auto !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                right: auto !important;
+                width: 90% !important;
             }
 
             /* Canvas más pequeño */
@@ -1002,6 +1004,21 @@
                 <i class="fas fa-list-check"></i>
                 Solicitudes en curso
             </h2>
+            
+            <div style="margin-bottom: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                <div style="flex: 1; min-width: 200px;">
+                    <input type="text" id="buscarSolicitud" class="form-input" placeholder="Buscar por nombre, equipo o placa..." onkeyup="filtrarSolicitudes()">
+                </div>
+                <div>
+                    <select id="filtroCantidad" class="form-input" onchange="filtrarSolicitudes()" style="min-width: 120px;">
+                        <option value="0">Todos</option>
+                        <option value="5">5 resultados</option>
+                        <option value="10">10 resultados</option>
+                        <option value="20">20 resultados</option>
+                    </select>
+                </div>
+            </div>
+            
             <div class="table-wrapper">
                 <table class="custom-table">
                     <thead>
