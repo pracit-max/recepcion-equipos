@@ -1139,6 +1139,21 @@
     <script src="/js/script.js"></script>
 
     <script>
+        // ── Verificación de sede para soporte ──
+        (function() {
+            const params = new URLSearchParams(window.location.search);
+            const sedeURL = params.get('sede');
+            const role = localStorage.getItem('role');
+            const sedeAsignada = localStorage.getItem('sedeSoporte');
+            
+            // Si es soporte y tiene sede asignada, verificar que coincida
+            if (role === 'SOPORTE' && sedeAsignada && sedeURL && sedeURL !== sedeAsignada) {
+                alert('No tienes acceso a la sede ' + sedeURL + '. Tu sede es ' + sedeAsignada);
+                window.location.href = window.location.pathname + '?sede=' + sedeAsignada;
+                return;
+            }
+        })();
+
         // ── Sede badge ──
         (function() {
             const params = new URLSearchParams(window.location.search);

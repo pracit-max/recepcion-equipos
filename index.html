@@ -743,6 +743,21 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.9); }
+            to { transform: scale(1); }
+        }
+
 
         /* ── TOAST override ── */
         .toast {
@@ -1265,13 +1280,13 @@
             <div class="nav-tabs" id="navTabs">
                 <div class="nav-pill" id="navPill"></div>
                 <button class="nav-tab active" onclick="mostrarVista('docentes'); cerrarMenu();">
-                    <i class="fas fa-laptop"></i>Docentes
+                    <i class="fas fa-laptop"></i>Formularios
                 </button>
                 <button class="nav-tab" onclick="mostrarVista('soporte'); cerrarMenu();">
-                    <i class="fas fa-rotate-left"></i>Devoluciones
+                    <i class="fas fa-undo-alt"></i>Devoluciones
                 </button>
                 <button class="nav-tab soporte-only" id="navAdmin" onclick="mostrarVista('admin'); cerrarMenu();" style="display: none;">
-                    <i class="fas fa-cogs"></i>Admin
+                    <i class="fas fa-boxes"></i>Equipos
                 </button>
             </div>
         </div>
@@ -1601,6 +1616,20 @@
             });
         });
 
+        // ── Prevenir navegación a otras sedes para soporte ──
+        document.querySelectorAll('.sede-card').forEach(card => {
+            card.addEventListener('click', e => {
+                if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                    const href = card.getAttribute('href') || '';
+                    if (!href.includes('sede=' + currentSedeSoporte)) {
+                        e.preventDefault();
+                        showToast('Solo puedes acceder a tu sede: ' + currentSedeSoporte, 'warning');
+                    }
+                }
+            });
+        });
+
+        // ── Vista switching ──
         // ── Vista switching ──
         function mostrarVista(tipo) {
             const vd = document.getElementById('vistaDocentes');
@@ -1612,74 +1641,122 @@
             const sub = document.getElementById('heroSubtitle');
             const legend = document.getElementById('regionLegend');
 
+            // Limpiar tabs activos
             tabs.forEach(t => t.classList.remove('active'));
 
             if (tipo === 'docentes') {
+                // Ocultar todo excepto docentes
                 vd.style.display = 'block';
                 vs.style.display = 'none';
                 if (va) va.style.display = 'none';
-                tabs[0].classList.add('active');
+                
+                // Activar primer tab (Devoluciones queda como activo visual pero no mostramos nada especial)
                 pill.classList.remove('dev-mode');
+                
                 title.textContent = '¿En qué sede te encuentras?';
                 sub.textContent = 'Selecciona tu ubicación para acceder al formulario correspondiente de recepción de equipos';
                 legend.style.display = 'flex';
                 animateCards(vd);
+                
             } else if (tipo === 'soporte') {
+                // MOSTRAR VISTA DE DEVOLUCIONES
                 vd.style.display = 'none';
                 vs.style.display = 'block';
                 if (va) va.style.display = 'none';
-                tabs[1].classList.add('active');
+                
+                // Activar primer tab (Devoluciones)
+                if (tabs[0]) tabs[0].classList.add('active');
                 pill.classList.add('dev-mode');
-                title.textContent = 'Módulo de Devoluciones';
-                sub.textContent = 'Selecciona la sede para consultar y cerrar solicitudes de equipos';
+                
                 legend.style.display = 'none';
+                
+                // Si es soporte con sede, filtrar tarjetas y actualizar título
+                if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                    filtrarTarjetasSoporte();
+                    const sedeDisplay = currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1);
+                    title.textContent = 'Devoluciones ' + sedeDisplay;
+                    sub.textContent = 'Equipos en curso de tu sede';
+                } else {
+                    // Mostrar todas las sedes
+                    const cards = vs.querySelectorAll('.sede-card');
+                    cards.forEach(card => card.style.display = '');
+                    title.textContent = 'Devoluciones';
+                    sub.textContent = 'Selecciona tu sede para ver equipos en curso';
+                }
+                
                 animateCards(vs);
+                
             } else if (tipo === 'admin') {
+                // MOSTRAR PANEL DE ADMINISTRACIÓN
                 vd.style.display = 'none';
                 vs.style.display = 'none';
                 if (va) va.style.display = 'block';
                 
+                // Activar tab Admin
                 const adminTab = document.getElementById('navAdmin');
                 if (adminTab) adminTab.classList.add('active');
-                
                 pill.classList.add('dev-mode');
-                
-                // Si es soporte sin sede, mostrar mensaje
-                if (currentRole === 'SOPORTE' && !currentSedeSoporte) {
-                    title.textContent = 'Panel de Soporte';
-                    sub.textContent = 'Selecciona tu sede de soporte para ver los equipos';
-                } else {
-                    const sedeDisplay = currentSedeSoporte ? currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1) : 'Admin';
-                    title.textContent = 'Panel de ' + (currentRole === 'SOPORTE' ? 'Soporte' : 'Administración');
-                    sub.textContent = currentRole === 'SOPORTE' 
-                        ? 'Gestión de equipos de ' + sedeDisplay
-                        : 'Gestión completa de registros y solicitudes de todas las sedes';
-                }
                 
                 legend.style.display = 'none';
                 
-                // Cargar datos según el rol
                 if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                    const sedeDisplay = currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1);
+                    title.textContent = 'Panel de Soporte - ' + sedeDisplay;
+                    sub.textContent = 'Gestión de equipos de tu sede';
                     cargarEquiposSoporte(currentSedeSoporte);
                 } else {
-                    cargarTodosRegistros();
+                    title.textContent = 'Panel de Administración';
+                    sub.textContent = 'Selecciona rol de soporte para ver equipos';
                 }
             }
 
             // Transición hero
             const hc = document.querySelector('.hero-content');
-            hc.style.transition = 'none';
-            hc.style.opacity = '0';
-            hc.style.transform = 'translateY(8px)';
-            requestAnimationFrame(() => {
+            if (hc) {
+                hc.style.transition = 'none';
+                hc.style.opacity = '0';
+                hc.style.transform = 'translateY(8px)';
                 requestAnimationFrame(() => {
-                    hc.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-                    hc.style.opacity = '1';
-                    hc.style.transform = 'translateY(0)';
+                    requestAnimationFrame(() => {
+                        hc.style.transition = 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+                        hc.style.opacity = '1';
+                        hc.style.transform = 'translateY(0)';
+                    });
                 });
-            });
+            }
 
-            updatePill();
+            // Actualizar pill después de un pequeño delay
+            setTimeout(updatePill, 50);
+        }
+        // Función para filtrar las tarjetas de sede según la sede del soporte
+        function filtrarTarjetasSoporte() {
+            const vs = document.getElementById('vistaSoporte');
+            if (!vs) return;
+            
+            const cards = vs.querySelectorAll('.sede-card');
+            
+            // Si el usuario tiene una sede asignada, mostrar solo esa
+            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                cards.forEach(card => {
+                    const href = card.getAttribute('href') || '';
+                    if (href.includes('sede=' + currentSedeSoporte)) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+                
+                // Actualizar título según la sede
+                const title = document.getElementById('heroTitle');
+                const sub = document.getElementById('heroSubtitle');
+                if (title) title.textContent = 'Devoluciones ' + currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1);
+                if (sub) sub.textContent = 'Equipos en curso de tu sede';
+            } else {
+                // Si no tiene sede, mostrar todas las tarjetas
+                cards.forEach(card => {
+                    card.style.display = '';
+                });
+            }
         }
 
         function animateCards(container) {
@@ -1727,8 +1804,40 @@
         // ── GESTIÓN DE ROLES ──
         let currentRole = localStorage.getItem('role') || 'DOCENTE';
         let currentSedeSoporte = localStorage.getItem('sedeSoporte') || '';
+        let currentEmailSoporte = localStorage.getItem('emailSoporte') || '';
         let equiposSoporte = [];
         let carrosSoporte = [];
+
+        // Mapeo de correos de soporte a sedes
+        const correosSede = {
+            'soportecnicocota@innovaschools.edu.co': 'cota',
+            'soportecnicomosquera@innovaschools.edu.co': 'mosquera',
+            'soportecniconiza@innovaschools.edu.co': 'niza',
+            'soportecnicotunja@innovaschools.edu.co': 'tunja',
+            'soportecnicousaquen@innovaschools.edu.co': 'usaquen',
+            'soportecnicozipaquira@innovaschools.edu.co': 'zipaquira',
+            'soportecportal@innovaschools.edu.co': 'barranquilla'
+        };
+
+        // Función para obtener la sede desde el correo
+        function obtenerSedeDesdeCorreo(correo) {
+            if (!correo) return null;
+            const correoLower = correo.toLowerCase().trim();
+            return correosSede[correoLower] || null;
+        }
+
+        // Guardar correo y determinar sede automáticamente
+        function guardarCorreoSoporte(correo) {
+            const sede = obtenerSedeDesdeCorreo(correo);
+            if (sede) {
+                currentEmailSoporte = correo;
+                currentSedeSoporte = sede;
+                localStorage.setItem('emailSoporte', correo);
+                localStorage.setItem('sedeSoporte', sede);
+                return sede;
+            }
+            return null;
+        }
 
         function setRole(role) {
             currentRole = role;
@@ -1736,17 +1845,27 @@
             updateRoleButtons();
             
             if (role === 'SOPORTE') {
+                // Mostrar select de sede
                 document.getElementById('sedeSoporteSelect').style.display = 'inline-block';
-                document.getElementById('navAdmin').style.display = 'none';
-                // Si ya hay una sede seleccionada, mostrar panel
-                if (currentSedeSoporte) {
-                    mostrarVista('admin');
-                } else {
-                    showToast('Por favor selecciona tu sede de soporte', 'info');
-                }
+                
+                // Mostrar tab de admin
+                document.getElementById('navAdmin').style.display = 'flex';
+                
+                // Pedir correo con el modal bonito
+                mostrarModalCorreoSoporte();
+                
             } else {
+                // Volver a docente
                 document.getElementById('sedeSoporteSelect').style.display = 'none';
                 document.getElementById('navAdmin').style.display = 'none';
+                
+                // Limpiar datos de soporte
+                currentSedeSoporte = '';
+                currentEmailSoporte = '';
+                localStorage.removeItem('sedeSoporte');
+                localStorage.removeItem('emailSoporte');
+                
+                // Volver a vista de docentes
                 mostrarVista('docentes');
             }
             
@@ -1760,6 +1879,108 @@
             if (currentRole === 'SOPORTE' && sede) {
                 cargarEquiposSoporte(sede);
                 mostrarVista('admin');
+            }
+        }
+
+        // Función para mostrar modal de correo de soporte
+        function mostrarModalCorreoSoporte() {
+            const modalHtml = `
+                <div id="modalCorreoSoporte" class="modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;opacity:0;animation:fadeIn 0.3s forwards;">
+                    <div class="modal-content" style="background:#fff;border-radius:16px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);transform:scale(0.9);animation:scaleIn 0.3s forwards;">
+                        <div style="text-align:center;margin-bottom:24px;">
+                            <div style="width:64px;height:64px;background:linear-gradient(135deg,#FF6B6B,#4ECDC4);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                                <i class="fas fa-user-shield" style="font-size:28px;color:#fff;"></i>
+                            </div>
+                            <h2 style="margin:0 0 8px;font-size:22px;color:#1a1a2e;">Identificación de Soporte</h2>
+                            <p style="margin:0;color:#666;font-size:14px;">Ingresa tu correo institucional para identificar tu sede</p>
+                        </div>
+                        <div style="margin-bottom:20px;">
+                            <input type="email" id="inputCorreoSoporte" 
+                                placeholder="soportecnicoxxxx@innovaschools.edu.co"
+                                style="width:100%;padding:14px 16px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;outline:none;transition:border-color 0.3s;box-sizing:border-box;"
+                                onfocus="this.style.borderColor='#4ECDC4'"
+                                onblur="this.style.borderColor='#e2e8f0'">
+                            <p style="margin:8px 0 0;font-size:12px;color:#888;">
+                                <i class="fas fa-info-circle"></i> Usa el correo que termina en soportecnico...
+                            </p>
+                        </div>
+                        <div style="display:flex;gap:12px;">
+                            <button onclick="cancelarCorreoSoporte()" style="flex:1;padding:14px;border:none;background:#f1f5f9;color:#64748b;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:background 0.2s;">
+                                Cancelar
+                            </button>
+                            <button onclick="validarCorreoSoporte()" style="flex:1;padding:14px;border:none;background:linear-gradient(135deg,#FF6B6B,#4ECDC4);color:#fff;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:transform 0.2s;box-shadow:0 4px 15px rgba(78,205,196,0.4);">
+                                <i class="fas fa-check"></i> Validar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            
+            document.getElementById('inputCorreoSoporte').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') validarCorreoSoporte();
+            });
+            
+            setTimeout(() => document.getElementById('inputCorreoSoporte').focus(), 300);
+        }
+
+        async function validarCorreoSoporte() {
+            const correo = document.getElementById('inputCorreoSoporte').value.trim();
+            if (!correo) {
+                showToast('Por favor ingresa tu correo', 'error');
+                return;
+            }
+            
+            // Mostrar cargando en el botón
+            const modal = document.getElementById('modalCorreoSoporte');
+            const btnValidar = modal.querySelector('button[onclick="validarCorreoSoporte()"]');
+            const textoOriginal = btnValidar.innerHTML;
+            btnValidar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validando...';
+            btnValidar.disabled = true;
+            
+            try {
+                // Validar contra la hoja correos_sede del servidor
+                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=validarCorreoSoporte&correo=' + encodeURIComponent(correo));
+                const result = await response.json();
+                
+                if (result.status === 'ok') {
+                    // Sede detectada desde el servidor
+                    currentEmailSoporte = correo;
+                    currentSedeSoporte = result.sede;
+                    localStorage.setItem('emailSoporte', correo);
+                    localStorage.setItem('sedeSoporte', result.sede);
+                    
+                    cerrarModalCorreoSoporte();
+                    showToast('✅ Sede detectada: ' + result.sedeOriginal, 'success');
+                    
+                    // IR AL PANEL ADMIN (donde están los equipos)
+                    setTimeout(() => {
+                        mostrarVista('admin');
+                    }, 300);
+                    
+                } else {
+                    showToast(result.error || 'Correo no autorizado', 'error');
+                    // No cerrar el modal para que intente de nuevo
+                }
+            } catch (err) {
+                console.error('Error:', err);
+                showToast('Error de conexión al validar', 'error');
+            } finally {
+                btnValidar.innerHTML = textoOriginal;
+                btnValidar.disabled = false;
+            }
+        }
+
+        function cancelarCorreoSoporte() {
+            cerrarModalCorreoSoporte();
+            setRole('DOCENTE');
+        }
+
+        function cerrarModalCorreoSoporte() {
+            const modal = document.getElementById('modalCorreoSoporte');
+            if (modal) {
+                modal.style.animation = 'fadeOut 0.2s forwards';
+                setTimeout(() => modal.remove(), 200);
             }
         }
 
@@ -2423,6 +2644,12 @@
 
         // Inicializar rol al cargar
         document.addEventListener('DOMContentLoaded', function() {
+            // Limpiar datos de soporte para forzar nuevo login (quitar esto en producción si quieres persistencia)
+            // currentRole = 'DOCENTE';
+            // localStorage.removeItem('role');
+            // localStorage.removeItem('sedeSoporte');
+            // localStorage.removeItem('emailSoporte');
+            
             // Siempre mostrar vista de docentes al cargar la página
             mostrarVista('docentes');
             
