@@ -15,25 +15,39 @@ function doGet(e) {
     const action = e && e.parameter ? e.parameter.action : null;
     const sede = e && e.parameter ? e.parameter.sede : null;
 
+
+// En tu función doGet, reemplaza el bloque de validarCorreoSoporte por:
+
+    if (action === "validarCorreoSoporte") {
+      try {
+        const correo = e.parameter.correo || "";
+        Logger.log("=== doGet validarCorreoSoporte ===");
+        Logger.log("Correo recibido: " + correo);
+        
+        if (!correo) {
+          Logger.log("❌ Correo vacío");
+          return jsonResponse({ status: "error", error: "Debes ingresar un correo" });
+        }
+        
+        const resultado = validarCorreoSoporteHandler(correo);
+        Logger.log("Resultado final: " + JSON.stringify(resultado));
+        
+        return jsonResponse(resultado);
+      } catch (err) {
+        Logger.log("🔥 Error catch validarCorreoSoporte: " + err.toString());
+        return jsonResponse({ status: "error", error: err.toString() });
+      }
+    }
     // ==============================
     // VALIDAR CORREO DE SOPORTE (desde hoja correos_sede)
     // ==============================
-    if (action === "validarCorreoSoporte") {
-      return validarCorreoSoporteHandler(e.parameter.correo);
-    }
+
 
     // ==============================
     // OBTENER SEDES DISPONIBLES
     // ==============================
     if (action === "getSedesSoporte") {
       return getSedesSoporteHandler();
-    }
-
-    // ==============================
-    // OBTENER TODOS LOS CORREOS DE SOPORTE
-    // ==============================
-    if (action === "getCorreosSede") {
-      return getCorreosSedeHandler();
     }
 
     // ==============================
@@ -442,112 +456,54 @@ function jsonResponse(data) {
 // ============================================================
 // VALIDAR CORREO DE SOPORTE (desde hoja correos_sede)
 // ============================================================
-function validarCorreoSoporteHandler(correo) {
-  try {
-    if (!correo) {
-      return jsonResponse({ status: "error", error: "No se recibió correo" });
-    }
 
-    const correoLower = correo.toLowerCase().trim();
-    Logger.log("Validando correo: " + correoLower);
-
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheetCorreos = ss.getSheetByName("correos_sede");
-
-    if (!sheetCorreos) {
-      Logger.log("❌ No existe hoja correos_sede");
-      return jsonResponse({ status: "error", error: "No existe la hoja correos_sede" });
-    }
-
-    const data = sheetCorreos.getDataRange().getValues();
-    Logger.log("Filas en correos_sede: " + data.length);
-
-    for (let i = 1; i < data.length; i++) {
-      const sede = String(data[i][0] || "").trim();
-      const correoHoja = String(data[i][1] || "").trim().toLowerCase();
-
-      if (correoHoja === correoLower) {
-        Logger.log("✅ Correo válido para sede: " + sede);
-        return jsonResponse({
-          status: "ok",
-          sede: sede.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
-          sedeOriginal: sede
-        });
-      }
-    }
-
-    Logger.log("❌ Correo no encontrado en la hoja");
-    return jsonResponse({ status: "error", error: "Correo no autorizado" });
-
-  } catch (err) {
-    Logger.log("❌ Error validando correo: " + err.toString());
-    return jsonResponse({ status: "error", error: err.toString() });
-  }
-}
 
 // ============================================================
 // OBTENER SEDES DISPONIBLES
 // ============================================================
-function getSedesSoporteHandler() {
+function getEquiposHandler(sede, correo) {
   try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheetCorreos = ss.getSheetByName("correos_sede");
-
-    if (!sheetCorreos) {
-      return jsonResponse([]);
+    const permiso = validarAccesoSoporte(correo, sede);
+    if (!permiso.ok) {
+      return { error: permiso.error };
     }
 
-    const data = sheetCorreos.getDataRange().getValues();
-    const sedes = [];
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+
+    const nombreHoja = "equipos_" + normalizarTexto(permiso.acceso.sedeOriginal || permiso.acceso.sede);
+    const hoja = ss.getSheetByName(nombreHoja);
+
+    if (!hoja) {
+      return { error: "No existe la hoja de equipos: " + nombreHoja };
+    }
+
+    const data = hoja.getDataRange().getValues();
+    if (data.length < 2) return [];
+
+    const encabezados = data[0].map(h => normalizarTexto(h));
+
+    const idxEquipo = encabezados.indexOf("equipo");
+    const idxCarro = encabezados.indexOf("carro");
+    const idxPlaca = encabezados.indexOf("placa");
+    const idxSerial = encabezados.indexOf("serial");
+
+    const salida = [];
 
     for (let i = 1; i < data.length; i++) {
-      const sede = String(data[i][0] || "").trim();
-      if (sede) {
-        sedes.push(sede);
-      }
+      const fila = data[i];
+      salida.push({
+        equipo: idxEquipo > -1 ? fila[idxEquipo] : "",
+        carro: idxCarro > -1 ? fila[idxCarro] : "",
+        placa: idxPlaca > -1 ? fila[idxPlaca] : "",
+        serial: idxSerial > -1 ? fila[idxSerial] : ""
+      });
     }
 
-    return jsonResponse(sedes);
-
-  } catch (err) {
-    return jsonResponse([]);
+    return salida;
+  } catch (error) {
+    return { error: error.message };
   }
 }
-
-// ============================================================
-// OBTENER TODOS LOS CORREOS DE SOPORTE CON SU SEDE
-// ============================================================
-function getCorreosSedeHandler() {
-  try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheetCorreos = ss.getSheetByName("correos_sede");
-
-    if (!sheetCorreos) {
-      return jsonResponse([]);
-    }
-
-    const data = sheetCorreos.getDataRange().getValues();
-    const result = [];
-
-    for (let i = 1; i < data.length; i++) {
-      const sede = String(data[i][0] || "").trim();
-      const correo = String(data[i][1] || "").trim();
-      if (sede && correo) {
-        result.push({
-          sede: sede.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
-          sedeOriginal: sede,
-          correo: correo.toLowerCase()
-        });
-      }
-    }
-
-    return jsonResponse(result);
-
-  } catch (err) {
-    return jsonResponse([]);
-  }
-}
-
 // ============================================================
 // doPost - REGISTRO Y CIERRE DE SOLICITUDES
 // ============================================================
@@ -1739,5 +1695,132 @@ function eliminarEquipo(data) {
   } catch (err) {
     Logger.log("Error eliminarEquipo: " + err.toString());
     return jsonResponse({ status: "error", error: err.toString() });
+  }
+}
+function normalizarTexto(valor) {
+  return String(valor || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function obtenerHojaCorreosSede() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const hojas = ss.getSheets();
+  
+  // Buscar hoja que contenga "correo" y "sede" en el nombre (case-insensitive)
+  for (let hoja of hojas) {
+    const nombre = hoja.getName().toLowerCase();
+    if (nombre.includes("correo") && nombre.includes("sede")) {
+      Logger.log("✅ Hoja encontrada: " + hoja.getName());
+      return hoja;
+    }
+  }
+  
+  // Si no se encuentra, intentar nombre exacto
+  const hoja = ss.getSheetByName("correos_sede");
+  if (hoja) return hoja;
+  
+  throw new Error("No se encontró ninguna hoja con 'correo' y 'sede' en el nombre. Hojas disponibles: " + 
+    hojas.map(h => "'" + h.getName() + "'").join(", "));
+}
+function buscarSedePorCorreo(correo) {
+  try {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const hoja = ss.getSheetByName("correos_sede");
+    if (!hoja) {
+      Logger.log("❌ No existe la hoja 'correos_sede'");
+      return null;
+    }
+
+    const data = hoja.getDataRange().getValues();
+    if (data.length < 2) {
+      Logger.log("⚠️ La hoja solo tiene encabezados o está vacía");
+      return null;
+    }
+
+    // Encontrar índices de columnas
+    const encabezados = data[0];
+    let idxSede = -1, idxCorreo = -1;
+    for (let i = 0; i < encabezados.length; i++) {
+      const header = String(encabezados[i]).trim().toLowerCase();
+      if (header === "sede") idxSede = i;
+      if (header === "correo") idxCorreo = i;
+    }
+
+    if (idxSede === -1 || idxCorreo === -1) {
+      Logger.log(`❌ Columnas no encontradas. Encabezados: ${encabezados.join(", ")}`);
+      return null;
+    }
+
+    // NORMALIZACIÓN CORREGIDA - NO eliminar el @ ni el punto del dominio
+    const correoBuscado = String(correo || "").trim().toLowerCase();
+    Logger.log(`🔍 Buscando correo: "${correoBuscado}"`);
+
+    for (let i = 1; i < data.length; i++) {
+      const filaCorreo = String(data[i][idxCorreo] || "").trim().toLowerCase();
+      const filaSede = String(data[i][idxSede] || "").trim();
+      
+      Logger.log(`Comparando fila ${i}: "${filaCorreo}" con "${correoBuscado}"`);
+      
+      // Comparación exacta (sin normalización extra)
+      if (filaCorreo === correoBuscado) {
+        Logger.log(`✅ Correo encontrado! Sede: ${filaSede}`);
+        return {
+          sede: filaSede.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+          sedeOriginal: filaSede,
+          correo: filaCorreo
+        };
+      }
+    }
+
+    Logger.log(`❌ No se encontró el correo "${correoBuscado}" en la lista`);
+    return null;
+  } catch (error) {
+    Logger.log(`🔥 Error en buscarSedePorCorreo: ${error.toString()}`);
+    return null;
+  }
+}
+function validarAccesoSoporte(correo, sedeSolicitada) {
+  const acceso = buscarSedePorCorreo(correo);
+  if (!acceso) {
+    return { ok: false, error: "Correo no autorizado" };
+  }
+
+  if (normalizarTexto(sedeSolicitada) !== normalizarTexto(acceso.sede)) {
+    return { ok: false, error: "No autorizado para esa sede" };
+  }
+
+  return { ok: true, acceso: acceso };
+}
+function validarCorreoSoporteHandler(correo) {
+  try {
+    if (!correo) {
+      return { status: "error", error: "Debes ingresar un correo" };
+    }
+
+    // Limpiar el correo (solo trim y lowerCase)
+    const correoLimpiado = correo.trim().toLowerCase();
+    Logger.log(`Validando correo: ${correoLimpiado}`);
+
+    const resultado = buscarSedePorCorreo(correoLimpiado);
+
+    if (!resultado) {
+      return { 
+        status: "error", 
+        error: "Correo no autorizado. Verifica que esté registrado en la hoja 'correos_sede'." 
+      };
+    }
+
+    return {
+      status: "ok",
+      sede: resultado.sede,
+      sedeOriginal: resultado.sedeOriginal,
+      correo: resultado.correo
+    };
+  } catch (error) {
+    Logger.log(`Error en validarCorreoSoporteHandler: ${error.message}`);
+    return { status: "error", error: "Error interno: " + error.message };
   }
 }

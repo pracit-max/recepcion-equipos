@@ -54,21 +54,33 @@ async function cargarEquiposPorSede() {
         return;
     }
 
-    // Normalizamos igual que en Apps Script
+    const correoSoporte = localStorage.getItem('emailSoporte') || '';
     const sedeNombre = sedeInput.value;
     const sedeParaURL = sedeNombre.toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, ""); // zipaquira, niza, usaquen...
+        .replace(/[\u0300-\u036f]/g, "");
 
     try {
-        const response = await fetch(`${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeParaURL)}`);
-        equiposZipaquira = await response.json();   // reutilizamos la misma variable global (está bien)
+        const response = await fetch(
+            `${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeParaURL)}&correo=${encodeURIComponent(correoSoporte)}`
+        );
 
-        // Obtener carros únicos y ordenarlos
+        const data = await response.json();
+
+        if (data.error) {
+            console.error("Error del servidor:", data.error);
+            document.getElementById('carroSelect').innerHTML =
+                '<option value="">No autorizado o error al cargar</option>';
+            return;
+        }
+
+        equiposZipaquira = data;
+
         const carrosSet = new Set();
         equiposZipaquira.forEach(e => {
             if (e && e.carro) carrosSet.add(String(e.carro));
         });
+
         try {
             carrosDisponibles = [...carrosSet].sort((a, b) => {
                 const strA = String(a);
@@ -83,7 +95,6 @@ async function cargarEquiposPorSede() {
             carrosDisponibles = [...carrosSet];
         }
 
-        // Llenar el select
         const select = document.getElementById('carroSelect');
         select.innerHTML = '<option value="">Seleccione un carro...</option>';
 

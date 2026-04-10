@@ -813,14 +813,14 @@
             .section-card {
                 box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
             }
-
             .toast-container {
-                top: 15px !important;
+                top: 12px !important;
+                right: 12px !important;
                 bottom: auto !important;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                right: auto !important;
-                width: 90% !important;
+                left: auto !important;
+                transform: none !important;
+                width: auto !important;
+                max-width: calc(100vw - 24px) !important;
             }
 
             /* Canvas más pequeño */
@@ -863,9 +863,19 @@
 
             /* Toast sticky */
             .toast-container {
-                position: sticky;
-                top: 0;
-                z-index: 1000;
+                position: fixed !important;
+                top: 16px !important;
+                right: 16px !important;
+                bottom: auto !important;
+                left: auto !important;
+                transform: none !important;
+                z-index: 1000 !important;
+                width: auto !important;
+                max-width: calc(100vw - 32px) !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: flex-end !important;
+                gap: 8px !important;
             }
 
             /* Evitar scroll unwanted */
@@ -1273,5 +1283,34 @@
             };
         }
     </script>
+    <script>
+    function normalizarTexto(texto) {
+        return String(texto || "")
+            .trim()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    (function validarAccesoDevolucion() {
+        const params = new URLSearchParams(window.location.search);
+        const sedeUrl = normalizarTexto(params.get('sede'));
+        const role = localStorage.getItem('role') || 'DOCENTE';
+        const sedeSoporte = normalizarTexto(localStorage.getItem('sedeSoporte') || '');
+
+        if (role === 'SOPORTE') {
+            if (!sedeSoporte) {
+                alert('Debes validar tu correo de soporte primero.');
+                window.location.href = '/index.html';
+                return;
+            }
+
+            if (sedeUrl !== sedeSoporte) {
+                alert('No puedes entrar a una sede diferente a la tuya.');
+                window.location.href = '/index.html';
+            }
+        }
+    })();
+</script>
 </body>
 </html>

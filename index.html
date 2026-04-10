@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Selección de Sede | Sistema de Recepción de Equipos</title>
-    <link rel="icon" type="image/png" href="/img/Innova_Schools_escudo.webp">
+    <link rel="icon" type="image/png" href="/img/Innova_Schools_escudo.png">
     <link rel="stylesheet" href="/css/index.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1266,16 +1266,13 @@
                 <button class="role-btn" id="roleSoporte" onclick="setRole('SOPORTE')">
                     <i class="fas fa-user-shield"></i>Soporte
                 </button>
-                <select id="sedeSoporteSelect" class="sede-select" onchange="setSedeSoporte(this.value)" style="display: none;">
-                    <option value="">Selecciona tu sede...</option>
-                    <option value="zipaquira">Zipaquirá</option>
-                    <option value="cota">Cota</option>
-                    <option value="mosquera">Mosquera</option>
-                    <option value="niza">Niza</option>
-                    <option value="usaquen">Usaquén</option>
-                    <option value="tunja">Tunja</option>
-                    <option value="barranquilla">Barranquilla</option>
-                </select>
+                <div id="sedeSoporteBadge" class="sede-soporte-badge" style="display:none;">
+                    <i class="fas fa-building"></i>
+                    <span id="sedeSoporteBadgeText">Sede:</span>
+                    <button id="btnCambiarCorreo" style="background: none; border: none; color: inherit; margin-left: 8px; cursor: pointer;" title="Cambiar correo">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
             </div>
             <div class="nav-tabs" id="navTabs">
                 <div class="nav-pill" id="navPill"></div>
@@ -1295,7 +1292,7 @@
     <div class="main-container">
         <header class="header">
             <div class="logo-container">
-                <img src="./img/Innova_Schools_escudo.webp" alt="Logo" class="main-logo" id="mainLogo">
+                <img src="./img/Innova_Schools_escudo.png" alt="Logo" class="main-logo" id="mainLogo">
                 <span class="logo-fallback" style="display:none;">
                     <i class="fas fa-clipboard-check"></i>
                     <span>Sistema de Equipos</span>
@@ -1619,11 +1616,21 @@
         // ── Prevenir navegación a otras sedes para soporte ──
         document.querySelectorAll('.sede-card').forEach(card => {
             card.addEventListener('click', e => {
-                if (currentRole === 'SOPORTE' && currentSedeSoporte) {
-                    const href = card.getAttribute('href') || '';
-                    if (!href.includes('sede=' + currentSedeSoporte)) {
+                if (currentRole !== 'SOPORTE') return;
+                if (!currentSedeSoporte) {
+                    e.preventDefault();
+                    showToast('Primero debes validar tu correo de soporte', 'warning');
+                    return;
+                }
+
+                const href = card.getAttribute('href') || '';
+                const match = href.match(/[?&]sede=([^&]+)/i);
+
+                if (match) {
+                    const sedeHref = normalizarTexto(decodeURIComponent(match[1]));
+                    if (!puedeAccederASede(sedeHref)) {
                         e.preventDefault();
-                        showToast('Solo puedes acceder a tu sede: ' + currentSedeSoporte, 'warning');
+                        showToast('Solo puedes acceder a tu sede: ' + capitalizarSede(currentSedeSoporte), 'warning');
                     }
                 }
             });
@@ -1732,30 +1739,31 @@
         function filtrarTarjetasSoporte() {
             const vs = document.getElementById('vistaSoporte');
             if (!vs) return;
-            
+
             const cards = vs.querySelectorAll('.sede-card');
-            
-            // Si el usuario tiene una sede asignada, mostrar solo esa
-            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
-                cards.forEach(card => {
-                    const href = card.getAttribute('href') || '';
-                    if (href.includes('sede=' + currentSedeSoporte)) {
+
+            cards.forEach(card => {
+                const href = card.getAttribute('href') || '';
+                const match = href.match(/[?&]sede=([^&]+)/i);
+                const sedeCard = match ? normalizarTexto(decodeURIComponent(match[1])) : '';
+
+                if (currentRole === 'SOPORTE') {
+                    if (currentSedeSoporte && sedeCard === currentSedeSoporte) {
                         card.style.display = '';
                     } else {
                         card.style.display = 'none';
                     }
-                });
-                
-                // Actualizar título según la sede
-                const title = document.getElementById('heroTitle');
-                const sub = document.getElementById('heroSubtitle');
-                if (title) title.textContent = 'Devoluciones ' + currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1);
-                if (sub) sub.textContent = 'Equipos en curso de tu sede';
-            } else {
-                // Si no tiene sede, mostrar todas las tarjetas
-                cards.forEach(card => {
+                } else {
                     card.style.display = '';
-                });
+                }
+            });
+
+            const title = document.getElementById('heroTitle');
+            const sub = document.getElementById('heroSubtitle');
+
+            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                title.textContent = 'Devoluciones ' + capitalizarSede(currentSedeSoporte);
+                sub.textContent = 'Equipos en curso de tu sede';
             }
         }
 
@@ -1807,144 +1815,146 @@
         let currentEmailSoporte = localStorage.getItem('emailSoporte') || '';
         let equiposSoporte = [];
         let carrosSoporte = [];
-        let correosSedeData = JSON.parse(localStorage.getItem('correosSedeData')) || null;
+        let correosSedeData = null;
 
         // Cargar correos de soporte desde el servidor
-        async function cargarCorreosSede() {
-            if (correosSedeData) return; // Ya cargado
-            try {
-                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getSedesSoporte');
-                const sedes = await response.json();
-                
-                if (Array.isArray(sedes) && sedes.length > 0) {
-                    // Convertir array de sedes a objeto mapeado
-                    correosSedeData = {};
-                    const response2 = await fetch(URL_GOOGLE_SCRIPT + '?action=validarCorreoSoporte&correo=');
-                    
-                    // Obtener todos los correos de la hoja correos_sede
-                    const response3 = await fetch(URL_GOOGLE_SCRIPT + '?action=getCorreosSede');
-                    const data = await response3.json();
-                    
-                    if (data && Array.isArray(data)) {
-                        data.forEach(item => {
-                            if (item.correo && item.sede) {
-                                correosSedeData[item.correo.toLowerCase()] = item.sede;
-                            }
-                        });
-                        localStorage.setItem('correosSedeData', JSON.stringify(correosSedeData));
-                        console.log('✅ Correos de soporte cargados:', Object.keys(correosSedeData).length);
-                    }
-                }
-            } catch (err) {
-                console.error('Error cargando correos de soporte:', err);
-            }
-        }
+
 
         // Función para obtener la sede desde el correo
-        function obtenerSedeDesdeCorreo(correo) {
-            if (!correosSedeData) return null;
-            if (!correo) return null;
-            const correoLower = correo.toLowerCase().trim();
-            return correosSedeData[correoLower] || null;
+        function normalizarTexto(texto) {
+            return String(texto || "")
+                .trim()
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
         }
 
-        // Guardar correo y determinar sede automáticamente
-        function guardarCorreoSoporte(correo) {
-            const sede = obtenerSedeDesdeCorreo(correo);
-            if (sede) {
-                currentEmailSoporte = correo;
-                currentSedeSoporte = sede;
-                localStorage.setItem('emailSoporte', correo);
-                localStorage.setItem('sedeSoporte', sede);
-                return sede;
+        function capitalizarSede(sede) {
+            if (!sede) return "";
+            return String(sede)
+                .split(" ")
+                .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+                .join(" ");
+        }
+
+        function guardarSesionSoporte(correo, sede) {
+            currentRole = 'SOPORTE';
+            currentEmailSoporte = correo;
+            currentSedeSoporte = normalizarTexto(sede);
+
+            localStorage.setItem('role', 'SOPORTE');
+            localStorage.setItem('emailSoporte', correo);
+            localStorage.setItem('sedeSoporte', currentSedeSoporte);
+
+            actualizarBadgeSedeSoporte();
+        }
+
+        function limpiarSesionSoporte() {
+            currentEmailSoporte = '';
+            currentSedeSoporte = '';
+
+            localStorage.removeItem('emailSoporte');
+            localStorage.removeItem('sedeSoporte');
+
+            actualizarBadgeSedeSoporte();
+        }
+        function logoutSoporte() {
+            // Limpiar solo las credenciales de soporte
+            localStorage.removeItem('emailSoporte');
+            localStorage.removeItem('sedeSoporte');
+            currentEmailSoporte = '';
+            currentSedeSoporte = '';
+            actualizarBadgeSedeSoporte();
+            // Volver a mostrar el modal de correo
+            mostrarModalCorreoSoporte();
+            // Ocultar las vistas de soporte/admin hasta que valide
+            document.getElementById('vistaSoporte').style.display = 'none';
+            document.getElementById('vistaAdmin').style.display = 'none';
+            // Mostrar vista docentes mientras tanto
+            document.getElementById('vistaDocentes').style.display = 'block';
+            showToast('Por favor ingresa tu correo de soporte nuevamente', 'info');
+        }
+        function actualizarBadgeSedeSoporte() {
+            const badge = document.getElementById('sedeSoporteBadge');
+            const text = document.getElementById('sedeSoporteBadgeText');
+
+            if (!badge || !text) return;
+
+            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                text.textContent = 'Sede: ' + capitalizarSede(currentSedeSoporte);
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
             }
-            return null;
         }
 
+        function puedeAccederASede(sede) {
+            if (currentRole !== 'SOPORTE') return true;
+            if (!currentSedeSoporte) return false;
+            return normalizarTexto(sede) === normalizarTexto(currentSedeSoporte);
+        }
         function setRole(role) {
             currentRole = role;
             localStorage.setItem('role', role);
-            updateRoleButtons();
-            
-            // Referencias a los tabs
+
             const tabFormularios = document.querySelector('.nav-tab');
             const tabDevoluciones = document.getElementById('tabDevoluciones');
             const tabEquipos = document.getElementById('navAdmin');
-            
+
             if (role === 'SOPORTE') {
-                // Mostrar select de sede
-                document.getElementById('sedeSoporteSelect').style.display = 'inline-block';
-                
-                // Mostrar tabs de soporte (devoluciones y equipos)
                 if (tabFormularios) tabFormularios.style.display = 'flex';
                 if (tabDevoluciones) tabDevoluciones.style.display = 'flex';
                 if (tabEquipos) tabEquipos.style.display = 'flex';
-                
-                // Por defecto mostrar devoluciones
-                mostrarVista('soporte');
-                
-                // Pedir correo con el modal bonito
-                mostrarModalCorreoSoporte();
-                
+
+                updateRoleButtons();
+                actualizarBadgeSedeSoporte();
+
+                if (currentEmailSoporte && currentSedeSoporte) {
+                    mostrarVista('soporte');
+                    showToast('Sesión de soporte restaurada para ' + capitalizarSede(currentSedeSoporte), 'success');
+                } else {
+                    mostrarModalCorreoSoporte();
+                }
             } else {
-                // Volver a docente
-                document.getElementById('sedeSoporteSelect').style.display = 'none';
-                
-                // Ocultar tabs de soporte
                 if (tabFormularios) tabFormularios.style.display = 'flex';
                 if (tabDevoluciones) tabDevoluciones.style.display = 'none';
                 if (tabEquipos) tabEquipos.style.display = 'none';
-                
-                // Limpiar datos de soporte
-                currentSedeSoporte = '';
-                currentEmailSoporte = '';
-                localStorage.removeItem('sedeSoporte');
-                localStorage.removeItem('emailSoporte');
-                
-                // Volver a vista de docentes
+
+                limpiarSesionSoporte();
+                updateRoleButtons();
                 mostrarVista('docentes');
+                showToast('Rol cambiado a: DOCENTE', 'info');
             }
-            
-            showToast(`Rol cambiado a: ${role}`, 'info');
         }
 
-        function setSedeSoporte(sede) {
-            currentSedeSoporte = sede;
-            localStorage.setItem('sedeSoporte', sede);
-            
-            if (currentRole === 'SOPORTE' && sede) {
-                cargarEquiposSoporte(sede);
-                mostrarVista('soporte');
-            }
-        }
 
         // Función para mostrar modal de correo de soporte
         function mostrarModalCorreoSoporte() {
+            // Eliminar modal previo si existe
+            const existing = document.getElementById('modalCorreoSoporte');
+            if (existing) existing.remove();
+
             const modalHtml = `
-                <div id="modalCorreoSoporte" class="modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;opacity:0;animation:fadeIn 0.3s forwards;">
-                    <div class="modal-content" style="background:#fff;border-radius:16px;padding:32px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);transform:scale(0.9);animation:scaleIn 0.3s forwards;">
-                        <div style="text-align:center;margin-bottom:24px;">
-                            <div style="width:64px;height:64px;background:linear-gradient(135deg,#FF6B6B,#4ECDC4);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                                <i class="fas fa-user-shield" style="font-size:28px;color:#fff;"></i>
+                <div id="modalCorreoSoporte" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.75); display:flex; align-items:center; justify-content:center; z-index:99999; backdrop-filter:blur(4px);">
+                    <div style="background:#fff; border-radius:20px; padding:32px; max-width:420px; width:90%; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+                        <div style="text-align:center; margin-bottom:24px;">
+                            <div style="width:64px; height:64px; background:linear-gradient(135deg,#FF6B6B,#4ECDC4); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                                <i class="fas fa-user-shield" style="font-size:28px; color:#fff;"></i>
                             </div>
-                            <h2 style="margin:0 0 8px;font-size:22px;color:#1a1a2e;">Identificación de Soporte</h2>
-                            <p style="margin:0;color:#666;font-size:14px;">Ingresa tu correo institucional para identificar tu sede</p>
+                            <h2 style="margin:0 0 8px; font-size:22px; color:#1a1a2e;">Identificación de Soporte</h2>
+                            <p style="margin:0; color:#666; font-size:14px;">Ingresa tu correo institucional para identificar tu sede</p>
                         </div>
                         <div style="margin-bottom:20px;">
                             <input type="email" id="inputCorreoSoporte" 
                                 placeholder="soportecnicoxxxx@innovaschools.edu.co"
-                                style="width:100%;padding:14px 16px;border:2px solid #e2e8f0;border-radius:10px;font-size:15px;outline:none;transition:border-color 0.3s;box-sizing:border-box;"
-                                onfocus="this.style.borderColor='#4ECDC4'"
-                                onblur="this.style.borderColor='#e2e8f0'">
-                            <p style="margin:8px 0 0;font-size:12px;color:#888;">
+                                style="width:100%; padding:14px 16px; border:2px solid #e2e8f0; border-radius:12px; font-size:15px; box-sizing:border-box;">
+                            <p style="margin:8px 0 0; font-size:12px; color:#888;">
                                 <i class="fas fa-info-circle"></i> Usa el correo que termina en soportecnico...
                             </p>
                         </div>
-                        <div style="display:flex;gap:12px;">
-                            <button onclick="cancelarCorreoSoporte()" style="flex:1;padding:14px;border:none;background:#f1f5f9;color:#64748b;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:background 0.2s;">
-                                Cancelar
-                            </button>
-                            <button onclick="validarCorreoSoporte()" style="flex:1;padding:14px;border:none;background:linear-gradient(135deg,#FF6B6B,#4ECDC4);color:#fff;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:transform 0.2s;box-shadow:0 4px 15px rgba(78,205,196,0.4);">
+                        <div style="display:flex; gap:12px;">
+                            <button onclick="cancelarCorreoSoporte()" style="flex:1; padding:14px; border:none; background:#f1f5f9; color:#64748b; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;">Cancelar</button>
+                            <button onclick="validarCorreoSoporte()" style="flex:1; padding:14px; border:none; background:linear-gradient(135deg,#FF6B6B,#4ECDC4); color:#fff; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;">
                                 <i class="fas fa-check"></i> Validar
                             </button>
                         </div>
@@ -1952,64 +1962,78 @@
                 </div>
             `;
             document.body.insertAdjacentHTML('beforeend', modalHtml);
-            
-            document.getElementById('inputCorreoSoporte').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') validarCorreoSoporte();
-            });
-            
-            setTimeout(() => document.getElementById('inputCorreoSoporte').focus(), 300);
-        }
 
+            const input = document.getElementById('inputCorreoSoporte');
+            if (input) {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') validarCorreoSoporte();
+                });
+                input.focus();
+            }
+        }
         async function validarCorreoSoporte() {
-            const correo = document.getElementById('inputCorreoSoporte').value.trim();
+            const input = document.getElementById('inputCorreoSoporte');
+            const correo = input.value.trim().toLowerCase();
+
             if (!correo) {
                 showToast('Por favor ingresa tu correo', 'error');
+                input.focus();
                 return;
             }
-            
-            // Mostrar cargando en el botón
+
+            // Validar formato básico de email
+            if (!correo.includes('@') || !correo.includes('.')) {
+                showToast('Ingresa un correo electrónico válido', 'error');
+                input.focus();
+                return;
+            }
+
             const modal = document.getElementById('modalCorreoSoporte');
             const btnValidar = modal.querySelector('button[onclick="validarCorreoSoporte()"]');
             const textoOriginal = btnValidar.innerHTML;
+
             btnValidar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validando...';
             btnValidar.disabled = true;
-            
+            input.disabled = true;
+
             try {
-                // Validar contra la hoja correos_sede del servidor
                 const response = await fetch(URL_GOOGLE_SCRIPT + '?action=validarCorreoSoporte&correo=' + encodeURIComponent(correo));
                 const result = await response.json();
-                
-                if (result.status === 'ok') {
-                    // Sede detectada desde el servidor
-                    currentEmailSoporte = correo;
-                    currentSedeSoporte = result.sede;
-                    localStorage.setItem('emailSoporte', correo);
-                    localStorage.setItem('sedeSoporte', result.sede);
-                    
+
+                console.log('Respuesta del servidor:', result);
+
+                if (result.status === 'ok' && result.sede) {
+                    guardarSesionSoporte(correo, result.sede);
                     cerrarModalCorreoSoporte();
-                    showToast('✅ Sede detectada: ' + result.sedeOriginal, 'success');
-                    
-                    // IR AL PANEL ADMIN (donde están los equipos)
+                    updateRoleButtons();
+                    filtrarTarjetasSoporte();
+                    showToast('✅ Sede detectada: ' + capitalizarSede(result.sedeOriginal || result.sede), 'success');
                     setTimeout(() => {
                         mostrarVista('soporte');
-                    }, 300);
-                    
+                    }, 250);
                 } else {
-                    showToast(result.error || 'Correo no autorizado', 'error');
-                    // No cerrar el modal para que intente de nuevo
+                    showToast(result.error || '❌ Correo no autorizado para soporte', 'error');
+                    input.disabled = false;
+                    input.focus();
+                    input.select();
                 }
             } catch (err) {
                 console.error('Error:', err);
-                showToast('Error de conexión al validar', 'error');
+                showToast('Error de conexión al validar el correo: ' + err.message, 'error');
+                input.disabled = false;
+                input.focus();
             } finally {
                 btnValidar.innerHTML = textoOriginal;
                 btnValidar.disabled = false;
             }
         }
-
         function cancelarCorreoSoporte() {
             cerrarModalCorreoSoporte();
-            setRole('DOCENTE');
+            currentRole = 'DOCENTE';
+            localStorage.setItem('role', 'DOCENTE');
+            limpiarSesionSoporte();
+            updateRoleButtons();
+            mostrarVista('docentes');
         }
 
         function cerrarModalCorreoSoporte() {
@@ -2024,10 +2048,26 @@
             const tbody = document.getElementById('adminTableBody');
             if (!tbody) return;
 
+            if (currentRole !== 'SOPORTE' || !currentSedeSoporte) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Debes validar tu correo de soporte</td></tr>';
+                return;
+            }
+
+            const sedeAutorizada = normalizarTexto(currentSedeSoporte);
+            const sedeSolicitada = normalizarTexto(sede);
+
+            if (sedeSolicitada !== sedeAutorizada) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Acceso denegado a otra sede</td></tr>';
+                showToast('No puedes consultar equipos de otra sede', 'error');
+                return;
+            }
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Cargando equipos de ' + sede + '...</td></tr>';
 
             try {
-                const url = URL_GOOGLE_SCRIPT + '?action=getEquipos&sede=' + encodeURIComponent(sede);
+                const url = URL_GOOGLE_SCRIPT
+                    + '?action=getEquipos'
+                    + '&sede=' + encodeURIComponent(sedeAutorizada)
+                    + '&correo=' + encodeURIComponent(currentEmailSoporte);
                 const response = await fetch(url);
                 
                 if (!response.ok) {
@@ -2111,7 +2151,10 @@
                     porCarro[e.carro].push(e);
                 }
             });
-
+            if (currentRole !== 'SOPORTE' || !currentSedeSoporte) {
+                showToast('No autorizado para gestionar equipos', 'error');
+                return;
+            }
             const sedeDisplay = currentSedeSoporte ? currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1) : '';
 
             let html = `
@@ -2311,7 +2354,8 @@
             
             const payload = {
                 action: action,
-                sede: sede,
+                sede: currentSedeSoporte,
+                correo: currentEmailSoporte,
                 equipo: tipoEquipo,
                 carro: carro,
                 placa: placa,
@@ -2379,6 +2423,7 @@
                     body: JSON.stringify({
                         action: 'deleteEquipo',
                         sede: currentSedeSoporte,
+                        correo: currentEmailSoporte,
                         serial: serial
                     })
                 });
@@ -2408,13 +2453,7 @@
         function updateRoleButtons() {
             document.getElementById('roleDocente').classList.toggle('active', currentRole === 'DOCENTE');
             document.getElementById('roleSoporte').classList.toggle('active', currentRole === 'SOPORTE');
-            
-            const sedeSelect = document.getElementById('sedeSoporteSelect');
-            sedeSelect.style.display = currentRole === 'SOPORTE' ? 'inline-block' : 'none';
-            
-            if (currentSedeSoporte) {
-                sedeSelect.value = currentSedeSoporte;
-            }
+            actualizarBadgeSedeSoporte();
         }
 
         // ── PANEL DE ADMINISTRACIÓN (SOPORTE) ──
@@ -2679,32 +2718,24 @@
         }
 
         // Inicializar rol al cargar
-        document.addEventListener('DOMContentLoaded', function() {
-            // Cargar correos de soporte desde el servidor
-            cargarCorreosSede();
-            
-            // Asegurar tabs correctos según rol
-            const tabFormularios = document.querySelector('.nav-tab');
-            const tabDevoluciones = document.getElementById('tabDevoluciones');
-            const tabEquipos = document.getElementById('navAdmin');
-            
-            if (currentRole === 'SOPORTE') {
-                // Mostrar todos los tabs para soporte
-                if (tabFormularios) tabFormularios.style.display = 'flex';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateRoleButtons();
+
+            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                const tabDevoluciones = document.getElementById('tabDevoluciones');
+                const tabEquipos = document.getElementById('navAdmin');
+
                 if (tabDevoluciones) tabDevoluciones.style.display = 'flex';
                 if (tabEquipos) tabEquipos.style.display = 'flex';
-                // Por defecto mostrar devoluciones
+
+                actualizarBadgeSedeSoporte();
                 mostrarVista('soporte');
             } else {
-                // Solo mostrar formularios para docente
-                if (tabFormularios) tabFormularios.style.display = 'flex';
-                if (tabDevoluciones) tabDevoluciones.style.display = 'none';
-                if (tabEquipos) tabEquipos.style.display = 'none';
                 mostrarVista('docentes');
             }
-            
-            updateRoleButtons();
         });
     </script>
+    
 </body>
 </html>
