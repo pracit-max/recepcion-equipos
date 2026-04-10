@@ -1282,10 +1282,10 @@
                 <button class="nav-tab active" onclick="mostrarVista('docentes'); cerrarMenu();">
                     <i class="fas fa-laptop"></i>Formularios
                 </button>
-                <button class="nav-tab" onclick="mostrarVista('soporte'); cerrarMenu();">
-                    <i class="fas fa-undo-alt"></i>Devoluciones
+                <button class="nav-tab" id="tabDevoluciones" onclick="mostrarVista('soporte'); cerrarMenu();" style="display: none;">
+                    <i class="fas fa-rotate-left"></i>Devoluciones
                 </button>
-                <button class="nav-tab soporte-only" id="navAdmin" onclick="mostrarVista('admin'); cerrarMenu();" style="display: none;">
+                <button class="nav-tab" id="navAdmin" onclick="mostrarVista('admin'); cerrarMenu();" style="display: none;">
                     <i class="fas fa-boxes"></i>Equipos
                 </button>
             </div>
@@ -1630,7 +1630,8 @@
         });
 
         // ── Vista switching ──
-        // ── Vista switching ──
+
+        
         function mostrarVista(tipo) {
             const vd = document.getElementById('vistaDocentes');
             const vs = document.getElementById('vistaSoporte');
@@ -1645,12 +1646,13 @@
             tabs.forEach(t => t.classList.remove('active'));
 
             if (tipo === 'docentes') {
-                // Ocultar todo excepto docentes
+                // === FORMULARIOS (DOCENTES) ===
                 vd.style.display = 'block';
                 vs.style.display = 'none';
                 if (va) va.style.display = 'none';
                 
-                // Activar primer tab (Devoluciones queda como activo visual pero no mostramos nada especial)
+                // Activar primer tab
+                tabs[0].classList.add('active');
                 pill.classList.remove('dev-mode');
                 
                 title.textContent = '¿En qué sede te encuentras?';
@@ -1659,7 +1661,7 @@
                 animateCards(vd);
                 
             } else if (tipo === 'soporte') {
-                // MOSTRAR VISTA DE DEVOLUCIONES
+                // === DEVOLUCIONES ===
                 vd.style.display = 'none';
                 vs.style.display = 'block';
                 if (va) va.style.display = 'none';
@@ -1670,14 +1672,12 @@
                 
                 legend.style.display = 'none';
                 
-                // Si es soporte con sede, filtrar tarjetas y actualizar título
                 if (currentRole === 'SOPORTE' && currentSedeSoporte) {
                     filtrarTarjetasSoporte();
                     const sedeDisplay = currentSedeSoporte.charAt(0).toUpperCase() + currentSedeSoporte.slice(1);
                     title.textContent = 'Devoluciones ' + sedeDisplay;
                     sub.textContent = 'Equipos en curso de tu sede';
                 } else {
-                    // Mostrar todas las sedes
                     const cards = vs.querySelectorAll('.sede-card');
                     cards.forEach(card => card.style.display = '');
                     title.textContent = 'Devoluciones';
@@ -1687,7 +1687,7 @@
                 animateCards(vs);
                 
             } else if (tipo === 'admin') {
-                // MOSTRAR PANEL DE ADMINISTRACIÓN
+                // === ADMIN / SOPORTE ===
                 vd.style.display = 'none';
                 vs.style.display = 'none';
                 if (va) va.style.display = 'block';
@@ -1725,7 +1725,7 @@
                 });
             }
 
-            // Actualizar pill después de un pequeño delay
+            // Actualizar pill
             setTimeout(updatePill, 50);
         }
         // Función para filtrar las tarjetas de sede según la sede del soporte
@@ -1807,23 +1807,45 @@
         let currentEmailSoporte = localStorage.getItem('emailSoporte') || '';
         let equiposSoporte = [];
         let carrosSoporte = [];
+        let correosSedeData = JSON.parse(localStorage.getItem('correosSedeData')) || null;
 
-        // Mapeo de correos de soporte a sedes
-        const correosSede = {
-            'soportecnicocota@innovaschools.edu.co': 'cota',
-            'soportecnicomosquera@innovaschools.edu.co': 'mosquera',
-            'soportecniconiza@innovaschools.edu.co': 'niza',
-            'soportecnicotunja@innovaschools.edu.co': 'tunja',
-            'soportecnicousaquen@innovaschools.edu.co': 'usaquen',
-            'soportecnicozipaquira@innovaschools.edu.co': 'zipaquira',
-            'soportecportal@innovaschools.edu.co': 'barranquilla'
-        };
+        // Cargar correos de soporte desde el servidor
+        async function cargarCorreosSede() {
+            if (correosSedeData) return; // Ya cargado
+            try {
+                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getSedesSoporte');
+                const sedes = await response.json();
+                
+                if (Array.isArray(sedes) && sedes.length > 0) {
+                    // Convertir array de sedes a objeto mapeado
+                    correosSedeData = {};
+                    const response2 = await fetch(URL_GOOGLE_SCRIPT + '?action=validarCorreoSoporte&correo=');
+                    
+                    // Obtener todos los correos de la hoja correos_sede
+                    const response3 = await fetch(URL_GOOGLE_SCRIPT + '?action=getCorreosSede');
+                    const data = await response3.json();
+                    
+                    if (data && Array.isArray(data)) {
+                        data.forEach(item => {
+                            if (item.correo && item.sede) {
+                                correosSedeData[item.correo.toLowerCase()] = item.sede;
+                            }
+                        });
+                        localStorage.setItem('correosSedeData', JSON.stringify(correosSedeData));
+                        console.log('✅ Correos de soporte cargados:', Object.keys(correosSedeData).length);
+                    }
+                }
+            } catch (err) {
+                console.error('Error cargando correos de soporte:', err);
+            }
+        }
 
         // Función para obtener la sede desde el correo
         function obtenerSedeDesdeCorreo(correo) {
+            if (!correosSedeData) return null;
             if (!correo) return null;
             const correoLower = correo.toLowerCase().trim();
-            return correosSede[correoLower] || null;
+            return correosSedeData[correoLower] || null;
         }
 
         // Guardar correo y determinar sede automáticamente
@@ -1844,12 +1866,22 @@
             localStorage.setItem('role', role);
             updateRoleButtons();
             
+            // Referencias a los tabs
+            const tabFormularios = document.querySelector('.nav-tab');
+            const tabDevoluciones = document.getElementById('tabDevoluciones');
+            const tabEquipos = document.getElementById('navAdmin');
+            
             if (role === 'SOPORTE') {
                 // Mostrar select de sede
                 document.getElementById('sedeSoporteSelect').style.display = 'inline-block';
                 
-                // Mostrar tab de admin
-                document.getElementById('navAdmin').style.display = 'flex';
+                // Mostrar tabs de soporte (devoluciones y equipos)
+                if (tabFormularios) tabFormularios.style.display = 'flex';
+                if (tabDevoluciones) tabDevoluciones.style.display = 'flex';
+                if (tabEquipos) tabEquipos.style.display = 'flex';
+                
+                // Por defecto mostrar devoluciones
+                mostrarVista('soporte');
                 
                 // Pedir correo con el modal bonito
                 mostrarModalCorreoSoporte();
@@ -1857,7 +1889,11 @@
             } else {
                 // Volver a docente
                 document.getElementById('sedeSoporteSelect').style.display = 'none';
-                document.getElementById('navAdmin').style.display = 'none';
+                
+                // Ocultar tabs de soporte
+                if (tabFormularios) tabFormularios.style.display = 'flex';
+                if (tabDevoluciones) tabDevoluciones.style.display = 'none';
+                if (tabEquipos) tabEquipos.style.display = 'none';
                 
                 // Limpiar datos de soporte
                 currentSedeSoporte = '';
@@ -1878,7 +1914,7 @@
             
             if (currentRole === 'SOPORTE' && sede) {
                 cargarEquiposSoporte(sede);
-                mostrarVista('admin');
+                mostrarVista('soporte');
             }
         }
 
@@ -1955,7 +1991,7 @@
                     
                     // IR AL PANEL ADMIN (donde están los equipos)
                     setTimeout(() => {
-                        mostrarVista('admin');
+                        mostrarVista('soporte');
                     }, 300);
                     
                 } else {
@@ -2644,22 +2680,30 @@
 
         // Inicializar rol al cargar
         document.addEventListener('DOMContentLoaded', function() {
-            // Limpiar datos de soporte para forzar nuevo login (quitar esto en producción si quieres persistencia)
-            // currentRole = 'DOCENTE';
-            // localStorage.removeItem('role');
-            // localStorage.removeItem('sedeSoporte');
-            // localStorage.removeItem('emailSoporte');
+            // Cargar correos de soporte desde el servidor
+            cargarCorreosSede();
             
-            // Siempre mostrar vista de docentes al cargar la página
-            mostrarVista('docentes');
+            // Asegurar tabs correctos según rol
+            const tabFormularios = document.querySelector('.nav-tab');
+            const tabDevoluciones = document.getElementById('tabDevoluciones');
+            const tabEquipos = document.getElementById('navAdmin');
+            
+            if (currentRole === 'SOPORTE') {
+                // Mostrar todos los tabs para soporte
+                if (tabFormularios) tabFormularios.style.display = 'flex';
+                if (tabDevoluciones) tabDevoluciones.style.display = 'flex';
+                if (tabEquipos) tabEquipos.style.display = 'flex';
+                // Por defecto mostrar devoluciones
+                mostrarVista('soporte');
+            } else {
+                // Solo mostrar formularios para docente
+                if (tabFormularios) tabFormularios.style.display = 'flex';
+                if (tabDevoluciones) tabDevoluciones.style.display = 'none';
+                if (tabEquipos) tabEquipos.style.display = 'none';
+                mostrarVista('docentes');
+            }
             
             updateRoleButtons();
-            
-            // Restaurar sede si era soporte
-            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
-                document.getElementById('sedeSoporteSelect').value = currentSedeSoporte;
-                document.getElementById('navAdmin').style.display = 'flex';
-            }
         });
     </script>
 </body>
