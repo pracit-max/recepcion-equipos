@@ -6,7 +6,7 @@ const FOLDER_FIRMA = "1qUBfDoSq9aJAChD_Tn5tSUPs5vrPnO9B";
 const FOLDER_PDF = "1S9rWLkhH3gut8MlAXM8xpBhib9QGxBPm";
 const FOLDER_PDF_DEVOLUCION = "1JdKJOc2KnUvLwQVmTCXrZZ3SuVp5j631";
 const FOLDER_FOTO_DEVOLUCION = "1P9aVtwyzEf4dwoxOoO9WHKV16D3osql_";
-
+const LOGO_ID = "1uBDdAwe4gnK0-PbnQzwltgWYIfmwuBOB";
 // ============================================================
 // doGet - UNIFICADA (solo puede haber una!)
 // ============================================================
@@ -786,13 +786,22 @@ function enviarPDFporCorreo(data) {
 
     const safe = (str) => String(str || "").replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 
+    // Obtener logo
+    const logoBase64 = getLogoBase64();
+    const logoHtml = logoBase64 
+      ? `<img src="${logoBase64}" style="max-width: 70px; max-height: 70px; margin-right: 15px;">` 
+      : '';
+
     let htmlContent = `
       <html>
         <head>
           <meta charset="UTF-8">
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
-            h1 { color: #FF6B6B; border-bottom: 2px solid #4ECDC4; font-size: 18px; }
+            .header { display: flex; align-items: center; border-bottom: 3px solid #4ECDC4; padding-bottom: 12px; margin-bottom: 15px; }
+            .header-text h1 { color: #FF6B6B; margin: 0; font-size: 18px; }
+            .header-text p { color: #4ECDC4; margin: 2px 0 0 0; font-size: 13px; }
+            h1 { color: #FF6B6B; font-size: 18px; }
             h2 { color: #4ECDC4; margin-top: 20px; font-size: 14px; }
             table { width: 100%; border-collapse: collapse; margin: 10px 0; }
             th, td { border: 1px solid #ccc; padding: 6px; text-align: left; font-size: 11px; }
@@ -811,7 +820,13 @@ function enviarPDFporCorreo(data) {
           </style>
         </head>
         <body>
-          <h1>Recepción de Equipos - ${safe(data.sede)}</h1>
+          <div class="header">
+            ${logoHtml}
+            <div class="header-text">
+              <h1>Recepción de Equipos</h1>
+              <p>${safe(data.sede)} — ${safe(data.fecha)}</p>
+            </div>
+          </div>
           <p><strong>Fecha:</strong> ${safe(data.fecha)}</p>
           <h2>Información general</h2>
           <div class="info-grid">
@@ -1288,13 +1303,22 @@ function generarPdfResumenFinal(data) {
     const firmaDevolucion = data.firma_devolucion ? procesarImagenPdf(data.firma_devolucion) : null;
     const fotoDevolucion = data.foto_devolucion ? procesarImagenPdf(data.foto_devolucion) : null;
 
+    // Obtener logo
+    const logoBase64 = getLogoBase64();
+    const logoHtml = logoBase64 
+      ? `<img src="${logoBase64}" style="max-width: 70px; max-height: 70px; margin-right: 15px;">` 
+      : '';
+
     let html = `
       <html>
       <head>
         <meta charset="UTF-8">
         <style>
           body { font-family: Arial, sans-serif; font-size: 12px; margin: 25px; color: #222; }
-          h1 { color: #0f172a; border-bottom: 3px solid #14b8a6; padding-bottom: 8px; }
+          .header { display: flex; align-items: center; border-bottom: 3px solid #14b8a6; padding-bottom: 12px; margin-bottom: 15px; }
+          .header-text h1 { color: #0f172a; margin: 0; font-size: 18px; }
+          .header-text p { color: #0f766e; margin: 2px 0 0 0; font-size: 12px; }
+          h1 { color: #0f172a; font-size: 18px; }
           h2 { color: #0f766e; margin-top: 22px; }
           table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
@@ -1311,7 +1335,13 @@ function generarPdfResumenFinal(data) {
         </style>
       </head>
       <body>
-        <h1>ACTA FINAL DE ENTREGA Y DEVOLUCIÓN</h1>
+        <div class="header">
+            ${logoHtml}
+            <div class="header-text">
+              <h1>ACTA FINAL DE ENTREGA Y DEVOLUCIÓN</h1>
+              <p>Sistema de Recepción de Equipos — Innova Schools</p>
+            </div>
+        </div>
 
         <h2>Datos generales</h2>
         <table>
@@ -1822,5 +1852,27 @@ function validarCorreoSoporteHandler(correo) {
   } catch (error) {
     Logger.log(`Error en validarCorreoSoporteHandler: ${error.message}`);
     return { status: "error", error: "Error interno: " + error.message };
+  }
+}
+// ============================================================
+// OBTENER LOGO COMO BASE64 PARA PDFs
+// ============================================================
+function getLogoBase64() {
+  try {
+    if (!LOGO_ID) {
+      Logger.log("⚠️ Logo ID no configurado");
+      return null;
+    }
+
+    const file = DriveApp.getFileById(LOGO_ID);
+    const blob = file.getBlob();
+    const base64 = Utilities.base64Encode(blob.getBytes());
+    const mimeType = blob.getContentType();
+
+    Logger.log("✅ Logo cargado correctamente");
+    return `data:${mimeType};base64,${base64}`;
+  } catch (e) {
+    Logger.log("❌ Error obteniendo logo: " + e.toString());
+    return null;
   }
 }

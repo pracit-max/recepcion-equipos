@@ -987,7 +987,7 @@
             <div class="hero-content">
                 <div class="sede-badge-header" id="sedeBadgeHeader">
                     <i class="fas fa-map-pin"></i>
-                    <span id="sedeBadgeText">Cargando sede...</span>
+                    <span id="sedeBadgeText">Cargando colegio...</span>
                 </div>
                 <h1 class="hero-title">Módulo de Devoluciones</h1>
                 <p class="hero-subtitle">Consulta solicitudes en curso y registra la devolución de equipos</p>
@@ -1034,7 +1034,7 @@
                     <thead>
                         <tr>
                             <th>Nombre</th>
-                            <th>Sede</th>
+                            <th>Colegio</th>
                             <th>Equipo</th>
                             <th>Cant.</th>
                             <th>Hora</th>
@@ -1149,22 +1149,22 @@
     <script src="/js/script.js"></script>
 
     <script>
-        // ── Verificación de sede para soporte ──
+        // ── Verificación de colegio para soporte ──
         (function() {
             const params = new URLSearchParams(window.location.search);
             const sedeURL = params.get('sede');
             const role = localStorage.getItem('role');
             const sedeAsignada = localStorage.getItem('sedeSoporte');
             
-            // Si es soporte y tiene sede asignada, verificar que coincida
+            // Si es soporte y tiene colegio asignado, verificar que coincida
             if (role === 'SOPORTE' && sedeAsignada && sedeURL && sedeURL !== sedeAsignada) {
-                alert('No tienes acceso a la sede ' + sedeURL + '. Tu sede es ' + sedeAsignada);
+                alert('No tienes acceso al colegio ' + sedeURL + '. Tu colegio es ' + sedeAsignada);
                 window.location.href = window.location.pathname + '?sede=' + sedeAsignada;
                 return;
             }
         })();
 
-        // ── Sede badge ──
+        // ── Colegio badge ──
         (function() {
             const params = new URLSearchParams(window.location.search);
             const sede = params.get('sede');
@@ -1176,7 +1176,7 @@
                 document.getElementById('sedeBadgeText').textContent = nombres[sede] || sede;
                 document.title = 'Devoluciones ' + (nombres[sede] || sede) + ' | Sistema de Equipos';
             } else {
-                document.getElementById('sedeBadgeText').textContent = 'Todas las sedes';
+                document.getElementById('sedeBadgeText').textContent = 'Todos los colegios';
             }
         })();
 
@@ -1306,7 +1306,7 @@
             }
 
             if (sedeUrl !== sedeSoporte) {
-                alert('No puedes entrar a una sede diferente a la tuya.');
+                alert('No puedes entrar a un colegio diferente al tuyo.');
                 window.location.href = '/index.html';
             }
         }
