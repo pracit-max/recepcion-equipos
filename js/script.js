@@ -1,18 +1,173 @@
 // Configuración
-const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbztaEB5Li8RS-8S37ZwNEYFGCeNN_eBW2gtebU6qCK61l2eIML7yjWebA1R9LU37FmZsA/exec";
+const URL_GOOGLE_SCRIPT = "https://script.google.com/a/macros/innovaschools.edu.co/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
 let currentRecord = null;
 let currentStep = 1;
 const totalSteps = 3;
+
+function jsonpRequest(url, timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+        const callbackName = `jsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const separator = url.includes('?') ? '&' : '?';
+        const script = document.createElement('script');
+        const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error('Tiempo de espera agotado'));
+        }, timeoutMs);
+
+
+        function cleanup() {
+            clearTimeout(timer);
+            delete window[callbackName];
+            script.remove();
+        }
+
+        window[callbackName] = (data) => {
+            cleanup();
+            resolve(data);
+        };
+
+        script.onerror = () => {
+            cleanup();
+            reject(new Error('No se pudo conectar con Google Apps Script'));
+        };
+
+        script.src = `${url}${separator}callback=${encodeURIComponent(callbackName)}`;
+        document.head.appendChild(script);
+    });
+}
+
+async function postToAppsScript(payload) {
+    return new Promise((resolve, reject) => {
+        const id = `appsScriptPost_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const iframe = document.createElement('iframe');
+        const form = document.createElement('form');
+        const input = document.createElement('textarea');
+        let submitted = false;
+        
+        // Timer de 30 segundos
+        const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error('Tiempo de espera agotado al conectar con el servidor'));
+        }, 30000);
+
+        function cleanup() {
+            clearTimeout(timer);
+            if (form && form.parentNode) form.remove();
+            if (iframe && iframe.parentNode) iframe.remove();
+        }
+
+        iframe.name = id;
+        iframe.style.display = 'none';
+        // IMPORTANTE: Añadimos evento de error al iframe
+        iframe.onerror = () => {
+            cleanup();
+            reject(new Error('Error de carga (CORS o Red). Verifica que uses la función postToAppsScript y NO fetch.'));
+        };
+
+        // Cuando el iframe termina de cargar
+        iframe.onload = () => {
+            if (!submitted) return;
+
+            setTimeout(() => {
+                try {
+                    const iframeHref = iframe.contentWindow && iframe.contentWindow.location
+                        ? iframe.contentWindow.location.href
+                        : '';
+
+                    if (iframeHref === 'about:blank') {
+                        return;
+                    }
+
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const responseText = (iframeDoc.body && iframeDoc.body.innerText || '').trim();
+
+                    if (!responseText) {
+                        // Google Apps Script a veces devuelve body vacío en POST exitoso
+                        cleanup();
+                        resolve({ status: 'ok' });
+                        return;
+                    }
+
+                    const data = JSON.parse(responseText);
+                    cleanup();
+                    resolve(data);
+
+                } catch (err) {
+                    const isCrossOriginReadBlock =
+                        err && (
+                            err.name === 'SecurityError' ||
+                            /cross-origin|Permission denied|Blocked a frame|denied/i.test(err.message || '')
+                        );
+
+                    if (isCrossOriginReadBlock) {
+                        cleanup();
+                        resolve({ status: 'ok', message: 'Operación enviada correctamente' });
+                        return;
+                    }
+
+                    console.error("Error parseando respuesta del servidor:", err);
+                    cleanup();
+                    reject(new Error('El servidor devolvió un error inesperado. Revisa el log de Apps Script.'));
+                }
+            }, 300);
+        };
+
+        form.method = 'POST';
+        form.action = URL_GOOGLE_SCRIPT;
+        form.target = id;
+        form.style.display = 'none';
+
+        input.name = 'payload';
+        input.value = JSON.stringify(payload);
+        form.appendChild(input);
+
+        document.body.appendChild(iframe);
+        document.body.appendChild(form);
+        submitted = true;
+        form.submit();
+    });
+}
+
+window.postToAppsScript = postToAppsScript;
 
 // Variables para el canvas de firma
 let signatureCanvas, ctx;
 let isDrawing = false;
 let lastX = 0;
 let lastY = 0;
+let metodoFirmaRecepcion = "";
+let metodoFirmaDevolucion = "";
+let contextoModalFirma = "recepcion";
 // Variables globales para equipos
 let equiposZipaquira = [];
 let carrosDisponibles = [];
 let carrosOcupados = [];
+let solicitudDevolucionSeleccionada = null;
+let equiposBodegaTI = [];
+let equiposAdicionalesSeleccionados = [];
+
+function validarCorreoInstitucional(email) {
+    return /^[^\s@]+@innovaschools\.edu\.co$/i.test(String(email || '').trim());
+}
+
+function obtenerUrlPreviewDrive(url) {
+    const texto = String(url || '').trim();
+    if (!texto) return '';
+    const match = texto.match(/\/d\/([^/]+)/) || texto.match(/[?&]id=([^&]+)/);
+    if (match && match[1]) {
+        return `https://drive.google.com/file/d/${match[1]}/preview`;
+    }
+    return texto;
+}
+
+function esValorSi(valor) {
+    const limpio = String(valor || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    return limpio.startsWith('si');
+}
 // Cargar equipos al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
@@ -41,46 +196,80 @@ document.addEventListener('DOMContentLoaded', () => {
         initSignatureDevolucion();
     }
 
+    asegurarSelectorMetodoFirma();
+
     if (document.getElementById('sede')) {
         cargarEquiposPorSede();
     }
+    inicializarEquiposAdicionales();
+    if (document.getElementById('sede') || window.location.search.includes('sede=')) {
+        setTimeout(() => {
+            cargarEquiposPorSede();
+            cargarEquiposAdicionalesBodega();
+        }, 100); 
+    }
 });
 
+
 // Función general para cargar equipos según la sede
+// Función mejorada para cargar equipos según la sede
 async function cargarEquiposPorSede() {
-    const sedeInput = document.getElementById('sede');
+    // 1. Intentar obtener el valor del input hidden
+    let sedeInput = document.getElementById('sede');
+    let sedeNombre = "";
+
+    // Si el input no existe, intentar obtenerlo de la URL directamente
     if (!sedeInput) {
-        console.error("No se encontró el input hidden #sede");
+        const params = new URLSearchParams(window.location.search);
+        sedeNombre = params.get('sede') || "";
+        console.log("Input #sede no encontrado, usando valor de URL:", sedeNombre);
+    } else {
+        sedeNombre = sedeInput.value;
+    }
+
+    if (!sedeNombre) {
+        console.warn("No se pudo determinar la sede. Cargado cancelado.");
         return;
     }
 
     const correoSoporte = localStorage.getItem('emailSoporte') || '';
-    const sedeNombre = sedeInput.value;
+    // Normalizar nombre para URL (quitar tildes, minúsculas)
     const sedeParaURL = sedeNombre.toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
 
-    try {
-        const response = await fetch(
-            `${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeParaURL)}&correo=${encodeURIComponent(correoSoporte)}`
-        );
+    console.log(`=== INICIANDO CARGA DE EQUIPOS ===`);
+    console.log(`Sede detectada: ${sedeNombre}`);
+    console.log(`Sede para URL: ${sedeParaURL}`);
 
-        const data = await response.json();
+    try {
+        // Construir URL de petición
+        const url = `${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeParaURL)}&correo=${encodeURIComponent(correoSoporte)}`;
+        
+        const data = await jsonpRequest(url);
 
         if (data.error) {
-            console.error("Error del servidor:", data.error);
-            document.getElementById('carroSelect').innerHTML =
-                '<option value="">No autorizado o error al cargar</option>';
+            console.error("Error del servidor al cargar equipos:", data.error);
+            const select = document.getElementById('carroSelect');
+            if(select) {
+                select.innerHTML = '<option value="">Error: ' + data.error + '</option>';
+                select.disabled = true;
+            }
             return;
         }
 
-        equiposZipaquira = data;
+        // Si data es un array, es que trajo equipos correctamente
+        equiposZipaquira = Array.isArray(data)
+            ? data.filter(e => String(e?.carro || '').trim().toLowerCase() !== 'bodega ti')
+            : [];
 
+        // Extraer carros únicos
         const carrosSet = new Set();
         equiposZipaquira.forEach(e => {
             if (e && e.carro) carrosSet.add(String(e.carro));
         });
 
+        // Ordenar carros numéricamente (si es posible)
         try {
             carrosDisponibles = [...carrosSet].sort((a, b) => {
                 const strA = String(a);
@@ -95,8 +284,15 @@ async function cargarEquiposPorSede() {
             carrosDisponibles = [...carrosSet];
         }
 
+        // Llenar el select en el DOM
         const select = document.getElementById('carroSelect');
+        if (!select) {
+            console.warn("No se encontró el elemento #carroSelect en el DOM.");
+            return;
+        }
+
         select.innerHTML = '<option value="">Seleccione un carro...</option>';
+        select.disabled = false; // Asegurar que esté habilitado
 
         carrosDisponibles.forEach(carro => {
             const option = document.createElement('option');
@@ -105,21 +301,528 @@ async function cargarEquiposPorSede() {
             select.appendChild(option);
         });
 
-        console.log(`✅ Carros cargados para sede ${sedeNombre}:`, carrosDisponibles);
+        console.log(`✅ ÉXITO: Cargados ${carrosDisponibles.length} carros para la sede ${sedeNombre}`);
 
     } catch (error) {
-        console.error("Error cargando equipos:", error);
-        document.getElementById('carroSelect').innerHTML =
-            '<option value="">Error al cargar carros</option>';
+        console.error("Error crítico cargando equipos:", error);
+        const select = document.getElementById('carroSelect');
+        if(select) {
+            select.innerHTML = '<option value="">Error de conexión</option>';
+            select.disabled = true;
+        }
     }
 }
+
+function inicializarEquiposAdicionales() {
+    if (!document.getElementById('form') || document.getElementById('equiposAdicionalesToggle')) return;
+    asegurarEstilosEquiposAdicionales();
+
+    const otrosBox = document.getElementById('otrosEquiposBox');
+    const anchor = otrosBox || document.getElementById('equiposContainer');
+    if (!anchor) return;
+
+    const html = `
+        <div class="input-group full-width additional-equipment-entry">
+            <label class="additional-toggle-card" for="equiposAdicionalesToggle">
+                <span class="additional-toggle-copy">
+                    <strong><i class="fas fa-laptop-medical"></i> ¿Desea agregar equipos adicionales?</strong>
+                    <small>Selecciona equipos disponibles de BODEGA TI uno por uno.</small>
+                </span>
+                <span class="additional-switch">
+                    <input type="checkbox" id="equiposAdicionalesToggle" onchange="toggleEquiposAdicionales()">
+                    <span></span>
+                </span>
+            </label>
+            <div class="additional-summary" id="equiposAdicionalesResumen" hidden>
+                <div>
+                    <strong id="equiposAdicionalesCount">0 equipos adicionales</strong>
+                    <p id="equiposAdicionalesDetalle">Sin equipos seleccionados</p>
+                </div>
+                <button type="button" class="btn-additional-open" onclick="abrirModalEquiposAdicionales()">
+                    <i class="fas fa-box-open"></i> Gestionar
+                </button>
+            </div>
+        </div>
+    `;
+    anchor.insertAdjacentHTML('afterend', html);
+
+    if (!document.getElementById('equiposAdicionalesModal')) {
+        document.body.insertAdjacentHTML('beforeend', crearModalEquiposAdicionales());
+    }
+}
+
+function asegurarEstilosEquiposAdicionales() {
+    if (document.getElementById('equiposAdicionalesStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'equiposAdicionalesStyles';
+    style.textContent = `
+        .additional-equipment-entry { margin-top: 1rem; }
+        .additional-toggle-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1rem;
+            border: 1px solid rgba(15, 23, 42, 0.10);
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(248,250,252,0.96));
+            cursor: pointer;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+        }
+        .additional-toggle-copy { display: grid; gap: 0.25rem; color: #0f172a; }
+        .additional-toggle-copy small { color: #64748b; font-weight: 600; }
+        .additional-switch input { display: none; }
+        .additional-switch span {
+            position: relative;
+            display: block;
+            width: 54px;
+            height: 30px;
+            border-radius: 999px;
+            background: #cbd5e1;
+            transition: background 0.2s ease;
+        }
+        .additional-switch span::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            top: 3px;
+            left: 3px;
+            border-radius: 999px;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+            transition: transform 0.2s ease;
+        }
+        .additional-switch input:checked + span { background: #16a34a; }
+        .additional-switch input:checked + span::after { transform: translateX(24px); }
+        .additional-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 0.75rem;
+            padding: 0.9rem;
+            border-radius: 12px;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+        }
+        .additional-summary p { margin: 0.2rem 0 0; color: #166534; font-size: 0.86rem; }
+        .additional-return-panel {
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            background: #f0fdf4;
+        }
+        .additional-return-panel h3 {
+            margin: 0 0 0.35rem;
+            color: #14532d;
+            font-size: 1rem;
+        }
+        .additional-return-panel p {
+            margin: 0 0 0.75rem;
+            color: #166534;
+            font-size: 0.86rem;
+        }
+        .additional-return-list {
+            display: grid;
+            gap: 0.55rem;
+        }
+        .additional-return-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.65rem;
+            padding: 0.75rem;
+            border: 1px solid #dcfce7;
+            border-radius: 10px;
+            background: #fff;
+            cursor: pointer;
+        }
+        .additional-return-item input {
+            margin-top: 0.15rem;
+            width: 18px;
+            height: 18px;
+            accent-color: #16a34a;
+        }
+        .additional-return-item strong {
+            color: #0f172a;
+        }
+        .additional-return-item span {
+            display: block;
+            margin-top: 0.15rem;
+            color: #64748b;
+            font-size: 0.8rem;
+            line-height: 1.35;
+        }
+        .btn-additional-open,
+        .additional-modal-close,
+        .additional-modal-refresh,
+        .additional-done {
+            border: 0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+        }
+        .btn-additional-open,
+        .additional-done {
+            padding: 0.7rem 0.95rem;
+            color: #fff;
+            background: linear-gradient(135deg, #16a34a, #0f766e);
+        }
+        .additional-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 10020;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.58);
+            backdrop-filter: blur(8px);
+        }
+        .additional-modal.active { display: flex; }
+        .additional-dialog {
+            width: min(980px, 100%);
+            max-height: min(760px, 92vh);
+            display: flex;
+            flex-direction: column;
+            border-radius: 16px;
+            background: #fff;
+            overflow: hidden;
+            box-shadow: 0 28px 80px rgba(15, 23, 42, 0.3);
+        }
+        .additional-modal-header,
+        .additional-modal-footer {
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .additional-modal-footer { border-top: 1px solid #e2e8f0; border-bottom: 0; }
+        .additional-modal-header h3 { margin: 0; color: #0f172a; }
+        .additional-modal-header p { margin: 0.25rem 0 0; color: #64748b; font-size: 0.9rem; }
+        .additional-modal-close,
+        .additional-modal-refresh {
+            min-width: 38px;
+            min-height: 38px;
+            color: #334155;
+            background: #f1f5f9;
+        }
+        .additional-toolbar {
+            display: grid;
+            grid-template-columns: minmax(180px, 260px) 1fr auto;
+            gap: 0.75rem;
+            padding: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .additional-toolbar input,
+        .additional-toolbar select {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 0.8rem 0.9rem;
+            font-weight: 600;
+            background: #fff;
+        }
+        .additional-list {
+            padding: 1rem;
+            overflow: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 0.75rem;
+        }
+        .additional-item {
+            text-align: left;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0.85rem;
+            background: #fff;
+            cursor: pointer;
+            transition: border 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .additional-item:hover:not(:disabled) {
+            transform: translateY(-1px);
+            border-color: #86efac;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        }
+        .additional-item.selected { border-color: #16a34a; background: #f0fdf4; }
+        .additional-item:disabled { opacity: 0.55; cursor: not-allowed; background: #f8fafc; }
+        .additional-item-head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: flex-start; }
+        .additional-item-title { margin: 0; font-weight: 900; color: #0f172a; }
+        .additional-item-meta { margin: 0.45rem 0 0; color: #64748b; font-size: 0.82rem; line-height: 1.45; }
+        .stock-badge { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 900; padding: 0.25rem 0.45rem; border-radius: 999px; white-space: nowrap; }
+        .stock-badge.available { color: #166534; background: #dcfce7; }
+        .stock-badge.busy { color: #991b1b; background: #fee2e2; }
+        @media (max-width: 640px) {
+            .additional-toggle-card,
+            .additional-summary,
+            .additional-modal-header,
+            .additional-modal-footer { align-items: stretch; flex-direction: column; }
+            .additional-toolbar { grid-template-columns: 1fr; }
+            .additional-list { grid-template-columns: 1fr; }
+            .btn-additional-open,
+            .additional-done { width: 100%; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function crearModalEquiposAdicionales() {
+    return `
+        <div class="additional-modal" id="equiposAdicionalesModal" aria-hidden="true">
+            <div class="additional-dialog" role="dialog" aria-modal="true" aria-labelledby="equiposAdicionalesTitle">
+                <div class="additional-modal-header">
+                    <div>
+                        <h3 id="equiposAdicionalesTitle">Equipos disponibles en BODEGA TI</h3>
+                        <p>Selecciona uno por uno. Los ocupados aparecen bloqueados.</p>
+                    </div>
+                    <button type="button" class="additional-modal-close" onclick="cerrarModalEquiposAdicionales()" aria-label="Cerrar">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="additional-toolbar">
+                    <select id="filtroEquipoAdicional" class="form-input" onchange="renderizarEquiposAdicionales()">
+                        <option value="">Todos los equipos adicionales</option>
+                    </select>
+                    <input type="search" id="buscarEquipoAdicional" placeholder="Buscar por nombre, placa o serial..." oninput="renderizarEquiposAdicionales()">
+                    <button type="button" class="additional-modal-refresh" onclick="cargarEquiposAdicionalesBodega(true)" title="Actualizar disponibilidad">
+                        <i class="fas fa-rotate"></i>
+                    </button>
+                </div>
+                <div class="additional-list" id="equiposAdicionalesLista">
+                    <div class="table-empty">Cargando inventario...</div>
+                </div>
+                <div class="additional-modal-footer">
+                    <span id="equiposAdicionalesModalCount">0 seleccionados</span>
+                    <button type="button" class="additional-done" onclick="cerrarModalEquiposAdicionales()">
+                        <i class="fas fa-check"></i> Listo
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function toggleEquiposAdicionales() {
+    const checked = document.getElementById('equiposAdicionalesToggle')?.checked;
+    const resumen = document.getElementById('equiposAdicionalesResumen');
+    if (resumen) resumen.hidden = !checked;
+    if (checked) {
+        cargarEquiposAdicionalesBodega();
+        abrirModalEquiposAdicionales();
+    } else {
+        equiposAdicionalesSeleccionados = [];
+        actualizarResumenEquiposAdicionales();
+    }
+}
+
+async function cargarEquiposAdicionalesBodega(force = false) {
+    if (!document.getElementById('equiposAdicionalesToggle') && !force) return;
+    const sedeInput = document.getElementById('sede');
+    const sede = sedeInput ? sedeInput.value : obtenerSedeDesdeURL();
+    if (!sede) return;
+
+    if (!force && equiposBodegaTI.length) {
+        renderizarEquiposAdicionales();
+        return;
+    }
+
+    const lista = document.getElementById('equiposAdicionalesLista');
+    if (lista) lista.innerHTML = '<div class="table-empty">Cargando inventario...</div>';
+
+    try {
+        const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=getEquiposBodega&sede=${encodeURIComponent(sede)}`);
+        if (data && data.status === 'error') throw new Error(data.error || 'Error cargando BODEGA TI');
+        equiposBodegaTI = Array.isArray(data) ? data : [];
+        equiposAdicionalesSeleccionados = equiposAdicionalesSeleccionados.filter(sel =>
+            equiposBodegaTI.some(eq => getEquipoAdicionalKey(eq) === getEquipoAdicionalKey(sel) && eq.disponible)
+        );
+        poblarFiltroEquiposAdicionales();
+        renderizarEquiposAdicionales();
+        actualizarResumenEquiposAdicionales();
+    } catch (err) {
+        console.error(err);
+        if (lista) lista.innerHTML = '<div class="table-empty">No se pudo cargar BODEGA TI</div>';
+    }
+}
+
+function abrirModalEquiposAdicionales() {
+    const modal = document.getElementById('equiposAdicionalesModal');
+    if (!modal) return;
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    renderizarEquiposAdicionales();
+}
+
+function cerrarModalEquiposAdicionales() {
+    const modal = document.getElementById('equiposAdicionalesModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
+function getEquipoAdicionalKey(eq) {
+    return String(eq?.serial || eq?.placa || eq?.id || '').trim().toLowerCase();
+}
+
+function poblarFiltroEquiposAdicionales() {
+    const filtro = document.getElementById('filtroEquipoAdicional');
+    if (!filtro) return;
+    const valorActual = filtro.value;
+    const opciones = [...new Set(equiposBodegaTI.map(eq => eq.equipo || eq.nombre || '').filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'es'));
+    filtro.innerHTML = '<option value="">Todos los equipos adicionales</option>' +
+        opciones.map(nombre => `<option value="${nombre}">${nombre}</option>`).join('');
+    if (opciones.includes(valorActual)) filtro.value = valorActual;
+}
+
+function normalizarEquipoAdicional(eq, responsable = '') {
+    return {
+        equipo: eq.equipo || eq.nombre || 'Equipo adicional',
+        cantidad: Number(eq.cantidad || 1),
+        serial: eq.serial || '',
+        placa: eq.placa || '',
+        estado: eq.estado || 'Activo',
+        sede: eq.sede || document.getElementById('sede')?.value || '',
+        responsable: responsable || '',
+        devuelto: eq.devuelto === true,
+        fecha_devolucion: eq.fecha_devolucion || '',
+        hora_devolucion: eq.hora_devolucion || '',
+        observacion: eq.observacion || ''
+    };
+}
+
+function parseEquiposAdicionales(valor) {
+    const texto = String(valor || '').trim();
+    if (!texto) return [];
+    try {
+        const parsed = JSON.parse(texto);
+        if (Array.isArray(parsed)) return parsed.map(eq => normalizarEquipoAdicional(eq));
+    } catch (err) {
+        // Puede venir de registros antiguos en texto plano.
+    }
+
+    return texto
+        .split('\n')
+        .filter(linea => /Adicional\s+\d+|Placa:|Serial:/i.test(linea))
+        .map(linea => {
+            const serialMatch = linea.match(/Serial:\s*([^\s-]+)/i);
+            const placaMatch = linea.match(/Placa:\s*([^\s-]+)/i);
+            const estadoMatch = linea.match(/Estado:\s*([^-]+)/i);
+            const sedeMatch = linea.match(/Sede:\s*([^-]+)/i);
+            const responsableMatch = linea.match(/Responsable:\s*(.+)$/i);
+            const nombreMatch = linea.match(/Adicional\s+\d+\.\s*(.*?)\s*-\s*Placa:/i) ||
+                linea.match(/Equipo:\s*(.*?)\s*-\s*Serial:/i);
+            return normalizarEquipoAdicional({
+                equipo: nombreMatch ? nombreMatch[1].trim() : 'Equipo adicional',
+                serial: serialMatch ? serialMatch[1].trim() : '',
+                placa: placaMatch ? placaMatch[1].trim() : '',
+                estado: estadoMatch ? estadoMatch[1].trim() : 'Activo',
+                sede: sedeMatch ? sedeMatch[1].trim() : '',
+                responsable: responsableMatch ? responsableMatch[1].trim() : ''
+            });
+        });
+}
+
+function stringifyEquiposAdicionales(equipos) {
+    return JSON.stringify((equipos || []).map(eq => normalizarEquipoAdicional(eq)));
+}
+
+function textoEquiposAdicionales(equipos) {
+    return (equipos || []).map((eq, i) => {
+        const item = normalizarEquipoAdicional(eq);
+        return `Adicional ${i + 1}. ${item.equipo} - Cantidad: ${item.cantidad} - Placa: ${item.placa || '-'} - Serial: ${item.serial || '-'} - Estado: ${item.estado || 'Activo'} - Sede: ${item.sede || '-'} - Responsable: ${item.responsable || '-'}`;
+    }).join('\n');
+}
+
+function renderizarEquiposAdicionales() {
+    const lista = document.getElementById('equiposAdicionalesLista');
+    if (!lista) return;
+    const q = (document.getElementById('buscarEquipoAdicional')?.value || '').toLowerCase();
+    const filtroEquipo = (document.getElementById('filtroEquipoAdicional')?.value || '').toLowerCase();
+    const filtrados = equiposBodegaTI.filter(eq => {
+        const texto = [eq.equipo, eq.placa, eq.serial, eq.estado, eq.motivo, eq.carro].join(' ').toLowerCase();
+        const coincideEquipo = !filtroEquipo || String(eq.equipo || '').toLowerCase() === filtroEquipo;
+        return coincideEquipo && (!q || texto.includes(q));
+    });
+
+    if (!filtrados.length) {
+        lista.innerHTML = '<div class="table-empty">No hay equipos de BODEGA TI para mostrar</div>';
+        return;
+    }
+
+    lista.innerHTML = '';
+    filtrados.forEach(eq => {
+        const key = getEquipoAdicionalKey(eq);
+        const selected = equiposAdicionalesSeleccionados.some(item => getEquipoAdicionalKey(item) === key);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `additional-item ${selected ? 'selected' : ''}`;
+        btn.disabled = !eq.disponible;
+        btn.innerHTML = `
+            <div class="additional-item-head">
+                <p class="additional-item-title">${eq.equipo || 'Equipo'}</p>
+                <span class="stock-badge ${eq.disponible ? 'available' : 'busy'}">
+                    <i class="fas fa-circle"></i> ${eq.disponible ? 'Disponible' : 'No disponible'}
+                </span>
+            </div>
+            <p class="additional-item-meta">
+                Ubicación: <strong>${eq.carro || 'BODEGA TI'}</strong><br>
+                Placa: <strong>${eq.placa || '-'}</strong><br>
+                Serial: <strong>${eq.serial || '-'}</strong><br>
+                Estado: ${eq.estado || eq.motivo || '-'}
+            </p>
+        `;
+        btn.addEventListener('click', () => toggleSeleccionEquipoAdicional(eq));
+        lista.appendChild(btn);
+    });
+
+    const count = document.getElementById('equiposAdicionalesModalCount');
+    if (count) count.textContent = `${equiposAdicionalesSeleccionados.length} seleccionados`;
+}
+
+function toggleSeleccionEquipoAdicional(eq) {
+    if (!eq?.disponible) {
+        showToast('Este equipo no está disponible', 'error');
+        return;
+    }
+    const key = getEquipoAdicionalKey(eq);
+    const exists = equiposAdicionalesSeleccionados.some(item => getEquipoAdicionalKey(item) === key);
+    equiposAdicionalesSeleccionados = exists
+        ? equiposAdicionalesSeleccionados.filter(item => getEquipoAdicionalKey(item) !== key)
+        : [...equiposAdicionalesSeleccionados, eq];
+    renderizarEquiposAdicionales();
+    actualizarResumenEquiposAdicionales();
+}
+
+function actualizarResumenEquiposAdicionales() {
+    const count = document.getElementById('equiposAdicionalesCount');
+    const detail = document.getElementById('equiposAdicionalesDetalle');
+    const modalCount = document.getElementById('equiposAdicionalesModalCount');
+    const total = equiposAdicionalesSeleccionados.length;
+    if (count) count.textContent = `${total} equipo${total === 1 ? '' : 's'} adicional${total === 1 ? '' : 'es'}`;
+    if (detail) {
+        detail.textContent = total
+            ? equiposAdicionalesSeleccionados.map(eq => eq.placa || eq.serial || eq.equipo).join(', ')
+            : 'Sin equipos seleccionados';
+    }
+    if (modalCount) modalCount.textContent = `${total} seleccionados`;
+}
+
 // Función para alternar entre carros y otros equipos
 function toggleOtrosEquipos() {
-    const esOtros = document.getElementById('otrosEquipos').checked;
+    const esOtros = Boolean(document.getElementById('otrosEquipos')?.checked);
     const selectCarro = document.getElementById('carroSelect');
     const equiposContainer = document.getElementById('equiposContainer');
     const otrosBox = document.getElementById('otrosEquiposBox');
     const disponibilidadMsg = document.getElementById('disponibilidadMsg');
+    if (!selectCarro || !equiposContainer || !otrosBox) return;
     
     if (esOtros) {
         selectCarro.required = false;
@@ -128,25 +831,26 @@ function toggleOtrosEquipos() {
         equiposContainer.style.display = 'none';
         otrosBox.classList.remove('hidden');
         disponibilidadMsg.innerHTML = '';
-        document.getElementById('rangoInicio').required = true;
-        document.getElementById('rangoFin').required = true;
+        if (document.getElementById('rangoInicio')) document.getElementById('rangoInicio').required = true;
+        if (document.getElementById('rangoFin')) document.getElementById('rangoFin').required = true;
     } else {
         selectCarro.required = true;
         selectCarro.disabled = false;
         otrosBox.classList.add('hidden');
-        document.getElementById('rangoInicio').required = false;
-        document.getElementById('rangoFin').required = false;
-        document.getElementById('rangoInicio').value = '';
-        document.getElementById('rangoFin').value = '';
+        if (document.getElementById('rangoInicio')) document.getElementById('rangoInicio').required = false;
+        if (document.getElementById('rangoFin')) document.getElementById('rangoFin').required = false;
+        if (document.getElementById('rangoInicio')) document.getElementById('rangoInicio').value = '';
+        if (document.getElementById('rangoFin')) document.getElementById('rangoFin').value = '';
     }
 }
 
 // Validar rango numérico
 function validarRango() {
-    const inicio = parseInt(document.getElementById('rangoInicio').value) || 0;
-    const fin = parseInt(document.getElementById('rangoFin').value) || 0;
+    const inicio = parseInt(document.getElementById('rangoInicio')?.value) || 0;
+    const fin = parseInt(document.getElementById('rangoFin')?.value) || 0;
     const errorMsg = document.getElementById('rangoError');
     const totalLabel = document.getElementById('totalOtrosEquipos');
+    if (!errorMsg || !totalLabel) return true;
     
     if (inicio > 0 && fin > 0) {
         if (fin <= inicio || (fin - inicio) > 500) {
@@ -193,8 +897,8 @@ function validarHora() {
 }
 
 async function verificarDisponibilidad() {
-    const carro = document.getElementById('carroSelect').value;
-    const sede = document.getElementById('sede').value;   // ← NUEVO
+    const carro = document.getElementById('carroSelect')?.value || '';
+    const sede = document.getElementById('sede')?.value || '';
     const msgDiv = document.getElementById('disponibilidadMsg');
     const btnNext = document.querySelector('.btn-next');
     
@@ -202,8 +906,8 @@ async function verificarDisponibilidad() {
     console.log("Carro seleccionado:", carro);
     console.log("Sede:", sede);
     
-    if (!carro || document.getElementById('otrosEquipos').checked) {
-        msgDiv.innerHTML = '';
+    if (!carro || Boolean(document.getElementById('otrosEquipos')?.checked)) {
+        if (msgDiv) msgDiv.innerHTML = '';
         if(btnNext) {
             btnNext.disabled = false;
             btnNext.style.opacity = '1';
@@ -220,13 +924,12 @@ async function verificarDisponibilidad() {
         
         console.log("URL de consulta:", url);
         
-        const response = await fetch(url);
-        const data = await response.json();
+        const data = await jsonpRequest(url);
         
         console.log("Respuesta del servidor:", data);
         
         if (data.ocupado) {
-            console.log("🔴 Carro OCUPADO");
+            console.log("ðŸ”´ Carro OCUPADO");
             msgDiv.innerHTML = `
                 <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px; padding: 10px; margin-top: 5px;">
                     <span style="color: #dc2626; font-weight: 600;">
@@ -244,7 +947,7 @@ async function verificarDisponibilidad() {
                 btnNext.style.cursor = 'not-allowed';
             }
         } else {
-            console.log("🟢 Carro DISPONIBLE");
+            console.log("ðŸŸ¢ Carro DISPONIBLE");
             msgDiv.innerHTML = `
                 <div style="background: #dcfce7; border: 1px solid #22c55e; border-radius: 6px; padding: 8px; margin-top: 5px;">
                     <span style="color: #16a34a; font-weight: 600;">
@@ -569,6 +1272,331 @@ function getSignatureBase64() {
     return signatureCanvas.toDataURL('image/png');
 }
 
+function asegurarSelectorMetodoFirma() {
+    asegurarEstilosMetodoFirma();
+
+    if (document.getElementById('signatureCanvas') && !document.getElementById('signatureMethodPanelRecepcion')) {
+        const canvasContainer = document.querySelector('.signature-canvas-container');
+        if (canvasContainer) {
+            canvasContainer.insertAdjacentHTML('beforebegin', crearPanelMetodoFirma('recepcion'));
+        }
+    }
+
+    if (document.getElementById('signatureCanvasDevolucion') && !document.getElementById('signatureMethodPanelDevolucion')) {
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        if (canvasWrapper) {
+            const group = canvasWrapper.closest('.form-group') || canvasWrapper.parentElement;
+            group.insertAdjacentHTML('beforebegin', crearPanelMetodoFirma('devolucion'));
+        }
+    }
+
+    if (!document.getElementById('signatureMethodModal')) {
+        document.body.insertAdjacentHTML('beforeend', crearModalMetodoFirma());
+    }
+
+    actualizarVistaMetodoFirma('recepcion');
+    actualizarVistaMetodoFirma('devolucion');
+}
+
+function asegurarEstilosMetodoFirma() {
+    if (document.getElementById('signatureMethodStyles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'signatureMethodStyles';
+    style.textContent = `
+        .signature-method-panel {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.85);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        }
+        .signature-method-title {
+            margin: 0 0 0.25rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .signature-method-status {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+        .btn-signature-method,
+        .signature-method-option {
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .btn-signature-method {
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            color: #fff;
+            background: linear-gradient(135deg, #dc2626, #7c3aed);
+            box-shadow: 0 6px 16px rgba(124, 58, 237, 0.18);
+        }
+        .btn-signature-method:hover,
+        .signature-method-option:hover {
+            transform: translateY(-1px);
+        }
+        .digital-authorization-box {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            border-radius: 14px;
+            background: rgba(240, 253, 244, 0.9);
+            color: #14532d;
+        }
+        .digital-authorization-box p {
+            margin: 0 0 0.75rem;
+            line-height: 1.45;
+        }
+        .digital-authorization-check {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+        .signature-method-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(8px);
+        }
+        .signature-method-modal.active {
+            display: flex;
+        }
+        .signature-method-dialog {
+            position: relative;
+            width: min(460px, 100%);
+            padding: 1.5rem;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+        }
+        .signature-method-dialog h3 {
+            margin: 0 2rem 1rem 0;
+            color: #0f172a;
+            font-size: 1.25rem;
+        }
+        .signature-method-close {
+            position: absolute;
+            top: 0.85rem;
+            right: 0.85rem;
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #334155;
+            cursor: pointer;
+        }
+        .signature-method-options {
+            display: grid;
+            gap: 0.75rem;
+        }
+        .signature-method-option {
+            width: 100%;
+            min-height: 52px;
+            border-radius: 14px;
+            background: #f8fafc;
+            color: #0f172a;
+            border: 1px solid #e2e8f0;
+        }
+        .signature-method-option:first-child i {
+            color: #2563eb;
+        }
+        .signature-method-option:last-child i {
+            color: #16a34a;
+        }
+        .hidden {
+            display: none !important;
+        }
+        @media (max-width: 640px) {
+            .signature-method-panel {
+                align-items: stretch;
+                flex-direction: column;
+            }
+            .btn-signature-method {
+                width: 100%;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function crearPanelMetodoFirma(contexto) {
+    const sufijo = contexto === 'devolucion' ? 'Devolucion' : 'Recepcion';
+    return `
+        <div class="signature-method-panel" id="signatureMethodPanel${sufijo}" data-signature-context="${contexto}">
+            <div>
+                <p class="signature-method-title">¿Con qué deseas firmar?</p>
+                <p class="signature-method-status" id="signatureMethodStatus${sufijo}">Selecciona un método de firma</p>
+            </div>
+            <button type="button" class="btn-signature-method" onclick="abrirModalMetodoFirma('${contexto}')">
+                <i class="fas fa-signature"></i> Elegir método
+            </button>
+        </div>
+        <div class="digital-authorization-box hidden" id="digitalAuthorizationBox${sufijo}">
+            <p>Declaro que autorizo la entrega/devolución de los equipos y acepto la responsabilidad correspondiente.</p>
+            <label class="digital-authorization-check">
+                <input type="checkbox" id="digitalAuthorizationCheck${sufijo}">
+                <span>Sí autorizo</span>
+            </label>
+        </div>
+    `;
+}
+
+function crearModalMetodoFirma() {
+    return `
+        <div class="signature-method-modal" id="signatureMethodModal" aria-hidden="true">
+            <div class="signature-method-dialog" role="dialog" aria-modal="true" aria-labelledby="signatureMethodTitle">
+                <button type="button" class="signature-method-close" onclick="cerrarModalMetodoFirma()" aria-label="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+                <h3 id="signatureMethodTitle">¿Con qué deseas firmar?</h3>
+                <div class="signature-method-options">
+                    <button type="button" class="signature-method-option" onclick="seleccionarMetodoFirma('MANUAL')">
+                        <i class="fas fa-pen"></i>
+                        <span>Firma manual</span>
+                    </button>
+                    <button type="button" class="signature-method-option" onclick="seleccionarMetodoFirma('SI_AUTORIZO')">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Sí autorizo</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function abrirModalMetodoFirma(contexto = 'recepcion') {
+    contextoModalFirma = contexto;
+    const modal = document.getElementById('signatureMethodModal');
+    if (!modal) return;
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function cerrarModalMetodoFirma() {
+    const modal = document.getElementById('signatureMethodModal');
+    if (!modal) return;
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
+function seleccionarMetodoFirma(metodo) {
+    if (contextoModalFirma === 'devolucion') {
+        metodoFirmaDevolucion = metodo;
+    } else {
+        metodoFirmaRecepcion = metodo;
+    }
+    actualizarVistaMetodoFirma(contextoModalFirma);
+    cerrarModalMetodoFirma();
+}
+
+function actualizarVistaMetodoFirma(contexto) {
+    const esDevolucion = contexto === 'devolucion';
+    const metodo = esDevolucion ? metodoFirmaDevolucion : metodoFirmaRecepcion;
+    const sufijo = esDevolucion ? 'Devolucion' : 'Recepcion';
+    const status = document.getElementById(`signatureMethodStatus${sufijo}`);
+    const authBox = document.getElementById(`digitalAuthorizationBox${sufijo}`);
+    const check = document.getElementById(`digitalAuthorizationCheck${sufijo}`);
+    const canvas = document.getElementById(esDevolucion ? 'signatureCanvasDevolucion' : 'signatureCanvas');
+    const canvasBox = esDevolucion
+        ? document.getElementById('canvasWrapper')?.closest('.form-group')
+        : document.querySelector('.signature-canvas-container');
+    const clearButton = esDevolucion
+        ? document.querySelector('button[onclick="clearSignatureDevolucion()"]')
+        : null;
+
+    if (status) {
+        status.textContent = metodo === 'MANUAL'
+            ? 'Método seleccionado: firma manual'
+            : metodo === 'SI_AUTORIZO'
+                ? 'Método seleccionado: Sí autorizo'
+                : 'Selecciona un método de firma';
+    }
+
+    if (canvasBox) {
+        canvasBox.classList.toggle('hidden', metodo === 'SI_AUTORIZO');
+    }
+
+    if (canvas) {
+        canvas.style.pointerEvents = metodo === 'SI_AUTORIZO' ? 'none' : '';
+    }
+
+    if (clearButton) {
+        clearButton.classList.toggle('hidden', metodo === 'SI_AUTORIZO');
+    }
+
+    if (authBox) {
+        authBox.classList.toggle('hidden', metodo !== 'SI_AUTORIZO');
+    }
+
+    if (check && metodo !== 'SI_AUTORIZO') {
+        check.checked = false;
+    }
+}
+
+function validarMetodoFirma(contexto = 'recepcion') {
+    const esDevolucion = contexto === 'devolucion';
+    const metodo = esDevolucion ? metodoFirmaDevolucion : metodoFirmaRecepcion;
+    const sufijo = esDevolucion ? 'Devolucion' : 'Recepcion';
+    const check = document.getElementById(`digitalAuthorizationCheck${sufijo}`);
+
+    if (!metodo) {
+        showToast('Selecciona un método de firma', 'error');
+        abrirModalMetodoFirma(contexto);
+        return false;
+    }
+
+    if (metodo === 'SI_AUTORIZO' && check && !check.checked) {
+        showToast('Debes confirmar la autorización', 'error');
+        return false;
+    }
+
+    return true;
+}
+
+function obtenerFirmaRecepcion() {
+    if (!validarMetodoFirma('recepcion')) return null;
+
+    if (metodoFirmaRecepcion === 'SI_AUTORIZO') {
+        return {
+            firma: 'SI AUTORIZO',
+            tipo_firma: 'SI_AUTORIZO',
+            autoriza: 'Sí'
+        };
+    }
+
+    const firmaBase64 = getSignatureBase64();
+    if (!firmaBase64) {
+        showToast('Debes firmar antes de continuar', 'error');
+        return null;
+    }
+
+    return {
+        firma: firmaBase64,
+        tipo_firma: 'MANUAL'
+    };
+}
+
 // ===== FUNCIONES DE UTILIDAD =====
 function toggleSection(id, show) {
     const element = document.getElementById(id);
@@ -625,6 +1653,9 @@ function nextSection() {
             if (currentStep === totalSteps) { // totalSteps = 3
                 setTimeout(() => {
                     setupCanvasSize();
+                    if (!metodoFirmaRecepcion) {
+                        abrirModalMetodoFirma('recepcion');
+                    }
                 }, 100);
             }
         }
@@ -687,10 +1718,14 @@ function validateCurrentSection() {
 // ===== ENVÍO DEL FORMULARIO =====
 async function handleSubmit(e) {
     e.preventDefault();
+
+    if (!validarMetodoFirma('recepcion')) {
+        return;
+    }
     
     // Validar checkbox de autorización de términos
     const autorizaCheckbox = document.getElementById('autoriza');
-    if (autorizaCheckbox && !autorizaCheckbox.checked) {
+    if (autorizaCheckbox && metodoFirmaRecepcion !== 'SI_AUTORIZO' && !autorizaCheckbox.checked) {
         autorizaCheckbox.style.borderColor = '#FF6B6B';
         showToast('Debe aceptar los términos y condiciones para continuar', 'error');
         setTimeout(() => {
@@ -712,24 +1747,15 @@ async function handleSubmit(e) {
         const formData = await collectFormData();
         if (!formData) return;   // si falla alguna validación
 
-        const response = await fetch(URL_GOOGLE_SCRIPT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(formData)
-        });
-
-        const result = await response.json();
+        const result = await postToAppsScript(formData);
 
         if (result.status === 'ok') {
-            showToast('¡Registro guardado exitosamente ✅<br>Recargando...', 'success');
+            showToast('¡Registro guardado exitosamente!<br>Recargando...', 'success');
 
             setTimeout(() => {
                 window.location.reload();
             }, 2000);
 
-        } else if (result.ocupado) {
-            showToast(`❌ ${result.error}`, 'error');
-            verificarDisponibilidad();
         } else {
             throw new Error(result.error || 'Error desconocido');
         }
@@ -751,8 +1777,7 @@ async function loadRecords() {
     const emptyState = document.getElementById('emptyState');
 
     try {
-        const response = await fetch(URL_GOOGLE_SCRIPT);
-        const data = await response.json();
+        const data = await jsonpRequest(URL_GOOGLE_SCRIPT);
         records = data.map((r, index) => ({ ...r, id: index + 1 }));
     } catch (err) {
         console.log('Usando datos de demo');
@@ -777,7 +1802,7 @@ function toBase64(file) {
     });
 }
 async function collectFormData() {
-    const esOtrosEquipos = document.getElementById('otrosEquipos').checked;
+    const esOtrosEquipos = Boolean(document.getElementById('otrosEquipos')?.checked);
     const horaDevolucion = document.getElementById('horaDevolucion').value;
     
     // Validar hora
@@ -800,6 +1825,12 @@ async function collectFormData() {
         es_otros_equipos: esOtrosEquipos ? 'Sí' : 'No'
         // observacion, solicita_cambio, etc. ya no se incluyen
     };
+
+    if (!validarCorreoInstitucional(data.correo)) {
+        showToast('Use un correo institucional @innovaschools.edu.co', 'error');
+        document.getElementById('correo')?.focus();
+        return false;
+    }
     
     // Si es otros equipos, validar y guardar rangos
     if (esOtrosEquipos) {
@@ -827,17 +1858,15 @@ async function collectFormData() {
         // Verificar disponibilidad antes de enviar
             try {
                 const sede = document.getElementById('sede').value;   // ← NUEVO
-                const checkResp = await fetch(`${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carroSeleccionado)}&fecha=${new Date().toISOString().split('T')[0]}&sede=${encodeURIComponent(sede)}`);
-            const checkData = await checkResp.json();
+                const checkData = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carroSeleccionado)}&fecha=${new Date().toISOString().split('T')[0]}&sede=${encodeURIComponent(sede)}`);
             
             if (checkData.ocupado) {
-                showToast(`❌ Carro NO disponible. Estará libre a las ${checkData.hora_devolucion}`, 'error');
+                showToast(`Carro NO disponible. Estará libre a las ${checkData.hora_devolucion}`, 'error');
                 return false;
             }
         } catch(e) {
             console.error("Error verificando disponibilidad:", e);
-            showToast('⚠️ Error de conexión. No se pudo verificar disponibilidad.', 'error');
-            return false;
+            showToast('No se pudo verificar disponibilidad, se intentará guardar de todos modos.', 'warning');
         }
         
         const equiposCarro = equiposZipaquira.filter(e => e.carro === carroSeleccionado);
@@ -849,17 +1878,54 @@ async function collectFormData() {
         data.rango_inicio = '';
         data.rango_fin = '';
     }
+
+    const quiereAdicionales = Boolean(document.getElementById('equiposAdicionalesToggle')?.checked);
+    if (quiereAdicionales) {
+        if (!equiposAdicionalesSeleccionados.length) {
+            showToast('Selecciona al menos un equipo adicional de BODEGA TI', 'error');
+            abrirModalEquiposAdicionales();
+            return false;
+        }
+
+        const disponibles = equiposAdicionalesSeleccionados.every(eq => eq.disponible);
+        const keys = equiposAdicionalesSeleccionados.map(getEquipoAdicionalKey);
+        const sinDuplicados = new Set(keys).size === keys.length;
+        if (!disponibles || !sinDuplicados) {
+            showToast('Revisa la selección: hay equipos ocupados o duplicados', 'error');
+            abrirModalEquiposAdicionales();
+            return false;
+        }
+
+        const adicionalesJson = equiposAdicionalesSeleccionados.map(eq =>
+            normalizarEquipoAdicional(eq, data.nombre)
+        );
+        const detalleAdicional = textoEquiposAdicionales(adicionalesJson);
+
+        data.equipos_adicionales = 'Sí';
+        data.serial_adicional = detalleAdicional;
+        data.equipo_adicional = stringifyEquiposAdicionales(adicionalesJson);
+        console.log("Equipo adicional capturado:", adicionalesJson);
+        data.cantidad = Number(data.cantidad || 0) + equiposAdicionalesSeleccionados.length;
+        data.detalle_equipos = [data.detalle_equipos, '--- Equipos adicionales BODEGA TI ---', detalleAdicional]
+            .filter(Boolean)
+            .join('\n');
+    } else {
+        data.equipos_adicionales = 'No';
+        data.serial_adicional = '';
+        data.equipo_adicional = '';
+    }
     
     // Procesar fotos (solo foto_dano)
     const fotoDano = document.getElementById('foto_dano').files[0];
     if (fotoDano) data.foto_dano = await toBase64(fotoDano);
     
-    const firmaBase64 = getSignatureBase64();
-    if (!firmaBase64) {
-        showToast('¡Por favor firme en el recuadro antes de enviar!', 'error');
+    const datosFirma = obtenerFirmaRecepcion();
+    if (!datosFirma) {
         return false;
     }
-    data.firma = firmaBase64;
+    data.firma = datosFirma.firma;
+    data.tipo_firma = datosFirma.tipo_firma;
+    if (datosFirma.autoriza) data.autoriza = datosFirma.autoriza;
     
     return data;
 }
@@ -1293,7 +2359,20 @@ function generatePDF(record) {
     y += 25;
     
     // Si la firma es base64 (del formulario actual), mostrarla
-    if (record.firma && record.firma.startsWith('data:image')) {
+    if (record.firma === 'SI AUTORIZO' || record.tipo_firma === 'SI_AUTORIZO') {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text('Firma: Sí autorizo', 20, y);
+        y += 7;
+        doc.text(`Autorizado por: ${record.nombre || ''}`, 20, y);
+        y += 7;
+        doc.text(`C.C.: ${record.cedula || ''}`, 20, y);
+        y += 7;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text('Confirmación digital registrada por el usuario.', 20, y);
+        y += 15;
+    } else if (record.firma && record.firma.startsWith('data:image')) {
         try {
             doc.addImage(record.firma, 'PNG', 20, y, 70, 35);
             y += 40;
@@ -1328,7 +2407,7 @@ function generatePDF(record) {
     // Guardar
     const nombreArchivo = `recepcion_${record.nombre.replace(/\s+/g, '_')}_${record.fecha}.pdf`;
     doc.save(nombreArchivo);
-    showToast('PDF descargado exitosamente ✅', 'success');
+    showToast('PDF descargado exitosamente', 'success');
 }
 
 
@@ -1368,10 +2447,19 @@ document.addEventListener('click', (e) => {
     if (e.target === modal) {
         closeModal();
     }
+
+    const signatureModal = document.getElementById('signatureMethodModal');
+    if (e.target === signatureModal) {
+        cerrarModalMetodoFirma();
+    }
+
+    const additionalModal = document.getElementById('equiposAdicionalesModal');
+    if (e.target === additionalModal) {
+        cerrarModalEquiposAdicionales();
+    }
 });
 async function cargarCarros() {
-    const resOcupados = await fetch(URL_GOOGLE_SCRIPT + "?action=ocupados");
-    const ocupados = await resOcupados.json();
+    const ocupados = await jsonpRequest(URL_GOOGLE_SCRIPT + "?action=ocupados");
 
     console.log("OCUPADOS:", ocupados);
 
@@ -1392,24 +2480,14 @@ async function cargarSolicitudesEnCurso() {
 
   const sede = obtenerSedeDesdeURL();
 
-  tbody.innerHTML = `<tr><td colspan="6">Cargando...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="7">Cargando...</td></tr>`;
 
   try {
-    const res = await fetch(`${URL_GOOGLE_SCRIPT}?action=enCurso&sede=${encodeURIComponent(sede)}`);
-    const text = await res.text();
-    console.log("RESPUESTA RAW enCurso:", text);
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      console.error("La respuesta NO es JSON:", text);
-      tbody.innerHTML = `<tr><td colspan="6">Error: el servidor no devolvió JSON válido</td></tr>`;
-      return;
-    }
+    const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=enCurso&sede=${encodeURIComponent(sede)}`);
+    console.log("RESPUESTA enCurso:", data);
 
     if (!Array.isArray(data) || data.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6">No hay solicitudes en curso para esta sede</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7">No hay solicitudes en curso para esta sede</td></tr>`;
       return;
     }
 
@@ -1420,7 +2498,7 @@ async function cargarSolicitudesEnCurso() {
 
   } catch (err) {
     console.error(err);
-    tbody.innerHTML = `<tr><td colspan="6">Error cargando solicitudes</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">Error cargando solicitudes</td></tr>`;
   }
 }
 
@@ -1440,16 +2518,36 @@ function renderizarSolicitudes(data) {
       <td>${item.cantidad || ""}</td>
       <td>${formatearHora(item.hora_entrega)}</td>
       <td></td>
+      <td></td>
     `;
+
+    const btnPdf = document.createElement("button");
+    btnPdf.type = "button";
+    btnPdf.className = "btn-inline-pdf";
+    btnPdf.innerHTML = '<i class="fas fa-file-pdf"></i> Ver PDF Recepción';
+    btnPdf.disabled = !(item.pdf_recepcion_url || item.acta);
+    btnPdf.title = btnPdf.disabled ? "Esta solicitud no tiene acta original registrada" : "Abrir acta original";
+    btnPdf.addEventListener("click", () => abrirPdfRecepcion(item.pdf_recepcion_url || item.acta));
 
     const btn = document.createElement("button");
     btn.type = "button";
+    btn.className = "btn-inline-return";
     btn.textContent = "Devolver";
     btn.addEventListener("click", () => abrirFormularioDevolucion(item));
 
-    tr.children[5].appendChild(btn);
+    tr.children[5].appendChild(btnPdf);
+    tr.children[6].appendChild(btn);
     tbody.appendChild(tr);
   });
+}
+
+function abrirPdfRecepcion(url) {
+    const destino = obtenerUrlPreviewDrive(url);
+    if (!destino) {
+        showToast("No hay PDF de recepción relacionado con esta solicitud", "warning");
+        return;
+    }
+    window.open(destino, "_blank", "noopener,noreferrer");
 }
 
 function filtrarSolicitudes() {
@@ -1478,22 +2576,21 @@ function filtrarSolicitudes() {
 function formatearHora(valor) {
     if (!valor) return "";
 
-    if (typeof valor === "string" && valor.includes(":") && !valor.includes("T")) {
-        return valor.slice(0, 5);
+    const texto = String(valor).trim();
+
+    if (/^\d{2}:\d{2}/.test(texto)) {
+        return texto.slice(0, 5);
     }
 
-    const fecha = new Date(valor);
-    if (!isNaN(fecha.getTime())) {
-        return fecha.toLocaleTimeString("es-CO", {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false
-        });
+    const matchIso = texto.match(/T(\d{2}):(\d{2})/);
+    if (matchIso) {
+        return `${matchIso[1]}:${matchIso[2]}`;
     }
 
-    return String(valor);
+    return texto;
 }
 function abrirFormularioDevolucion(item) {
+  solicitudDevolucionSeleccionada = item || null;
   document.getElementById("formCerrarBox").style.display = "block";
   document.getElementById("devolucion_id_solicitud").value = item.id_solicitud || "";
   document.getElementById("cantidad_devuelta").value = item.cantidad || "";
@@ -1501,14 +2598,115 @@ function abrirFormularioDevolucion(item) {
   document.getElementById("novedad_devolucion").value = "No";
   document.getElementById("descripcion_devolucion").value = "";
   document.getElementById("boxDescripcionDevolucion").style.display = "none";
+  renderizarPanelDevolucionAdicionales(item);
+  const correoSoporte = document.getElementById("correo_soporte_devolucion");
+  if (correoSoporte) {
+    correoSoporte.value = (localStorage.getItem("emailSoporte") || "").trim().toLowerCase();
+    validarCorreoSoporteDevolucion(false);
+  }
+  const actaBtn = document.getElementById("btnActaOriginalSeleccionada");
+  if (actaBtn) {
+    const actaUrl = item.pdf_recepcion_url || item.acta || "";
+    actaBtn.disabled = !actaUrl;
+    actaBtn.dataset.url = actaUrl;
+    actaBtn.title = actaUrl ? "Abrir acta original" : "No hay acta original registrada";
+  }
 
+  metodoFirmaDevolucion = "";
+  actualizarVistaMetodoFirma("devolucion");
   clearSignatureDevolucion();
+  setTimeout(() => abrirModalMetodoFirma("devolucion"), 100);
 }
 function toggleDescripcionDevolucion() {
   const value = document.getElementById("novedad_devolucion").value;
   document.getElementById("boxDescripcionDevolucion").style.display =
-    value === "Sí" ? "block" : "none";
+    esValorSi(value) ? "block" : "none";
 }
+
+function renderizarPanelDevolucionAdicionales(item) {
+    let panel = document.getElementById('devolucionAdicionalesPanel');
+    const formBox = document.getElementById('formCerrarBox');
+    const estadoGroup = document.getElementById('estado_final')?.closest('.form-group');
+    if (!formBox || !estadoGroup) return;
+
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'devolucionAdicionalesPanel';
+        panel.className = 'additional-return-panel';
+        estadoGroup.insertAdjacentElement('afterend', panel);
+    }
+
+    const adicionales = parseEquiposAdicionales(item?.equipo_adicional || item?.serial_adicional || '');
+    if (!adicionales.length) {
+        panel.style.display = 'none';
+        panel.innerHTML = '';
+        return;
+    }
+
+    panel.style.display = 'block';
+    panel.innerHTML = `
+        <h3><i class="fas fa-boxes-stacked"></i> Equipos adicionales</h3>
+        <p>Estos equipos adicionales se registrarán como devueltos al confirmar la devolución. Las novedades se reportan en el campo de novedad y evidencia.</p>
+        <div class="additional-return-list">
+            ${adicionales.map(eq => `
+                <div class="additional-return-item">
+                    <i class="fas fa-check-circle" style="color:#16a34a; margin-top:0.15rem;"></i>
+                    <div>
+                        <strong>${eq.equipo || 'Equipo adicional'}</strong>
+                        <span>Serial: ${eq.serial || '-'} | Placa: ${eq.placa || '-'} | Cantidad: ${eq.cantidad || 1}</span>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    panel.dataset.equipos = stringifyEquiposAdicionales(adicionales);
+}
+
+function obtenerEquiposAdicionalesDevolucionPayload() {
+    const panel = document.getElementById('devolucionAdicionalesPanel');
+    if (!panel || panel.style.display === 'none') return '';
+    const adicionales = parseEquiposAdicionales(panel.dataset.equipos || '');
+    const ahora = new Date();
+    const fecha = ahora.toISOString().slice(0, 10);
+    const hora = ahora.toTimeString().slice(0, 5);
+
+    adicionales.forEach(eq => {
+        eq.devuelto = true;
+        eq.fecha_devolucion = fecha;
+        eq.hora_devolucion = hora;
+    });
+
+    return stringifyEquiposAdicionales(adicionales);
+}
+
+function validarCorreoSoporteDevolucion(mostrarMensaje = true) {
+    const input = document.getElementById("correo_soporte_devolucion");
+    const error = document.getElementById("correoSoporteDevolucionError");
+    if (!input) return true;
+
+    const value = input.value.trim().toLowerCase();
+    const valido = validarCorreoInstitucional(value);
+    input.value = value;
+    input.classList.toggle("input-error", Boolean(value) && !valido);
+    input.classList.toggle("input-ok", valido);
+
+    if (error) {
+        error.style.display = value && !valido ? "flex" : "none";
+    }
+
+    if (mostrarMensaje && !valido) {
+        showToast("El correo de soporte debe ser @innovaschools.edu.co", "error");
+    }
+
+    return valido;
+}
+
+function abrirActaOriginalSeleccionada() {
+    const btn = document.getElementById("btnActaOriginalSeleccionada");
+    const url = btn?.dataset?.url || solicitudDevolucionSeleccionada?.pdf_recepcion_url || solicitudDevolucionSeleccionada?.acta || "";
+    abrirPdfRecepcion(url);
+}
+
 let canvasDev, ctxDev, isDrawingDev = false;
 let lastXDev = 0, lastYDev = 0;
 
@@ -1602,13 +2800,36 @@ function getSignatureDevolucionBase64() {
 
     return hasContent ? canvasDev.toDataURL("image/png") : "";
 }
+
+function obtenerFirmaDevolucion() {
+    if (!validarMetodoFirma('devolucion')) return null;
+
+    if (metodoFirmaDevolucion === 'SI_AUTORIZO') {
+        return {
+            firma_devolucion: 'SI AUTORIZO',
+            tipo_firma_devolucion: 'SI_AUTORIZO'
+        };
+    }
+
+    const firmaBase64 = getSignatureDevolucionBase64();
+    if (!firmaBase64) {
+        showToast('Debes firmar antes de continuar', 'error');
+        return null;
+    }
+
+    return {
+        firma_devolucion: firmaBase64,
+        tipo_firma_devolucion: 'MANUAL'
+    };
+}
 async function cerrarSolicitudFrontend() {
     const id_solicitud = document.getElementById("devolucion_id_solicitud").value;
     const cantidad_devuelta = document.getElementById("cantidad_devuelta").value;
     const estado_final = document.getElementById("estado_final").value;
     const novedad_devolucion = document.getElementById("novedad_devolucion").value;
     const descripcion_devolucion = document.getElementById("descripcion_devolucion").value;
-    const firma_devolucion = getSignatureDevolucionBase64();
+    const correo_soporte_devolucion = document.getElementById("correo_soporte_devolucion")?.value.trim().toLowerCase() || "";
+    const equipo_adicional = obtenerEquiposAdicionalesDevolucionPayload();
 
     if (!id_solicitud) {
         showToast("No hay solicitud seleccionada", "error");
@@ -1625,8 +2846,14 @@ async function cerrarSolicitudFrontend() {
         return;
     }
 
+    if (!validarCorreoInstitucional(correo_soporte_devolucion)) {
+        validarCorreoSoporteDevolucion(true);
+        document.getElementById("correo_soporte_devolucion")?.focus();
+        return;
+    }
+
     // Si hay novedad, validar descripción y foto
-    if (novedad_devolucion === "Sí") {
+    if (esValorSi(novedad_devolucion)) {
         if (!descripcion_devolucion.trim()) {
             showToast("Debes describir la novedad", "error");
             return;
@@ -1639,19 +2866,28 @@ async function cerrarSolicitudFrontend() {
         }
     }
 
+    const datosFirmaDevolucion = obtenerFirmaDevolucion();
+    if (!datosFirmaDevolucion) {
+        return;
+    }
+
     try {
         const payload = {
             action: "cerrarSolicitud",
             id_solicitud,
             cantidad_devuelta,
             estado_final,
+            correo_soporte_devolucion,
+            equipo_adicional,
+            pdf_recepcion_url: solicitudDevolucionSeleccionada?.pdf_recepcion_url || solicitudDevolucionSeleccionada?.acta || "",
             novedad_devolucion,
             descripcion_devolucion,
-            firma_devolucion
+            firma_devolucion: datosFirmaDevolucion.firma_devolucion,
+            tipo_firma_devolucion: datosFirmaDevolucion.tipo_firma_devolucion
         };
 
         // Convertir foto a base64 si hay novedad
-        if (novedad_devolucion === "Sí") {
+        if (esValorSi(novedad_devolucion)) {
             const fotoFile = document.getElementById("foto_devolucion").files[0];
             payload.foto_devolucion = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -1661,13 +2897,7 @@ async function cerrarSolicitudFrontend() {
             });
         }
 
-        const res = await fetch(URL_GOOGLE_SCRIPT, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify(payload)
-        });
-
-        const result = await res.json();
+        const result = await postToAppsScript(payload);
 
         if (result.status === "ok") {
             showToast("Solicitud cerrada correctamente", "success");
@@ -1686,3 +2916,5 @@ function obtenerSedeDesdeURL() {
     const params = new URLSearchParams(window.location.search);
     return params.get("sede") || "";
 }
+
+

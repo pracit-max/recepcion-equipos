@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -427,7 +427,7 @@
                         </tr>
                     </thead>
                     <tbody id="adminTableBody">
-                        <tr><td colspan="4" style="text-align:center;">Cargando equipos...</td></tr>
+                        <tr><td colspan="5" style="text-align:center;">Cargando equipos...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -468,8 +468,135 @@
 
     <script>
         // ── Configuración Global ──
-        const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbztaEB5Li8RS-8S37ZwNEYFGCeNN_eBW2gtebU6qCK61l2eIML7yjWebA1R9LU37FmZsA/exec";
+        const URL_GOOGLE_SCRIPT = "https://script.google.com/a/macros/innovaschools.edu.co/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
+        
+        // 🔴 FUNCIÓN GLOBAL - postToAppsScript para POST
+        async function postToAppsScript(payload) {
+            return new Promise((resolve, reject) => {
+                const id = `appsScriptPost_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                const iframe = document.createElement('iframe');
+                const form = document.createElement('form');
+                const input = document.createElement('textarea');
+                let submitted = false;
 
+                const timer = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Tiempo de espera agotado al conectar con el servidor'));
+                }, 30000);
+
+                function cleanup() {
+                    clearTimeout(timer);
+                    try {
+                        if (form && form.parentNode) form.remove();
+                        if (iframe && iframe.parentNode) iframe.remove();
+                    } catch (e) {
+                        console.log('Limpieza:', e);
+                    }
+                }
+
+                iframe.name = id;
+                iframe.style.display = 'none';
+                iframe.style.visibility = 'hidden';
+                iframe.style.position = 'absolute';
+                iframe.style.left = '-9999px';
+                iframe.style.width = '1px';
+                iframe.style.height = '1px';
+
+                iframe.onload = () => {
+                    if (!submitted) return;
+
+                    try {
+                        const iframeHref = iframe.contentWindow && iframe.contentWindow.location
+                            ? iframe.contentWindow.location.href
+                            : '';
+
+                        if (iframeHref === 'about:blank') {
+                            return;
+                        }
+
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        const responseText = (iframeDoc.body && iframeDoc.body.innerText || '').trim();
+
+                        if (!responseText) {
+                            cleanup();
+                            resolve({ status: 'ok' });
+                            return;
+                        }
+
+                        const data = JSON.parse(responseText);
+                        cleanup();
+                        resolve(data);
+                    } catch (err) {
+                        const isCrossOriginReadBlock =
+                            err && (
+                                err.name === 'SecurityError' ||
+                                /cross-origin|Permission denied|Blocked a frame|denied/i.test(err.message || '')
+                            );
+
+                        if (isCrossOriginReadBlock) {
+                            cleanup();
+                            resolve({ status: 'ok', message: 'Operación enviada correctamente' });
+                            return;
+                        }
+
+                        cleanup();
+                        reject(new Error('Error leyendo respuesta del servidor. Revisa permisos/deploy de Apps Script.'));
+                    }
+                };
+
+                iframe.onerror = () => {
+                    cleanup();
+                    reject(new Error('Error al conectar con el servidor'));
+                };
+
+                form.method = 'POST';
+                form.action = URL_GOOGLE_SCRIPT;
+                form.target = id;
+                form.style.display = 'none';
+
+                input.name = 'payload';
+                input.value = JSON.stringify(payload);
+                form.appendChild(input);
+
+                document.body.appendChild(iframe);
+                document.body.appendChild(form);
+                submitted = true;
+                form.submit();
+            });
+        }
+        window.postToAppsScript = postToAppsScript;
+        
+        // JSONP helper para comunicarse con Google Apps Script (GET)
+        function jsonpRequest(url, timeoutMs = 15000) {
+            return new Promise((resolve, reject) => {
+                const callbackName = `jsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                const separator = url.includes('?') ? '&' : '?';
+                const script = document.createElement('script');
+                const timer = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Tiempo de espera agotado'));
+                }, timeoutMs);
+
+                function cleanup() {
+                    clearTimeout(timer);
+                    delete window[callbackName];
+                    script.remove();
+                }
+
+                window[callbackName] = (data) => {
+                    cleanup();
+                    resolve(data);
+                };
+
+                script.onerror = () => {
+                    cleanup();
+                    reject(new Error('No se pudo conectar con Google Apps Script'));
+                };
+
+                script.src = `${url}${separator}callback=${encodeURIComponent(callbackName)}`;
+                document.head.appendChild(script);
+            });
+        }
         // ── Greeting por hora ──
         (function() {
             const h = new Date().getHours();
@@ -758,6 +885,15 @@
                 .toLowerCase()
                 .normalize("NFD")
                 .replace(/[\u0300-\u036f]/g, "");
+        }
+
+        function formatearHoraFrontend(valor) {
+            if (!valor) return "-";
+            const texto = String(valor).trim();
+            if (/^\d{2}:\d{2}/.test(texto)) return texto.slice(0, 5);
+            const matchIso = texto.match(/T(\d{2}):(\d{2})/);
+            if (matchIso) return `${matchIso[1]}:${matchIso[2]}`;
+            return texto;
         }
 
         function capitalizarSede(sede) {
@@ -1093,21 +1229,16 @@
             input.disabled = true;
 
             try {
-                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=validarCorreoSoporte&correo=' + encodeURIComponent(correo));
-                const result = await response.json();
+                // 👇 Usamos jsonpRequest en lugar de fetch
+                const result = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=validarCorreoSoporte&correo=' + encodeURIComponent(correo));
 
                 console.log('Respuesta del servidor:', result);
 
                 if (result.status === 'ok' && result.sede) {
-                    // ✅ GUARDAR SESIÓN PRIMERO
                     guardarSesionSoporte(correo, result.sede);
                     cerrarModalCorreoSoporte();
-                    
-                    // ✅ ACTUALIZAR UI INMEDIATAMENTE
                     actualizarUIparaSoporte(result.sede);
-                    
                     showToast('✅ Colegio detectado: ' + capitalizarSede(result.sedeOriginal || result.sede), 'success');
-                    
                 } else {
                     showToast(result.error || '❌ Correo no autorizado para soporte', 'error');
                     input.disabled = false;
@@ -1202,33 +1333,25 @@
             }
 
             const sedeAutorizada = normalizarTexto(currentSedeSoporte);
-            const sedeSolicitada = normalizarTexto(sede);
+            // Normalizar la sede solicitada para evitar mayúsculas/tildes
+            const sedeParaURL = String(sede).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-            if (sedeSolicitada !== sedeAutorizada) {
+            if (sedeParaURL !== sedeAutorizada) {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:red;">Acceso denegado a otro colegio</td></tr>';
                 showToast('No puedes consultar equipos de otro colegio', 'error');
                 return;
             }
+            
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Cargando equipos de ' + sede + '...</td></tr>';
 
             try {
-                const url = URL_GOOGLE_SCRIPT
-                    + '?action=getEquipos'
-                    + '&sede=' + encodeURIComponent(sedeAutorizada)
-                    + '&correo=' + encodeURIComponent(currentEmailSoporte);
-                const response = await fetch(url);
-                
-                if (!response.ok) {
-                    throw new Error('HTTP ' + response.status);
-                }
-                
-                const text = await response.text();
-                let data;
-                try {
-                    data = JSON.parse(text);
-                } catch(e) {
-                    data = { error: 'Respuesta inválida del servidor' };
-                }
+                // Usamos jsonpRequest en lugar de fetch para evitar errores de red
+                const data = await jsonpRequest(
+                    URL_GOOGLE_SCRIPT + 
+                    '?action=getEquipos' + 
+                    '&sede=' + encodeURIComponent(sedeParaURL) + 
+                    '&correo=' + encodeURIComponent(currentEmailSoporte)
+                );
                 
                 if (data.error) {
                     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: red;">Error: ' + data.error + '</td></tr>';
@@ -1238,15 +1361,14 @@
                 
                 if (Array.isArray(data) && data.length > 0) {
                     equiposSoporte = data;
-                    showToast('💡 Si hiciste cambios y no los ves, recarga la página', 'info', 5000);
                     
-                    // Obtener carros únicos con validación
+                    // Obtener carros únicos
                     const carrosSet = new Set();
                     data.forEach(e => {
-                        if (e && e.carro) {
-                            carrosSet.add(String(e.carro));
-                        }
+                        if (e && e.carro) carrosSet.add(String(e.carro));
                     });
+                    
+                    // Ordenar carros numéricamente
                     try {
                         carrosSoporte = [...carrosSet].sort((a, b) => {
                             const strA = String(a);
@@ -1268,11 +1390,10 @@
                 }
             } catch (err) {
                 console.error('Error:', err);
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: red;">Error de conexión</td></tr>';
-                showToast('Error de conexión: ' + err.message, 'error');
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: red;">Error de conexión: ' + err.message + '</td></tr>';
+                showToast('Error de conexión', 'error');
             }
         }
-
         function renderEquiposSoporte(equipos) {
             const tbody = document.getElementById('adminTableBody');
             const btnAdd = document.getElementById('btnAddEquipo');
@@ -1478,19 +1599,19 @@
 
         async function guardarEquipo(e) {
             e.preventDefault();
-            
+
             const submitBtn = e.target.querySelector('.btn-guardar');
             const originalText = submitBtn.innerHTML;
+
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
             submitBtn.disabled = true;
-            
-            const serialOriginal = document.getElementById('equipoSerialOriginal').value;
-            const sede = document.getElementById('equipoSede').value;
+
+            const serialOriginal = document.getElementById('equipoSerialOriginal').value.trim();
             const tipoEquipo = document.getElementById('equipoTipo').value;
             const carro = document.getElementById('equipoCarro').value.trim();
             const placa = document.getElementById('equipoPlaca').value.trim();
             const serial = document.getElementById('equipoSerial').value.trim();
-            
+
             if (!tipoEquipo || !carro || !placa || !serial) {
                 showToast('Todos los campos son requeridos', 'error');
                 submitBtn.innerHTML = originalText;
@@ -1498,10 +1619,15 @@
                 return;
             }
 
-            const action = serialOriginal ? 'updateEquipo' : 'addEquipo';
-            
+            if (!currentSedeSoporte || !currentEmailSoporte) {
+                showToast('Debes iniciar sesión como soporte', 'error');
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                return;
+            }
+
             const payload = {
-                action: action,
+                action: serialOriginal ? 'updateEquipo' : 'addEquipo',
                 sede: currentSedeSoporte,
                 correo: currentEmailSoporte,
                 equipo: tipoEquipo,
@@ -1509,42 +1635,32 @@
                 placa: placa,
                 serial: serial
             };
-            
+
             if (serialOriginal) {
                 payload.serialOriginal = serialOriginal;
             }
-            
-            console.log('Enviando:', payload);
-            
+
+            console.log('Enviando equipo:', payload);
+
             try {
-                const response = await fetch(URL_GOOGLE_SCRIPT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload)
-                });
-                
-                const text = await response.text();
-                console.log('Respuesta:', text);
-                
-                let result;
-                try {
-                    result = JSON.parse(text);
-                } catch (e) {
-                    showToast('Error de formato: ' + text.substring(0, 100), 'error');
-                    submitBtn.innerHTML = originalText;
-                    submitBtn.disabled = false;
-                    return;
-                }
-                
+                const result = await postToAppsScript(payload);
+
+                console.log('Respuesta Apps Script:', result);
+
                 if (result.status === 'ok') {
-                    showToast(serialOriginal ? 'Equipo actualizado correctamente' : 'Equipo agregado correctamente', 'success');
+                    showToast(
+                        serialOriginal ? 'Equipo actualizado correctamente' : 'Equipo agregado correctamente',
+                        'success'
+                    );
+
                     cerrarFormularioEquipo();
-                    cargarEquiposSoporte(currentSedeSoporte);
+                    await cargarEquiposSoporte(currentSedeSoporte);
                 } else {
-                    showToast(result.error || 'Error al guardar', 'error');
+                    showToast(result.error || 'Error al guardar equipo', 'error');
                 }
+
             } catch (err) {
-                console.error('Error:', err);
+                console.error('Error guardando equipo:', err);
                 showToast('Error de conexión: ' + err.message, 'error');
             } finally {
                 submitBtn.innerHTML = originalText;
@@ -1563,30 +1679,32 @@
             if (!confirm('¿Estás seguro de eliminar el equipo?\n\nPlaca: ' + placa + '\nSerial: ' + serial)) {
                 return;
             }
-            
+
+            if (!currentSedeSoporte || !currentEmailSoporte) {
+                showToast('Debes iniciar sesión como soporte', 'error');
+                return;
+            }
+
             try {
-                const response = await fetch(URL_GOOGLE_SCRIPT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({
-                        action: 'deleteEquipo',
-                        sede: currentSedeSoporte,
-                        correo: currentEmailSoporte,
-                        serial: serial
-                    })
+                const result = await postToAppsScript({
+                    action: 'deleteEquipo',
+                    sede: currentSedeSoporte,
+                    correo: currentEmailSoporte,
+                    serial: serial
                 });
-                
-                const result = await response.json();
-                
+
+                console.log('Respuesta eliminar:', result);
+
                 if (result.status === 'ok') {
                     showToast('Equipo eliminado correctamente', 'success');
-                    cargarEquiposSoporte(currentSedeSoporte);
+                    await cargarEquiposSoporte(currentSedeSoporte);
                 } else {
                     showToast(result.error || 'Error al eliminar', 'error');
                 }
+
             } catch (err) {
-                showToast('Error de conexión', 'error');
-                console.error(err);
+                console.error('Error eliminando equipo:', err);
+                showToast('Error de conexión: ' + err.message, 'error');
             }
         }
 
@@ -1634,8 +1752,7 @@
             if (!tbody) return;
             
             try {
-                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
-                const data = await response.json();
+                const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
                 
                 if (!Array.isArray(data)) return;
                 
@@ -1695,42 +1812,45 @@
                 if (currentRole !== 'SOPORTE' || !currentSedeSoporte) return;
                 
                 try {
-                    const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
-                    const data = await response.json();
+                    const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
                     
                     if (!Array.isArray(data) || data.length === 0) return;
                     
-                    // Filtrar solicitudes EN_CURSO de mi colegio
                     const miSede = normalizarTexto(currentSedeSoporte);
                     const mias = data.filter(r => 
                         normalizarTexto(r.sede || '') === miSede && 
                         (r.estado || 'EN_CURSO') === 'EN_CURSO'
                     );
-                    
-                    // Guardar para el panel
+
                     notificacionesData = mias;
                     
-                    // Ordenar por fecha más reciente
-                    mias.sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+                    const ordenadas = [...mias].sort((a, b) => {
+                        const fa = a.fecha ? new Date(a.fecha) : new Date(0);
+                        const fb = b.fecha ? new Date(b.fecha) : new Date(0);
+                        return fb - fa;
+                    });
                     
-                    // Actualizar panel si está abierto
+                    if (ordenadas.length > 0) {
+                        const masReciente = ordenadas[0];
+                        const idActual = masReciente.id_solicitud || masReciente.id || '';
+                        
+                        const previo = localStorage.getItem('ultimoIdRecibido') || ultimoIdRecibido;
+                        
+                        if (idActual && idActual !== previo) {
+                            mostrarNotificacionNuevaSolicitud(masReciente);
+                        }
+                        
+                        if (idActual) {
+                            ultimoIdRecibido = idActual;
+                            localStorage.setItem('ultimoIdRecibido', idActual);
+                        }
+                    }
+                    
                     actualizarPanelNotificaciones(mias);
-                    
-                    // Verificar si hay nuevas (comparar con último ID)
-                    const másReciente = mias[0];
-                    const idActual = másReciente ? (másReciente.id_solicitud || másReciente.id || '') : '';
-                    
-                    if (ultimoIdRecibido && idActual && idActual !== ultimoIdRecibido && mias.length > 0) {
-                        mostrarNotificacionNuevaSolicitud(másReciente);
-                    }
-                    
-                    if (idActual) {
-                        ultimoIdRecibido = idActual;
-                        localStorage.setItem('ultimoIdRecibido', idActual);
-                    }
-                    
-                    // Actualizar badge
                     actualizarBadgeNotificaciones(mias.length);
+                    
+                    const dashVisible = document.getElementById('dashboardView')?.style.display !== 'none';
+                    if (dashVisible) cargarDashboard();
                     
                 } catch (err) {
                     console.error('Error verificando solicitudes:', err);
@@ -1871,57 +1991,57 @@
                     }
                 }
             }
-        async function cargarDashboard() {
-            const tbody = document.getElementById('dashTableBody');
-            if (!tbody) return;
-            
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="7" class="dash-empty">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <span>Cargando datos del dashboard...</span>
-                    </td>
-                </tr>
-            `;
-            
-            try {
-                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
-                const data = await response.json();
+            async function cargarDashboard() {
+                const tbody = document.getElementById('dashTableBody');
+                if (!tbody) return;
                 
-                if (Array.isArray(data)) {
-                    dashboardData = data;
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="dash-empty">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Cargando datos del dashboard...</span>
+                        </td>
+                    </tr>
+                `;
+                
+                try {
+                    // Usamos jsonpRequest
+                    const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
                     
-                    // Si es soporte con colegio asignado, filtrar automáticamente
-                    let dataFiltrada = data;
-                    if (currentRole === 'SOPORTE' && currentSedeSoporte) {
-                        const sedeNormalizada = normalizarTexto(currentSedeSoporte);
-                        dataFiltrada = data.filter(r => normalizarTexto(r.sede || '') === sedeNormalizada);
+                    if (Array.isArray(data)) {
+                        dashboardData = data;
+                        
+                        // Filtrar por colegio si es soporte
+                        let dataFiltrada = data;
+                        if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                            const sedeNormalizada = normalizarTexto(currentSedeSoporte);
+                            dataFiltrada = data.filter(r => normalizarTexto(r.sede || '') === sedeNormalizada);
+                        }
+                        
+                        actualizarMetricasDashboard(dataFiltrada);
+                        renderizarTablaDashboard(dataFiltrada);
+                    } else {
+                        tbody.innerHTML = `
+                            <tr>
+                                <td colspan="7" class="dash-empty">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>Error al cargar datos</span>
+                                </td>
+                            </tr>
+                        `;
                     }
-                    
-                    actualizarMetricasDashboard(dataFiltrada);
-                    renderizarTablaDashboard(dataFiltrada);
-                } else {
+                } catch (err) {
+                    console.error('Error dashboard:', err);
                     tbody.innerHTML = `
                         <tr>
                             <td colspan="7" class="dash-empty">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <span>Error al cargar datos</span>
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Error de conexión: ${err.message}</span>
                             </td>
                         </tr>
                     `;
                 }
-            } catch (err) {
-                console.error('Error dashboard:', err);
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="dash-empty">
-                            <i class="fas fa-exclamation-circle"></i>
-                            <span>Error de conexión</span>
-                        </td>
-                    </tr>
-                `;
             }
-        }
 
         function actualizarMetricasDashboard(data) {
             const totalDocentes = new Set(data.map(r => r.cedula)).size;
@@ -2008,7 +2128,7 @@
             tbody.innerHTML = data.map(r => {
                 const estado = r.estado || 'EN_CURSO';
                 const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-ES') : '-';
-                const horaMax = r.hora_devolucion || '16:00';
+                const horaMax = formatearHoraFrontend(r.hora_devolucion || '16:00');
                 
                 const estadoClass = estado === 'CERRADO' ? 'cerrado' : 'en-curso';
                 const estadoTexto = estado === 'CERRADO' ? 'Cerrado' : 'En curso';
@@ -2088,7 +2208,7 @@
 📊 Cantidad: ${registro.cantidad || '0'}
 🔌 Cargador: ${registro.cargador || 'No'}
 ⏰ Hora máx.: ${registro.hora_devolucion || '16:00'}
-��� Estado: ${registro.estado || 'EN_CURSO'}
+Estado: ${registro.estado || 'EN_CURSO'}
             `.trim();
             
             alert(mensaje);
@@ -2109,8 +2229,7 @@
             tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Cargando registros...</td></tr>';
 
             try {
-                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
-                const data = await response.json();
+                const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
                 
                 if (Array.isArray(data)) {
                     todosLosRegistros = data;
@@ -2231,8 +2350,7 @@
 
         async function verDetalleRegistro(id) {
             try {
-                const response = await fetch(URL_GOOGLE_SCRIPT + '?action=getRegistroDetalle&id=' + encodeURIComponent(id));
-                const data = await response.json();
+                const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getRegistroDetalle&id=' + encodeURIComponent(id));
                 
                 if (data.error) {
                     showToast(data.error, 'error');
@@ -2271,16 +2389,16 @@
                                     <div class="detail-item"><span class="label">Equipo:</span><span class="value">${data.equipo || '-'}</span></div>
                                     <div class="detail-item"><span class="label">Cantidad:</span><span class="value">${data.cantidad || '-'}</span></div>
                                     <div class="detail-item"><span class="label">Cargador:</span><span class="value">${data.cargador || '-'}</span></div>
-                                    <div class="detail-item"><span class="label">Hora devolución:</span><span class="value">${data.hora_devolucion || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Hora devolución:</span><span class="value">${formatearHoraFrontend(data.hora_devolucion)}</span></div>
                                 </div>
                             </div>
                             <div class="detail-section">
                                 <h4>Estado</h4>
                                 <div class="detail-grid">
                                     <div class="detail-item"><span class="label">Estado:</span><span class="value ${data.estado === 'CERRADO' ? 'text-red' : 'text-green'}">${data.estado || '-'}</span></div>
-                                    <div class="detail-item"><span class="label">Hora entrega:</span><span class="value">${data.hora_entrega || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Hora entrega:</span><span class="value">${formatearHoraFrontend(data.hora_entrega)}</span></div>
                                     <div class="detail-item"><span class="label">Fecha devolución:</span><span class="value">${data.fecha_devolucion || '-'}</span></div>
-                                    <div class="detail-item"><span class="label">Hora real:</span><span class="value">${data.hora_devolucion_real || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Hora real:</span><span class="value">${formatearHoraFrontend(data.hora_devolucion_real)}</span></div>
                                 </div>
                             </div>
                             ${data.novedad === 'Sí' ? `
@@ -2329,21 +2447,16 @@
             if (!confirm('¿Estás seguro de cerrar esta solicitud?')) return;
 
             try {
-                const response = await fetch(URL_GOOGLE_SCRIPT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({
-                        action: 'cerrarSolicitud',
-                        id_solicitud: id,
-                        cantidad_devuelta: '0',
-                        estado_final: 'CERRADO_POR_SOPORTE',
-                        novedad_devolucion: 'No',
-                        descripcion_devolucion: 'Cerrado por soporte técnico',
-                        firma_devolucion: ''
-                    })
+                const result = await postToAppsScript({
+                    action: 'cerrarSolicitud',
+                    id_solicitud: id,
+                    cantidad_devuelta: '0',
+                    estado_final: 'CERRADO_POR_SOPORTE',
+                    novedad_devolucion: 'No',
+                    descripcion_devolucion: 'Cerrado por soporte técnico',
+                    firma_devolucion: ''
                 });
-
-                const result = await response.json();
+                
                 if (result.status === 'ok') {
                     showToast('Solicitud cerrada correctamente', 'success');
                     cargarTodosRegistros();

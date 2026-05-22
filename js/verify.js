@@ -218,8 +218,7 @@ function habilitarBotonSiguiente() {
 
 async function enviarCodigoPorCorreo(email, codigo) {
     try {
-        const response = await fetch(`${URL_GOOGLE_SCRIPT}?action=sendVerifyCode&email=${encodeURIComponent(email)}&code=${codigo}`);
-        const result = await response.json();
+        const result = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=sendVerifyCode&email=${encodeURIComponent(email)}&code=${codigo}`);
         return result.status === 'ok';
     } catch (error) {
         console.error('Error enviando código:', error);

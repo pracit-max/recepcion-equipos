@@ -1,4 +1,4 @@
-const SHEET_ID = "1Z1DXZr_dK1BuutNET3u5C68ourccKU5bNRjUD5YWw-U";
+﻿const SHEET_ID = "1Z1DXZr_dK1BuutNET3u5C68ourccKU5bNRjUD5YWw-U";
 
 const SUPPORT_EMAIL = "desarrollosoporte@innovaschools.edu.co";
 const ADMIN_EMAILS = [SUPPORT_EMAIL, "jmacias@innovaschools.edu.co"];
@@ -23,7 +23,7 @@ function doGet(e) {
     const sede = e && e.parameter ? e.parameter.sede : null;
 
 
-// En tu función doGet, reemplaza el bloque de validarCorreoSoporte por:
+// En tu funciÃ³n doGet, reemplaza el bloque de validarCorreoSoporte por:
 
     if (action === "validarCorreoSoporte") {
       try {
@@ -32,7 +32,7 @@ function doGet(e) {
         Logger.log("Correo recibido: " + correo);
         
         if (!correo) {
-          Logger.log("❌ Correo vacío");
+          Logger.log("âŒ Correo vacÃ­o");
           return jsonResponse({ status: "error", error: "Debes ingresar un correo" });
         }
         
@@ -41,7 +41,7 @@ function doGet(e) {
         
         return jsonResponse(resultado);
       } catch (err) {
-        Logger.log("🔥 Error catch validarCorreoSoporte: " + err.toString());
+        Logger.log("ðŸ”¥ Error catch validarCorreoSoporte: " + err.toString());
         return jsonResponse({ status: "error", error: err.toString() });
       }
     }
@@ -101,7 +101,11 @@ function doGet(e) {
             cantidad: r.cantidad || "",
             hora_entrega: formatearHoraSheet(r.hora_entrega),
             hora_devolucion: formatearHoraSheet(r.hora_devolucion),
-            detalle_equipos: r.detalle_equipos || ""
+            detalle_equipos: r.detalle_equipos || "",
+            acta: r.acta || "",
+            pdf_recepcion_url: r.acta || "",
+            equipo_adicional: r.equipo_adicional || "",
+            serial_adicional: r.serial_adicional || ""
           }));
 
         return jsonResponse(enCurso);
@@ -210,7 +214,7 @@ function doGet(e) {
     }
 
     // ==============================
-    // TRAER EQUIPOS POR SEDE (DINÁMICO)
+    // TRAER EQUIPOS POR SEDE (DINÃMICO)
     // ==============================
     if (action === 'getEquipos' && sede) {
       try {
@@ -228,14 +232,14 @@ function doGet(e) {
         const sheet = ss.getSheetByName(sheetName);
 
         if (!sheet) {
-          Logger.log("❌ No existe la hoja: " + sheetName);
+          Logger.log("âŒ No existe la hoja: " + sheetName);
           // Listar hojas disponibles para debug
           const hojas = ss.getSheets().map(s => s.getName());
           Logger.log("Hojas disponibles: " + hojas.join(", "));
           return jsonResponse({ error: "No existe la hoja '" + sheetName + "'. Hojas: " + hojas.join(", ") });
         }
 
-        Logger.log("✅ Hoja encontrada: " + sheetName);
+        Logger.log("âœ… Hoja encontrada: " + sheetName);
 
         const data = sheet.getDataRange().getValues();
         Logger.log("Filas en hoja: " + data.length);
@@ -250,12 +254,21 @@ function doGet(e) {
             serial: row[4]
           }));
 
-        Logger.log("✅ Equipos encontrados: " + equipos.length);
+        Logger.log("âœ… Equipos encontrados: " + equipos.length);
         return jsonResponse(equipos);
 
       } catch (err) {
-        Logger.log("❌ Error en getEquipos: " + err.toString());
+        Logger.log("âŒ Error en getEquipos: " + err.toString());
         return jsonResponse({ error: err.toString() });
+      }
+    }
+
+    if (action === 'getEquiposBodega' && sede) {
+      try {
+        return jsonResponse(getEquiposBodegaHandler(sede));
+      } catch (err) {
+        Logger.log("Error getEquiposBodega: " + err);
+        return jsonResponse({ status: "error", error: err.toString() });
       }
     }
 
@@ -299,7 +312,12 @@ function doGet(e) {
             cantidad_devuelta: r.cantidad_devuelta || "",
             estado_final: r.estado_final || "",
             novedad_devolucion: r.novedad_devolucion || "",
-            descripcion_devolucion: r.descripcion_devolucion || ""
+            descripcion_devolucion: r.descripcion_devolucion || "",
+            acta: r.acta || "",
+            pdf_recepcion_url: r.acta || "",
+            pdf_resumen_url: r.pdf_resumen_url || "",
+            equipo_adicional: r.equipo_adicional || "",
+            serial_adicional: r.serial_adicional || ""
           }))
           .sort((a, b) => {
             const fechaA = new Date(a.fecha || 0);
@@ -436,7 +454,10 @@ function doGet(e) {
         descripcion_devolucion: row[32] || "",
         firma_devolucion: row[33] || "",
         pdf_resumen_url: row[34] || "",
-        foto_devolucion: row[36] || ""
+        acta: row[17] || "",
+        pdf_recepcion_url: row[17] || "",
+        foto_devolucion: row[36] || "",
+        equipo_adicional: row[37] || ""
       }));
 
       return jsonResponse(registros);
@@ -446,7 +467,7 @@ function doGet(e) {
     }
 
   } catch (err) {
-    Logger.log("❌ ERROR doGet: " + err.toString());
+    Logger.log("âŒ ERROR doGet: " + err.toString());
     return jsonResponse({ error: err.toString() });
   }
 }
@@ -548,7 +569,22 @@ function doPost(e) {
       return eliminarEquipo(data);
     }
 
-    // === VALIDACIÓN DE DISPONIBILIDAD ===
+    if (!esCorreoInstitucional(data.correo)) {
+      return jsonResponse({
+        status: "error",
+        error: "El correo del docente debe terminar en @innovaschools.edu.co"
+      });
+    }
+
+    // === VALIDACIÃ“N DE DISPONIBILIDAD ===
+    const textoEquipoAdicionalEntrada = obtenerTextoEquiposAdicionales(data);
+    if (textoEquipoAdicionalEntrada) {
+      const validacionBodega = validarEquiposAdicionalesDisponibles(data);
+      if (!validacionBodega.ok) {
+        return jsonResponse({ status: "error", error: validacionBodega.error });
+      }
+    }
+
     if (data.equipo && data.equipo !== "Otros equipos" && data.sede && data.hora_devolucion) {
       const sheetVal = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
       const registros = sheetVal.getDataRange().getValues();
@@ -597,7 +633,7 @@ function doPost(e) {
       }
     }
 
-    // === GUARDAR IMÁGENES ===
+    // === GUARDAR IMÃGENES ===
     let fotoDanoURL = "";
     try {
       if (data.foto_dano && String(data.foto_dano).startsWith("data:image")) {
@@ -710,6 +746,9 @@ function doPost(e) {
       if (colMapGuardado.tipo_firma) {
         sheet.getRange(lastRow, colMapGuardado.tipo_firma).setValue(data.tipo_firma || "MANUAL");
       }
+      const colEquipoAdicional = asegurarColumnaEquipoAdicional(sheet, colMapGuardado);
+      Logger.log("Columna equipo_adicional: " + colEquipoAdicional);
+      sheet.getRange(lastRow, colEquipoAdicional).setValue(formatearEquiposAdicionalesPlano(data.equipo_adicional || ""));
     } catch (mapErr) {
       Logger.log("No se pudo guardar tipo_firma: " + mapErr);
     }
@@ -734,7 +773,9 @@ function doPost(e) {
       solicita_cambio: data.solicita_cambio || "No",
       serial_cambio: data.serial_cambio || "",
       foto_cambio: data.foto_cambio || "",
-      equipos_adicionales: data.equipos_adicionales || "No"
+      equipos_adicionales: data.equipos_adicionales || "No",
+      serial_adicional: data.serial_adicional || "",
+      equipo_adicional: data.equipo_adicional || data.serial_adicional || ""
     };
 
     const pdfUrl = enviarPDFporCorreo(datosPDF);
@@ -743,7 +784,7 @@ function doPost(e) {
     const COLUMNA_ACTA = colMapGuardado && colMapGuardado.acta ? colMapGuardado.acta : 19;
     if (pdfUrl && pdfUrl.includes("drive.google.com")) {
       sheet.getRange(lastRow, COLUMNA_ACTA).setValue(pdfUrl);
-      Logger.log("✅ PDF guardado en columna " + COLUMNA_ACTA);
+      Logger.log("âœ… PDF guardado en columna " + COLUMNA_ACTA);
     }
 
     // === CORREO NOVEDAD ===
@@ -761,7 +802,7 @@ function doPost(e) {
     return jsonResponse({ status: "ok", id_solicitud: idSolicitud });
 
   } catch (err) {
-    Logger.log("❌ ERROR CRÍTICO doPost: " + err.toString());
+    Logger.log("âŒ ERROR CRÃTICO doPost: " + err.toString());
     Logger.log("Stack: " + err.stack);
     return jsonResponse({ status: "error", error: err.toString() });
   } finally {
@@ -876,14 +917,7 @@ function enviarPDFporCorreo(data) {
           <p><strong>Equipo:</strong> ${safe(data.equipo)} (${safe(data.cantidad)} unidades)</p>
     `;
 
-    if (data.detalle_equipos) {
-      htmlContent += `<table><thead><tr><th>#</th><th>Detalle</th></tr></thead><tbody>`;
-      const lineas = String(data.detalle_equipos).split('\n');
-      lineas.forEach((linea, idx) => {
-        if (linea.trim()) htmlContent += `<tr><td>${idx+1}</td><td>${safe(linea)}</td></tr>`;
-      });
-      htmlContent += `</tbody></table>`;
-    }
+    htmlContent += construirTablaDetalleEquiposHtml(obtenerDetalleEquiposPrincipales(data), safe);
 
     if (data.novedad === 'Sí') {
       htmlContent += `<h2 style="color: #FF6B6B;">Novedad reportada</h2>
@@ -907,6 +941,8 @@ function enviarPDFporCorreo(data) {
       htmlContent += `<h2 style="color: #FFD93D;">Equipos adicionales</h2>
                       <p><strong>Obs:</strong> ${safe(data.observacion)}</p>`;
     }
+
+    htmlContent += construirTablaEquiposAdicionalesHtml(obtenerTextoEquiposAdicionales(data), safe);
 
     htmlContent += `<h2>Firma de responsabilidad</h2>`;
     if (firmaSiAutoriza) {
@@ -951,7 +987,7 @@ function enviarPDFporCorreo(data) {
     const pdfBlob = tempFile.getAs('application/pdf').setName(`Acta_${safe(data.nombre)}_${safe(data.fecha)}.pdf`);
 
     Logger.log("Guardando en Drive...");
-    const folder = DriveApp.getFolderById(FOLDER_PDF);
+    const folder = getCarpetaSede(FOLDER_PDF, data.sede);
     const pdfFile = folder.createFile(pdfBlob);
     const pdfUrl = pdfFile.getUrl();
     Logger.log("PDF subido: " + pdfUrl);
@@ -981,7 +1017,7 @@ function enviarPDFporCorreo(data) {
     return pdfUrl;
 
   } catch (error) {
-    Logger.log("❌ ERROR en enviarPDFporCorreo: " + error.toString());
+    Logger.log("âŒ ERROR en enviarPDFporCorreo: " + error.toString());
     Logger.log("Stack: " + error.stack);
     return "";
   }
@@ -1257,9 +1293,20 @@ function getColumnMap(sheet) {
   map.tipo_firma_devolucion = buscarColumna("tipo_firma_devolucion");
   map.pdf_resumen_url = buscarColumna("pdf_resumen_url");
   map.foto_devolucion = buscarColumna("foto_devolucion");
+  map.equipo_adicional = buscarColumna("equipo_adicional", "equipo adicional", "equipos_adicionales_detalle", "detalle_adicionales");
+  map.correo_soporte_devolucion = buscarColumna("correo_soporte_devolucion", "correo_institucional_soporte", "correo_soporte");
 
   Logger.log("MAP COLUMNAS: " + JSON.stringify(map));
   return map;
+}
+
+function asegurarColumnaEquipoAdicional(sheet, colMap) {
+  if (colMap && colMap.equipo_adicional) return colMap.equipo_adicional;
+  const nuevaCol = sheet.getLastColumn() + 1;
+  sheet.getRange(1, nuevaCol).setValue("equipo_adicional");
+  if (colMap) colMap.equipo_adicional = nuevaCol;
+      Logger.log("Se creó la columna equipo_adicional en la posición: " + nuevaCol);
+  return nuevaCol;
 }
 
 function getRowDataObject(row, colMap) {
@@ -1274,6 +1321,335 @@ function getRowDataObject(row, colMap) {
   return obj;
 }
 
+function esCorreoInstitucional(correo) {
+  return /^[^\s@]+@innovaschools\.edu\.co$/i.test(String(correo || "").trim());
+}
+
+function agregarDestinatarioUnico(lista, correo) {
+  const limpio = String(correo || "").trim().toLowerCase();
+  if (limpio && esCorreoInstitucional(limpio) && lista.indexOf(limpio) === -1) {
+    lista.push(limpio);
+  }
+}
+
+function getEquiposBodegaHandler(sede) {
+  const sedeLimpia = normalizarTexto(sede || "");
+  const sheetName = "equipos_" + sedeLimpia;
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    return { status: "error", error: "No existe la hoja " + sheetName };
+  }
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return [];
+
+  const headers = data[0].map(h => normalizarTexto(h));
+  const idx = (nombres, fallback) => {
+    for (let i = 0; i < headers.length; i++) {
+      if (nombres.indexOf(headers[i]) !== -1) return i;
+    }
+    return fallback;
+  };
+
+  const idxSede = idx(["sede", "colegio"], 0);
+  const idxEquipo = idx(["equipo", "nombre", "tipo"], 1);
+  const idxCarro = idx(["carro", "ubicacion", "ubicacion_actual"], 2);
+  const idxPlaca = idx(["placa", "codigo", "activo", "serial y placa"], 3);
+  const idxSerial = idx(["serial", "serie", "serial y placa"], 4);
+  const idxEstado = idx(["estado", "status"], -1);
+  const ocupados = getIdentificadoresOcupadosPorSede(sedeLimpia);
+  Logger.log("Equipos adicionales ocupados: " + JSON.stringify(ocupados));
+
+  const equiposDisponibles = data.slice(1)
+    .filter(row => normalizarTexto(row[idxCarro] || "") === "bodega ti")
+    .filter(row => row[idxSerial] || row[idxPlaca] || row[idxEquipo])
+    .map((row, index) => {
+      const estado = idxEstado >= 0 ? String(row[idxEstado] || "").trim() : "";
+      let serial = String(row[idxSerial] || "").trim();
+      let placa = String(row[idxPlaca] || "").trim();
+      const combinado = idxSerial === idxPlaca ? String(row[idxSerial] || "").trim() : "";
+      if (combinado) {
+        const serialMatch = combinado.match(/serial[:\s-]*([a-z0-9-]+)/i);
+        const placaMatch = combinado.match(/placa[:\s-]*([a-z0-9-]+)/i);
+        serial = serialMatch ? serialMatch[1] : serial;
+        placa = placaMatch ? placaMatch[1] : placa;
+      }
+      const id = serial || placa || String(index + 1);
+      const activo = !estado || ["activo", "disponible", "ok", "listo"].indexOf(normalizarTexto(estado)) !== -1;
+      const ocupado = ocupados[normalizarTexto(serial)] || ocupados[normalizarTexto(placa)];
+      return {
+        id: id,
+        sede: row[idxSede] || sede,
+        equipo: row[idxEquipo] || "Equipo",
+        carro: row[idxCarro] || "BODEGA TI",
+        placa: placa,
+        serial: serial,
+        estado: estado || (activo ? "Activo" : "No disponible"),
+        disponible: Boolean(activo && !ocupado),
+        motivo: ocupado ? "Ocupado" : (activo ? "Disponible" : "No activo")
+      };
+    });
+  Logger.log("Equipos disponibles finales: " + JSON.stringify(equiposDisponibles));
+  return equiposDisponibles;
+}
+
+function getIdentificadoresOcupadosPorSede(sedeNormalizada) {
+  const ocupados = {};
+  try {
+    const sheet = getMainSheet();
+    const colMap = getColumnMap(sheet);
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow <= 1) return ocupados;
+
+    const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+    rows.forEach(row => {
+      const r = getRowDataObject(row, colMap);
+      if (normalizarTexto(r.sede || "") !== sedeNormalizada) return;
+
+      const estadoFinalNormalizado = normalizarTexto(r.estado_final || "");
+      const soloPendienteAdicional = estadoFinalNormalizado === "pendiente_adicional";
+      const activaPrincipal = !soloPendienteAdicional && (
+        String(r.estado || "").trim().toUpperCase() === "EN_CURSO" ||
+        !r.estado_final ||
+        !r.fecha_devolucion ||
+        !r.hora_devolucion_real
+      );
+
+      if (activaPrincipal) {
+        const textoPrincipal = [r.equipo, r.detalle_equipos].join(" ");
+        String(textoPrincipal || "").split(/[\s,;|]+/).forEach(token => {
+          const limpio = normalizarTexto(token).replace(/[^a-z0-9-]/g, "");
+          if (limpio && limpio.length >= 3) ocupados[limpio] = true;
+        });
+      }
+
+      const filaConAdicionalActivo = String(r.estado || "").trim().toUpperCase() === "EN_CURSO" ||
+        soloPendienteAdicional ||
+        !r.fecha_devolucion ||
+        !r.hora_devolucion_real;
+
+      extraerEquiposAdicionales(obtenerTextoEquiposAdicionales(r)).forEach(eq => {
+        if (!filaConAdicionalActivo || eq.devuelto === true) return;
+        const serial = normalizarTexto(eq.serial || "");
+        const placa = normalizarTexto(eq.placa || "");
+        if (serial) ocupados[serial] = true;
+        if (placa) ocupados[placa] = true;
+      });
+    });
+  } catch (err) {
+    Logger.log("Error calculando ocupados bodega: " + err);
+  }
+  return ocupados;
+}
+
+function validarEquiposAdicionalesDisponibles(data) {
+  try {
+    const adicionales = extraerEquiposAdicionales(obtenerTextoEquiposAdicionales(data));
+    const seleccion = adicionales.map(eq => normalizarTexto(eq.serial || eq.placa || "")).filter(Boolean);
+
+    if (!seleccion.length) {
+      return { ok: false, error: "Debes seleccionar al menos un equipo adicional de BODEGA TI" };
+    }
+
+    if (new Set(seleccion).size !== seleccion.length) {
+      return { ok: false, error: "Hay equipos adicionales duplicados en la selección" };
+    }
+
+    const disponibles = {};
+    getEquiposBodegaHandler(data.sede || "").forEach(eq => {
+      if (eq.disponible) {
+        disponibles[normalizarTexto(eq.serial || "")] = true;
+        disponibles[normalizarTexto(eq.placa || "")] = true;
+      }
+    });
+
+    const noDisponibles = seleccion.filter(id => !disponibles[id]);
+    if (noDisponibles.length) {
+      return { ok: false, error: "Uno o más equipos adicionales ya no están disponibles. Actualiza BODEGA TI." };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    Logger.log("Error validando equipos adicionales: " + err);
+    return { ok: false, error: "No se pudo validar la disponibilidad de equipos adicionales" };
+  }
+}
+
+function extraerEquiposAdicionales(texto) {
+  const raw = String(texto || "").trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.map(eq => ({
+        nombre: eq.equipo || eq.nombre || "Equipo adicional",
+        cantidad: Number(eq.cantidad || 1),
+        placa: String(eq.placa || ""),
+        serial: String(eq.serial || ""),
+        estado: String(eq.estado || ""),
+        sede: String(eq.sede || ""),
+        responsable: String(eq.responsable || ""),
+        devuelto: eq.devuelto === true,
+        fecha_devolucion: String(eq.fecha_devolucion || ""),
+        hora_devolucion: String(eq.hora_devolucion || ""),
+        observacion: String(eq.observacion || ""),
+        raw: JSON.stringify(eq)
+      })).filter(eq => eq.placa || eq.serial || eq.nombre);
+    }
+  } catch (err) {
+    // Registros antiguos en texto plano.
+  }
+
+  return raw
+    .split('\n')
+    .filter(linea => /Adicional\s+\d+|BODEGA TI|Placa:|Serial:/i.test(linea))
+    .map(linea => {
+      const serialMatch = linea.match(/Serial:\s*([^\s-]+)/i);
+      const placaMatch = linea.match(/Placa:\s*([^\s-]+)/i);
+      const estadoMatch = linea.match(/Estado:\s*([^-]+)/i);
+      const sedeMatch = linea.match(/Sede:\s*([^-]+)/i);
+      const responsableMatch = linea.match(/Responsable:\s*(.+)$/i);
+      const nombreMatch = linea.match(/Adicional\s+\d+\.\s*(.*?)\s*-\s*Placa:/i) ||
+        linea.match(/Equipo:\s*(.*?)\s*-\s*Serial:/i);
+      return {
+        nombre: nombreMatch ? nombreMatch[1].trim() : "Equipo adicional",
+        placa: placaMatch ? placaMatch[1].trim() : "",
+        serial: serialMatch ? serialMatch[1].trim() : "",
+        estado: estadoMatch ? estadoMatch[1].trim() : "",
+        sede: sedeMatch ? sedeMatch[1].trim() : "",
+        responsable: responsableMatch ? responsableMatch[1].trim() : "",
+        cantidad: 1,
+        devuelto: /devuelto:\s*(true|si|sí)/i.test(linea),
+        fecha_devolucion: "",
+        hora_devolucion: "",
+        observacion: "",
+        raw: linea
+      };
+    })
+    .filter(eq => eq.placa || eq.serial || eq.raw);
+}
+
+function obtenerTextoEquiposAdicionales(data) {
+  if (data.equipo_adicional) return data.equipo_adicional;
+  if (data.serial_adicional) return data.serial_adicional;
+  const detalle = String(data.detalle_equipos || "");
+  if (detalle.indexOf("--- Equipos adicionales BODEGA TI ---") !== -1) {
+    return detalle.split("--- Equipos adicionales BODEGA TI ---").pop();
+  }
+  return "";
+}
+
+function obtenerDetalleEquiposPrincipales(data) {
+  const detalle = String(data.detalle_equipos || "");
+  if (detalle.indexOf("--- Equipos adicionales BODEGA TI ---") !== -1) {
+    return detalle.split("--- Equipos adicionales BODEGA TI ---")[0].trim();
+  }
+  return detalle.trim();
+}
+
+function construirTablaDetalleEquiposHtml(detalle, safeFn) {
+  const texto = String(detalle || "").trim();
+  if (!texto) return "";
+  const safeLocal = safeFn || function(valor) { return String(valor || ""); };
+  let html = `<table><thead><tr><th>#</th><th>Detalle equipos principales</th></tr></thead><tbody>`;
+  texto.split('\n').forEach((linea, idx) => {
+    if (linea.trim()) html += `<tr><td>${idx + 1}</td><td>${safeLocal(linea)}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  return html;
+}
+
+function formatearEquiposAdicionalesPlano(texto) {
+  const adicionales = extraerEquiposAdicionales(texto);
+  if (!adicionales.length) return "";
+  return adicionales.map((eq, idx) =>
+    `${idx + 1}. Equipo: ${eq.nombre || "Equipo adicional"} - Serial: ${eq.serial || "-"} - Placa: ${eq.placa || "-"}`
+  ).join("\n");
+}
+
+function normalizarEquipoAdicionalDevolucion(texto, fechaDev, horaDev) {
+  const adicionales = extraerEquiposAdicionales(texto);
+  if (!adicionales.length) return "";
+  return formatearEquiposAdicionalesPlano(texto);
+}
+
+function tieneEquipoAdicionalPendiente(texto) {
+  return extraerEquiposAdicionales(texto).some(eq => eq.devuelto !== true);
+}
+
+function construirTablaEquiposAdicionalesHtml(texto, safeFn) {
+  const adicionales = extraerEquiposAdicionales(texto);
+  if (!adicionales.length) return "";
+  const safeLocal = safeFn || function(valor) { return String(valor || ""); };
+  let html = `<h2 style="color:#0f766e;">Equipos adicionales BODEGA TI</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Equipo</th>
+          <th>Serial</th>
+          <th>Placa</th>
+        </tr>
+      </thead>
+      <tbody>`;
+  adicionales.forEach((eq, idx) => {
+    html += `<tr>
+      <td>${idx + 1}</td>
+      <td>${safeLocal(eq.nombre)}</td>
+      <td>${safeLocal(eq.serial || "-")}</td>
+      <td>${safeLocal(eq.placa || "-")}</td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  return html;
+}
+
+function getCarpetaSede(parentFolderId, sede) {
+  const parent = DriveApp.getFolderById(parentFolderId);
+  const nombreSede = String(sede || "General").trim() || "General";
+  const nombre = "Sede - " + nombreSede;
+  const existentes = parent.getFoldersByName(nombre);
+  if (existentes.hasNext()) return existentes.next();
+  return parent.createFolder(nombre);
+}
+
+function buscarActaRecepcionRelacionada(data) {
+  try {
+    if (data.acta) return data.acta;
+    const sheet = getMainSheet();
+    const colMap = getColumnMap(sheet);
+    if (!colMap.acta) return "";
+
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    if (lastRow <= 1) return "";
+
+    const objetivoId = String(data.id_solicitud || "").trim();
+    const objetivoCorreo = normalizarTexto(data.correo || "");
+    const objetivoSede = normalizarTexto(data.sede || "");
+    const objetivoEquipo = normalizarTexto(data.equipo || "");
+    const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+    for (let i = 0; i < rows.length; i++) {
+      const rowObj = getRowDataObject(rows[i], colMap);
+      const mismaSolicitud = objetivoId && String(rowObj.id_solicitud || "").trim() === objetivoId;
+      const mismaRelacion = objetivoCorreo &&
+        normalizarTexto(rowObj.correo || "") === objetivoCorreo &&
+        normalizarTexto(rowObj.sede || "") === objetivoSede &&
+        normalizarTexto(rowObj.equipo || "") === objetivoEquipo;
+
+      if ((mismaSolicitud || mismaRelacion) && rowObj.acta) {
+        return rowObj.acta;
+      }
+    }
+  } catch (err) {
+    Logger.log("Error buscando acta relacionada: " + err);
+  }
+  return "";
+}
+
 // ============================================================
 // CERRAR SOLICITUD
 // ============================================================
@@ -1284,6 +1660,14 @@ function cerrarSolicitud(data) {
 
     if (!data.id_solicitud) {
       return jsonResponse({ status: "error", error: "Falta id_solicitud" });
+    }
+
+    const correoSoporteDevolucion = String(data.correo_soporte_devolucion || "").trim().toLowerCase();
+    if (!esCorreoInstitucional(correoSoporteDevolucion)) {
+      return jsonResponse({
+        status: "error",
+        error: "El correo institucional de soporte debe terminar en @innovaschools.edu.co"
+      });
     }
 
     const lastRow = sheet.getLastRow();
@@ -1319,6 +1703,18 @@ function cerrarSolicitud(data) {
     const ahora = new Date();
     const fechaDevolucion = Utilities.formatDate(ahora, zonaHoraria, "yyyy-MM-dd");
     const horaDevolucionReal = Utilities.formatDate(ahora, zonaHoraria, "HH:mm");
+    const textoEquipoAdicionalDevolucion = Object.prototype.hasOwnProperty.call(data, "equipo_adicional")
+      ? data.equipo_adicional
+      : (targetRow.equipo_adicional || targetRow.serial_adicional || "");
+    const equipoAdicionalActualizado = normalizarEquipoAdicionalDevolucion(
+      textoEquipoAdicionalDevolucion,
+      fechaDevolucion,
+      horaDevolucionReal
+    );
+    const hayEquipoAdicionalPendiente = false;
+    const estadoFinalGuardado = hayEquipoAdicionalPendiente
+      ? "PENDIENTE_ADICIONAL"
+      : (data.estado_final || "");
 
     let fotoDevolucionURL = "";
     const novedadDev = String(data.novedad_devolucion || "").trim().toUpperCase();
@@ -1335,27 +1731,38 @@ function cerrarSolicitud(data) {
           "devolucion_" + data.id_solicitud,
           FOLDER_FOTO_DEVOLUCION
         );
-        Logger.log("✅ Foto devolución guardada: " + fotoDevolucionURL);
+        Logger.log("Foto devolución guardada: " + fotoDevolucionURL);
       } catch (imgErr) {
-        Logger.log("❌ Error guardando foto devolución: " + imgErr);
+        Logger.log("Error guardando foto devolución: " + imgErr);
       }
+    }
+
+    if (equipoAdicionalActualizado) {
+      const colEquipoAdicional = asegurarColumnaEquipoAdicional(sheet, colMap);
+      Logger.log("Columna equipo_adicional: " + colEquipoAdicional);
+      sheet.getRange(targetRowNumber, colEquipoAdicional).setValue(equipoAdicionalActualizado);
     }
 
     if (colMap.fecha_devolucion) sheet.getRange(targetRowNumber, colMap.fecha_devolucion).setValue(fechaDevolucion);
     if (colMap.hora_devolucion_real) sheet.getRange(targetRowNumber, colMap.hora_devolucion_real).setValue(horaDevolucionReal);
     if (colMap.cantidad_devuelta) sheet.getRange(targetRowNumber, colMap.cantidad_devuelta).setValue(data.cantidad_devuelta || "");
-    if (colMap.estado_final) sheet.getRange(targetRowNumber, colMap.estado_final).setValue(data.estado_final || "");
+    if (colMap.estado_final) sheet.getRange(targetRowNumber, colMap.estado_final).setValue(estadoFinalGuardado);
     if (colMap.novedad_devolucion) sheet.getRange(targetRowNumber, colMap.novedad_devolucion).setValue(data.novedad_devolucion || "No");
     if (colMap.descripcion_devolucion) sheet.getRange(targetRowNumber, colMap.descripcion_devolucion).setValue(data.descripcion_devolucion || "");
     if (colMap.firma_devolucion) sheet.getRange(targetRowNumber, colMap.firma_devolucion).setValue(data.firma_devolucion || "");
     if (colMap.tipo_firma_devolucion) sheet.getRange(targetRowNumber, colMap.tipo_firma_devolucion).setValue(data.tipo_firma_devolucion || "MANUAL");
     if (colMap.foto_devolucion) sheet.getRange(targetRowNumber, colMap.foto_devolucion).setValue(fotoDevolucionURL);
-    if (colMap.estado) sheet.getRange(targetRowNumber, colMap.estado).setValue("CERRADO");
+    if (colMap.correo_soporte_devolucion) sheet.getRange(targetRowNumber, colMap.correo_soporte_devolucion).setValue(correoSoporteDevolucion);
+    if (colMap.estado) sheet.getRange(targetRowNumber, colMap.estado).setValue(hayEquipoAdicionalPendiente ? "EN_CURSO" : "CERRADO");
 
     SpreadsheetApp.flush();
 
     const updatedRow = sheet.getRange(targetRowNumber, 1, 1, lastCol).getValues()[0];
     const updatedObj = getRowDataObject(updatedRow, colMap);
+    updatedObj.correo_soporte_devolucion = correoSoporteDevolucion;
+    updatedObj.acta = updatedObj.acta || buscarActaRecepcionRelacionada(updatedObj);
+    updatedObj.equipo_adicional = equipoAdicionalActualizado || updatedObj.equipo_adicional || updatedObj.serial_adicional || "";
+    updatedObj.estado_final = estadoFinalGuardado;
     updatedObj.foto_devolucion = fotoDevolucionURL || updatedObj.foto_devolucion || "";
     updatedObj.foto_devolucion_base64 = fotoDevolucionURL
       ? obtenerImagenBase64(fotoDevolucionURL)
@@ -1365,7 +1772,7 @@ function cerrarSolicitud(data) {
     if (colMap.pdf_resumen_url) sheet.getRange(targetRowNumber, colMap.pdf_resumen_url).setValue(pdfResumenUrl || "");
 
     try {
-      if (updatedObj.correo) {
+      if (!pdfResumenUrl && updatedObj.correo) {
         GmailApp.sendEmail({
           to: String(updatedObj.correo).trim(),
           replyTo: SUPPORT_EMAIL,
@@ -1390,7 +1797,12 @@ function cerrarSolicitud(data) {
       Logger.log("Error enviando correo: " + mailError);
     }
 
-    return jsonResponse({ status: "ok", message: "Solicitud cerrada correctamente", pdf_resumen_url: pdfResumenUrl || "" });
+    return jsonResponse({
+      status: "ok",
+      message: "Solicitud cerrada correctamente",
+      pdf_resumen_url: pdfResumenUrl || "",
+      pdf_recepcion_url: updatedObj.acta || ""
+    });
 
   } catch (err) {
     return jsonResponse({ status: "error", error: err.toString() });
@@ -1402,7 +1814,8 @@ function cerrarSolicitud(data) {
 // ============================================================
 function generarPdfResumenFinal(data) {
   try {
-    const folder = DriveApp.getFolderById(FOLDER_PDF_DEVOLUCION);
+    data.acta = data.acta || buscarActaRecepcionRelacionada(data);
+    const folder = getCarpetaSede(FOLDER_PDF_DEVOLUCION, data.sede);
 
     const fechaEntrega = formatearFechaPdf(data.fecha || "");
     const horaEntrega = formatearHoraPdf(data.hora_entrega || "");
@@ -1424,7 +1837,7 @@ function generarPdfResumenFinal(data) {
     const firmaDevolucion = !firmaDevolucionSiAutoriza && data.firma_devolucion ? procesarImagenPdf(data.firma_devolucion) : null;
     const fotoDevolucion = data.foto_devolucion_base64 || (data.foto_devolucion ? procesarImagenPdf(data.foto_devolucion) : null);
     const firmaEntregaAutorizadaHtml = `Firma: S&iacute; autorizo<br><strong>Autorizado por:</strong> ${data.nombre || ""}<br><strong>C.C.:</strong> ${data.cedula || ""}<br><em>Confirmaci&oacute;n digital registrada por el usuario.</em>`;
-    const firmaDevolucionAutorizadaHtml = `Firma devoluci&oacute;n: S&iacute; autorizo<br><strong>Autorizado por:</strong> ${data.nombre || ""}<br><strong>C.C.:</strong> ${data.cedula || ""}<br><em>Confirmaci&oacute;n digital registrada por el usuario.</em>`;
+    const firmaDevolucionAutorizadaHtml = `Firma devoluci&oacute;n soporte: S&iacute; autorizo<br><strong>Correo soporte:</strong> ${data.correo_soporte_devolucion || SUPPORT_EMAIL}<br><em>Confirmaci&oacute;n digital independiente registrada por soporte.</em>`;
 
     // Obtener logo
     const logoBase64 = getLogoBase64();
@@ -1483,8 +1896,13 @@ function generarPdfResumenFinal(data) {
           <tr><th>Fecha entrega</th><td>${fechaEntrega}</td></tr>
           <tr><th>Hora entrega</th><td>${horaEntrega}</td></tr>
           <tr><th>Hora máxima pactada</th><td>${horaMax}</td></tr>
-          <tr><th>Detalle equipos</th><td>${(data.detalle_equipos || "").toString().replace(/\n/g, "<br>")}</td></tr>
+          <tr><th>Acta original</th><td>${data.acta ? '<a href="' + data.acta + '">Ver PDF de recepci&oacute;n</a>' : 'No registrada'}</td></tr>
         </table>
+
+        <h2>Equipos principales solicitados</h2>
+        ${construirTablaDetalleEquiposHtml(obtenerDetalleEquiposPrincipales(data))}
+
+        ${construirTablaEquiposAdicionalesHtml(obtenerTextoEquiposAdicionales(data))}
 
         <h2>Datos de la devolución</h2>
         <table>
@@ -1505,7 +1923,7 @@ function generarPdfResumenFinal(data) {
       html += `
         <h2 style="color: #b91c1c;">Novedad en la devolución</h2>
         <div class="novedad-box">
-          <div class="novedad-title">⚠️ NOVEDAD REPORTADA AL DEVOLVER</div>
+          <div class="novedad-title">NOVEDAD REPORTADA AL DEVOLVER</div>
           <p><strong>Descripción:</strong> ${data.descripcion_devolucion || "Sin descripción"}</p>`;
 
       if (fotoDevolucion) {
@@ -1546,14 +1964,14 @@ function generarPdfResumenFinal(data) {
     const pdfUrl = pdfFile.getUrl();
     tempFile.setTrashed(true);
 
-    const destinatarios = [SUPPORT_EMAIL];
-    if (data.correo && String(data.correo).trim() !== "") {
-      destinatarios.push(String(data.correo).trim());
-    }
+    const destinatarios = [];
+    agregarDestinatarioUnico(destinatarios, data.correo);
+    agregarDestinatarioUnico(destinatarios, data.correo_soporte_devolucion);
+    agregarDestinatarioUnico(destinatarios, SUPPORT_EMAIL);
 
     GmailApp.sendEmail(
       destinatarios.join(","),
-      'DEVOLUCION | ' + (data.nombre || "Usuario") + ' | ' + (data.id_solicitud || "") + ' | ' + new Date().getTime(),
+      'Acta de devolucion | ' + (data.sede || "Sede") + ' | ' + (data.nombre || "Usuario"),
       'Se adjunta el PDF final de devolución.\n\nVer en Drive: ' + pdfUrl,
       {
         attachments: [pdfBlob],
@@ -1567,8 +1985,9 @@ function generarPdfResumenFinal(data) {
           <p><strong>Estado final:</strong> ${data.estado_final || ""}</p>
           <p><strong>Fecha devolución:</strong> ${fechaDev}</p>
           <p><strong>Hora devolución:</strong> ${horaDev}</p>
+          ${data.acta ? '<p><a href="' + data.acta + '">Abrir acta original de recepcion</a></p>' : ''}
           ${data.foto_devolucion ? '<p><a href="' + data.foto_devolucion + '">Ver foto de novedad</a></p>' : ''}
-          <p><a href="${pdfUrl}">Ver PDF en Drive</a></p>
+          <p><a href="${pdfUrl}">Ver acta final en Drive</a></p>
           <hr><p>Sistema de recepción de equipos</p>
         `
       }
@@ -1749,14 +2168,14 @@ function agregarEquipo(data) {
     // Validar acceso
     const permiso = validarAccesoSoporte(correo, sede);
     if (!permiso.ok) {
-      Logger.log("❌ Error de acceso agregarEquipo: " + permiso.error);
+      Logger.log("âŒ Error de acceso agregarEquipo: " + permiso.error);
       return jsonResponse({ status: "error", error: "Acceso denegado: " + permiso.error });
     }
     
     const sheet = getHojaEquipos(sede);
 
     if (!sheet) {
-      Logger.log("❌ Hoja no encontrada para sede: " + sede);
+      Logger.log("âŒ Hoja no encontrada para sede: " + sede);
       return jsonResponse({ status: "error", error: "No existe la hoja de equipos para la sede: " + sede });
     }
 
@@ -1769,12 +2188,12 @@ function agregarEquipo(data) {
     ];
 
     sheet.appendRow(nuevaFila);
-    Logger.log("✅ Equipo agregado: " + data.placa);
+    Logger.log("âœ… Equipo agregado: " + data.placa);
 
     return jsonResponse({ status: "ok", message: "Equipo agregado correctamente" });
 
   } catch (err) {
-    Logger.log("❌ Error agregarEquipo: " + err.toString());
+    Logger.log("âŒ Error agregarEquipo: " + err.toString());
     return jsonResponse({ status: "error", error: "Error al agregar equipo: " + err.toString() });
   }
 }
@@ -1783,12 +2202,12 @@ function agregarEquipo(data) {
 // ACTUALIZAR EQUIPO (Mejorado)
 // ============================================================
 function actualizarEquipo(data) {
-  // Iniciamos un try/catch específico para capturar cualquier error
+  // Iniciamos un try/catch especÃ­fico para capturar cualquier error
   try {
     const sede = data.sede;
     const serialOriginal = data.serialOriginal;
     
-    // Validaciones básicas
+    // Validaciones bÃ¡sicas
     if (!sede || !serialOriginal) {
       return jsonResponse({ status: "error", error: "Faltan datos: sede o serial original" });
     }
@@ -1796,7 +2215,7 @@ function actualizarEquipo(data) {
     const sheet = getHojaEquipos(sede);
 
     if (!sheet) {
-      Logger.log("❌ Error actualizarEquipo: Hoja no encontrada para sede " + sede);
+      Logger.log("âŒ Error actualizarEquipo: Hoja no encontrada para sede " + sede);
       return jsonResponse({ status: "error", error: "No existe la hoja de equipos para esta sede: " + sede });
     }
 
@@ -1815,8 +2234,8 @@ function actualizarEquipo(data) {
 
     // Buscamos el equipo por el serial original
     for (let i = 0; i < dataRange.length; i++) {
-      // Asumimos que el serial está en el índice 4 (Columna E) basado en tu Excel
-      // Asegúrate de que esto coincida con tu hoja de cálculo
+      // Asumimos que el serial estÃ¡ en el Ã­ndice 4 (Columna E) basado en tu Excel
+      // AsegÃºrate de que esto coincida con tu hoja de cÃ¡lculo
       const rowSerial = String(dataRange[i][4] || "").trim(); 
 
       if (rowSerial === serialOriginal) {
@@ -1827,16 +2246,16 @@ function actualizarEquipo(data) {
     }
 
     if (!encontrado) {
-      Logger.log("❌ Error actualizarEquipo: Serial no encontrado " + serialOriginal);
+      Logger.log("âŒ Error actualizarEquipo: Serial no encontrado " + serialOriginal);
       return jsonResponse({ status: "error", error: "No se encontró el equipo con el serial: " + serialOriginal });
     }
 
     // ACTUALIZAMOS LAS CELDAS
-    // Asegúrate de que los índices coincidan con tus columnas:
+    // AsegÃºrate de que los Ã­ndices coincidan con tus columnas:
     // 1: Sede, 2: Equipo, 3: Carro, 4: Placa, 5: Serial
     
     // No solemos actualizar la Sede (col 1) ni el Serial si es clave primaria, 
-    // pero si quieres permitir cambiar el serial, hazlo aquí:
+    // pero si quieres permitir cambiar el serial, hazlo aquÃ­:
     
     // Columna 2: Equipo
     if (data.equipo !== undefined) sheet.getRange(rowNumber, 2).setValue(data.equipo);
@@ -1852,13 +2271,13 @@ function actualizarEquipo(data) {
        sheet.getRange(rowNumber, 5).setValue(data.serial);
     }
 
-    Logger.log("✅ Equipo actualizado correctamente en fila " + rowNumber);
+    Logger.log("âœ… Equipo actualizado correctamente en fila " + rowNumber);
 
     return jsonResponse({ status: "ok", message: "Equipo actualizado correctamente" });
 
   } catch (err) {
-    Logger.log("🔥 ERROR CRÍTICO en actualizarEquipo: " + err.toString());
-    // Devolvemos un error JSON explícito para que el frontend no se cuelgue con "Failed to fetch"
+    Logger.log("ðŸ”¥ ERROR CRÃTICO en actualizarEquipo: " + err.toString());
+    // Devolvemos un error JSON explÃ­cito para que el frontend no se cuelgue con "Failed to fetch"
     return jsonResponse({ status: "error", error: "Error interno del servidor: " + err.toString() });
   }
 }
@@ -1871,14 +2290,14 @@ function eliminarEquipo(data) {
     // Validar acceso
     const permiso = validarAccesoSoporte(correo, sede);
     if (!permiso.ok) {
-      Logger.log("❌ Error de acceso eliminarEquipo: " + permiso.error);
+      Logger.log("âŒ Error de acceso eliminarEquipo: " + permiso.error);
       return jsonResponse({ status: "error", error: "Acceso denegado: " + permiso.error });
     }
     
     const sheet = getHojaEquipos(sede);
 
     if (!sheet) {
-      Logger.log("❌ Hoja no encontrada para sede: " + sede);
+      Logger.log("âŒ Hoja no encontrada para sede: " + sede);
       return jsonResponse({ status: "error", error: "No existe la hoja de equipos para la sede: " + sede });
     }
 
@@ -1897,16 +2316,16 @@ function eliminarEquipo(data) {
       if (rowSerial === serial) {
         const rowNumber = i + 2;
         sheet.deleteRow(rowNumber);
-        Logger.log("✅ Equipo eliminado: " + serial);
+        Logger.log("âœ… Equipo eliminado: " + serial);
         return jsonResponse({ status: "ok", message: "Equipo eliminado correctamente" });
       }
     }
 
-    Logger.log("❌ Equipo no encontrado: " + serial);
+    Logger.log("âŒ Equipo no encontrado: " + serial);
     return jsonResponse({ status: "error", error: "No se encontró el equipo con serial: " + serial });
 
   } catch (err) {
-    Logger.log("❌ Error eliminarEquipo: " + err.toString());
+    Logger.log("âŒ Error eliminarEquipo: " + err.toString());
     return jsonResponse({ status: "error", error: "Error al eliminar equipo: " + err.toString() });
   }
 }
@@ -1926,7 +2345,7 @@ function obtenerHojaCorreosSede() {
   for (let hoja of hojas) {
     const nombre = hoja.getName().toLowerCase();
     if (nombre.includes("correo") && nombre.includes("sede")) {
-      Logger.log("✅ Hoja encontrada: " + hoja.getName());
+      Logger.log("âœ… Hoja encontrada: " + hoja.getName());
       return hoja;
     }
   }
@@ -1943,17 +2362,17 @@ function buscarSedePorCorreo(correo) {
     const ss = SpreadsheetApp.openById(SHEET_ID);
     const hoja = ss.getSheetByName("correos_sede");
     if (!hoja) {
-      Logger.log("❌ No existe la hoja 'correos_sede'");
+      Logger.log("âŒ No existe la hoja 'correos_sede'");
       return null;
     }
 
     const data = hoja.getDataRange().getValues();
     if (data.length < 2) {
-      Logger.log("⚠️ La hoja solo tiene encabezados o está vacía");
+      Logger.log("âš ï¸ La hoja solo tiene encabezados o estÃ¡ vacÃ­a");
       return null;
     }
 
-    // Encontrar índices de columnas
+    // Encontrar Ã­ndices de columnas
     const encabezados = data[0];
     let idxSede = -1, idxCorreo = -1;
     for (let i = 0; i < encabezados.length; i++) {
@@ -1963,13 +2382,13 @@ function buscarSedePorCorreo(correo) {
     }
 
     if (idxSede === -1 || idxCorreo === -1) {
-      Logger.log(`❌ Columnas no encontradas. Encabezados: ${encabezados.join(", ")}`);
+      Logger.log(`âŒ Columnas no encontradas. Encabezados: ${encabezados.join(", ")}`);
       return null;
     }
 
-    // NORMALIZACIÓN CORREGIDA - NO eliminar el @ ni el punto del dominio
+    // NORMALIZACIÃ“N CORREGIDA - NO eliminar el @ ni el punto del dominio
     const correoBuscado = String(correo || "").trim().toLowerCase();
-    Logger.log(`🔍 Buscando correo: "${correoBuscado}"`);
+    Logger.log(`ðŸ” Buscando correo: "${correoBuscado}"`);
 
     for (let i = 1; i < data.length; i++) {
       const filaCorreo = String(data[i][idxCorreo] || "").trim().toLowerCase();
@@ -1977,9 +2396,9 @@ function buscarSedePorCorreo(correo) {
       
       Logger.log(`Comparando fila ${i}: "${filaCorreo}" con "${correoBuscado}"`);
       
-      // Comparación exacta (sin normalización extra)
+      // ComparaciÃ³n exacta (sin normalizaciÃ³n extra)
       if (filaCorreo === correoBuscado) {
-        Logger.log(`✅ Correo encontrado! Sede: ${filaSede}`);
+        Logger.log(`âœ… Correo encontrado! Sede: ${filaSede}`);
         return {
           sede: filaSede.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
           sedeOriginal: filaSede,
@@ -1988,10 +2407,10 @@ function buscarSedePorCorreo(correo) {
       }
     }
 
-    Logger.log(`❌ No se encontró el correo "${correoBuscado}" en la lista`);
+    Logger.log(`âŒ No se encontrÃ³ el correo "${correoBuscado}" en la lista`);
     return null;
   } catch (error) {
-    Logger.log(`🔥 Error en buscarSedePorCorreo: ${error.toString()}`);
+    Logger.log(`ðŸ”¥ Error en buscarSedePorCorreo: ${error.toString()}`);
     return null;
   }
 }
@@ -2039,7 +2458,7 @@ function validarCorreoSoporteHandler(correo) {
 }
 
 // ============================================================
-// OBTENER SEDES Y CORREOS DE FORMA DINÁMICA
+// OBTENER SEDES Y CORREOS DE FORMA DINÃMICA
 // ============================================================
 function getSedesSoporteHandler() {
   try {
@@ -2047,13 +2466,13 @@ function getSedesSoporteHandler() {
     const hoja = ss.getSheetByName("correos_sede");
     
     if (!hoja) {
-      Logger.log("❌ No existe la hoja 'correos_sede'");
+      Logger.log("âŒ No existe la hoja 'correos_sede'");
       return jsonResponse({ error: "No se encontró la hoja 'correos_sede'" });
     }
     
     const data = hoja.getDataRange().getValues();
     if (data.length < 2) {
-      Logger.log("⚠️ La hoja solo tiene encabezados");
+      Logger.log("âš ï¸ La hoja solo tiene encabezados");
       return jsonResponse([]);
     }
     
@@ -2072,10 +2491,10 @@ function getSedesSoporteHandler() {
       }
     }
     
-    Logger.log("✅ Sedes cargadas: " + sedes.length);
+    Logger.log("âœ… Sedes cargadas: " + sedes.length);
     return jsonResponse(sedes);
   } catch (err) {
-    Logger.log("❌ Error en getSedesSoporteHandler: " + err.toString());
+    Logger.log("âŒ Error en getSedesSoporteHandler: " + err.toString());
     return jsonResponse({ error: err.toString() });
   }
 }
@@ -2086,7 +2505,7 @@ function getSedesSoporteHandler() {
 function getLogoBase64() {
   try {
     if (!LOGO_ID && !LOGO_FOLDER_ID) {
-      Logger.log("⚠️ Logo ID no configurado");
+      Logger.log("âš ï¸ Logo ID no configurado");
       return null;
     }
 
@@ -2096,10 +2515,10 @@ function getLogoBase64() {
     const base64 = Utilities.base64Encode(blob.getBytes());
     const mimeType = blob.getContentType();
 
-    Logger.log("✅ Logo cargado correctamente");
+    Logger.log("âœ… Logo cargado correctamente");
     return `data:${mimeType};base64,${base64}`;
   } catch (e) {
-    Logger.log("❌ Error obteniendo logo: " + e.toString());
+    Logger.log("âŒ Error obteniendo logo: " + e.toString());
     return null;
   }
 }

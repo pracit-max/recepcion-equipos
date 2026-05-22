@@ -246,6 +246,76 @@
             letter-spacing: 0.06em;
         }
 
+        .btn-inline-pdf,
+        .btn-inline-return,
+        .btn-acta-original {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.45rem;
+            min-height: 36px;
+            border: 0;
+            border-radius: 8px;
+            padding: 0.55rem 0.8rem;
+            font-size: 0.78rem;
+            font-weight: 800;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn-inline-pdf,
+        .btn-acta-original {
+            color: #991B1B;
+            background: #FEF2F2;
+            border: 1px solid #FECACA;
+        }
+
+        .btn-inline-return {
+            color: #fff;
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            box-shadow: 0 8px 18px rgba(220, 38, 38, 0.18);
+        }
+
+        .btn-inline-pdf:hover:not(:disabled),
+        .btn-inline-return:hover,
+        .btn-acta-original:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        .btn-inline-pdf:disabled,
+        .btn-acta-original:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .devolucion-context-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin: 0 0 1rem;
+        }
+
+        .form-input.input-error {
+            border-color: #DC2626 !important;
+            box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.10) !important;
+            background: #FFF7F7 !important;
+        }
+
+        .form-input.input-ok {
+            border-color: #16A34A !important;
+            box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.10) !important;
+        }
+
+        .field-error {
+            align-items: center;
+            gap: 0.45rem;
+            margin-top: 0.45rem;
+            color: #B91C1C;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
         .table-wrapper {
             overflow-x: auto;
             border-radius: 14px;
@@ -1038,12 +1108,13 @@
                             <th>Equipo</th>
                             <th>Cant.</th>
                             <th>Hora</th>
+                            <th>Acta original</th>
                             <th>Acción</th>
                         </tr>
                     </thead>
                     <tbody id="enCursoTableBody">
                         <tr>
-                            <td colspan="6" class="table-empty">
+                            <td colspan="7" class="table-empty">
                                 <div class="table-empty-icon"><i class="fas fa-inbox"></i></div>
                                 <div class="table-empty-text">Cargando solicitudes...</div>
                                 <div class="table-empty-sub">Un momento por favor</div>
@@ -1067,6 +1138,33 @@
             </div>
 
             <input type="hidden" id="devolucion_id_solicitud">
+
+            <div class="devolucion-context-actions">
+                <button type="button" class="btn-acta-original" id="btnActaOriginalSeleccionada" onclick="abrirActaOriginalSeleccionada()" disabled>
+                    <i class="fas fa-file-pdf"></i>
+                    Abrir Acta Original
+                </button>
+            </div>
+
+            <div class="form-group">
+                <label for="correo_soporte_devolucion">
+                    Correo Institucional <span class="campo-obligatorio">*</span>
+                </label>
+                <input
+                    type="email"
+                    id="correo_soporte_devolucion"
+                    class="form-input"
+                    placeholder="soporte@innovaschools.edu.co"
+                    autocomplete="email"
+                    required
+                    oninput="validarCorreoSoporteDevolucion(false)"
+                    onblur="validarCorreoSoporteDevolucion(true)"
+                >
+                <div class="field-error" id="correoSoporteDevolucionError" style="display:none;">
+                    <i class="fas fa-circle-exclamation"></i>
+                    Solo se permite correo institucional @innovaschools.edu.co
+                </div>
+            </div>
 
             <div class="form-group">
                 <label for="cantidad_devuelta">Cantidad devuelta</label>
@@ -1309,6 +1407,25 @@
                 alert('No puedes entrar a un colegio diferente al tuyo.');
                 window.location.href = '/index.html';
             }
+        }
+    })();
+    
+</script>
+<script>
+    // Poblar el input hidden de sede con el valor de la URL para que script.js lo encuentre
+    (function() {
+        const params = new URLSearchParams(window.location.search);
+        const sedeURL = params.get('sede');
+        if (sedeURL) {
+            // Creamos el input dinámicamente si no existe
+            let inputSede = document.getElementById('sede');
+            if (!inputSede) {
+                inputSede = document.createElement('input');
+                inputSede.type = 'hidden';
+                inputSede.id = 'sede';
+                document.body.appendChild(inputSede);
+            }
+            inputSede.value = sedeURL;
         }
     })();
 </script>
