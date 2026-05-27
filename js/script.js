@@ -1,16 +1,33 @@
 ﻿// Configuración
-const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
+const URL_GOOGLE_SCRIPT_DOMAIN = "https://script.google.com/a/macros/innovaschools.edu.co/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
+const URL_GOOGLE_SCRIPT_PUBLIC = "https://script.google.com/macros/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
+const URL_GOOGLE_SCRIPT = URL_GOOGLE_SCRIPT_DOMAIN;
 let currentRecord = null;
 let currentStep = 1;
 const totalSteps = 3;
 
-function jsonpRequest(url, timeoutMs = 15000) {
+function getAppsScriptFallbackUrl(url) {
+    if (url.startsWith(URL_GOOGLE_SCRIPT_DOMAIN)) {
+        return url.replace(URL_GOOGLE_SCRIPT_DOMAIN, URL_GOOGLE_SCRIPT_PUBLIC);
+    }
+    if (url.startsWith(URL_GOOGLE_SCRIPT_PUBLIC)) {
+        return url.replace(URL_GOOGLE_SCRIPT_PUBLIC, URL_GOOGLE_SCRIPT_DOMAIN);
+    }
+    return null;
+}
+
+function jsonpRequest(url, timeoutMs = 15000, allowFallback = true) {
     return new Promise((resolve, reject) => {
         const callbackName = `jsonp_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         const separator = url.includes('?') ? '&' : '?';
         const script = document.createElement('script');
         const timer = setTimeout(() => {
             cleanup();
+            const fallbackUrl = allowFallback ? getAppsScriptFallbackUrl(url) : null;
+            if (fallbackUrl) {
+                jsonpRequest(fallbackUrl, timeoutMs, false).then(resolve).catch(reject);
+                return;
+            }
             reject(new Error('Tiempo de espera agotado'));
         }, timeoutMs);
 
@@ -28,6 +45,11 @@ function jsonpRequest(url, timeoutMs = 15000) {
 
         script.onerror = () => {
             cleanup();
+            const fallbackUrl = allowFallback ? getAppsScriptFallbackUrl(url) : null;
+            if (fallbackUrl) {
+                jsonpRequest(fallbackUrl, timeoutMs, false).then(resolve).catch(reject);
+                return;
+            }
             reject(new Error('No se pudo conectar con Google Apps Script'));
         };
 
