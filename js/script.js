@@ -1,5 +1,5 @@
 ﻿// Configuración
-const URL_GOOGLE_SCRIPT = "https://script.google.com/a/macros/innovaschools.edu.co/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
+const URL_GOOGLE_SCRIPT = "https://script.google.com/macros/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
 let currentRecord = null;
 let currentStep = 1;
 const totalSteps = 3;
