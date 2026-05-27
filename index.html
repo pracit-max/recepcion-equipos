@@ -874,6 +874,19 @@
         let equiposSoporte = [];
         let carrosSoporte = [];
         let correosSedeData = null;
+        const SOPORTE_VERIFY_CONFIG = {
+            codeLength: 6,
+            expirationMs: 10 * 60 * 1000,
+            maxAttempts: 3
+        };
+        let soporteVerificationData = {
+            code: null,
+            correo: null,
+            sede: null,
+            sedeOriginal: null,
+            attempts: 0,
+            timestamp: null
+        };
 
         // Cargar correos de soporte desde el servidor
 
@@ -912,6 +925,8 @@
             localStorage.setItem('role', 'SOPORTE');
             localStorage.setItem('emailSoporte', correo);
             localStorage.setItem('sedeSoporte', currentSedeSoporte);
+            localStorage.setItem('soporteEmailVerified', 'true');
+            localStorage.setItem('soporteEmailVerifiedAt', String(Date.now()));
 
             actualizarBadgeSedeSoporte();
         }
@@ -922,6 +937,8 @@
 
             localStorage.removeItem('emailSoporte');
             localStorage.removeItem('sedeSoporte');
+            localStorage.removeItem('soporteEmailVerified');
+            localStorage.removeItem('soporteEmailVerifiedAt');
             
             // Detener notificaciones
             detenerNotificaciones();
@@ -932,6 +949,8 @@
             // Limpiar solo las credenciales de soporte
             localStorage.removeItem('emailSoporte');
             localStorage.removeItem('sedeSoporte');
+            localStorage.removeItem('soporteEmailVerified');
+            localStorage.removeItem('soporteEmailVerifiedAt');
             currentEmailSoporte = '';
             currentSedeSoporte = '';
             actualizarBadgeSedeSoporte();
@@ -951,6 +970,8 @@
                 // Limpiar credenciales
                 localStorage.removeItem('emailSoporte');
                 localStorage.removeItem('sedeSoporte');
+                localStorage.removeItem('soporteEmailVerified');
+                localStorage.removeItem('soporteEmailVerifiedAt');
                 localStorage.setItem('role', 'DOCENTE');
                 
                 currentEmailSoporte = '';
@@ -1175,9 +1196,9 @@
                                 <i class="fas fa-user-shield" style="font-size:28px; color:#fff;"></i>
                             </div>
                             <h2 style="margin:0 0 8px; font-size:22px; color:#1a1a2e;">Identificación de Soporte</h2>
-                            <p style="margin:0; color:#666; font-size:14px;">Ingresa tu correo institucional para identificar tu colegio</p>
+                            <p id="soporteModalSubtitle" style="margin:0; color:#666; font-size:14px;">Ingresa tu correo institucional para identificar tu colegio</p>
                         </div>
-                        <div style="margin-bottom:20px;">
+                        <div id="soporteEmailStep" style="margin-bottom:20px;">
                             <input type="email" id="inputCorreoSoporte" 
                                 placeholder="soportecnicoxxxx@innovaschools.edu.co"
                                 style="width:100%; padding:14px 16px; border:2px solid #e2e8f0; border-radius:12px; font-size:15px; box-sizing:border-box;">
@@ -1185,10 +1206,25 @@
                                 <i class="fas fa-info-circle"></i> Usa el correo que termina en soportecnico...
                             </p>
                         </div>
+                        <div id="soporteCodeStep" style="display:none; margin-bottom:20px;">
+                            <div id="soporteCorreoDisplay" style="background:#f8fafc; color:#334155; border-radius:10px; padding:10px 12px; font-size:13px; margin-bottom:12px; word-break:break-word;"></div>
+                            <input type="text" id="inputCodigoSoporte"
+                                maxlength="6"
+                                inputmode="numeric"
+                                autocomplete="one-time-code"
+                                placeholder="000000"
+                                style="width:100%; padding:14px 16px; border:2px solid #e2e8f0; border-radius:12px; font-size:24px; letter-spacing:8px; text-align:center; box-sizing:border-box;">
+                            <p style="margin:8px 0 0; font-size:12px; color:#888;">
+                                <i class="fas fa-clock"></i> El codigo vence en 10 minutos
+                            </p>
+                        </div>
                         <div style="display:flex; gap:12px;">
                             <button onclick="cancelarCorreoSoporte()" style="flex:1; padding:14px; border:none; background:#f1f5f9; color:#64748b; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;">Cancelar</button>
-                            <button onclick="validarCorreoSoporte()" style="flex:1; padding:14px; border:none; background:linear-gradient(135deg,#FF6B6B,#4ECDC4); color:#fff; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;">
-                                <i class="fas fa-check"></i> Validar
+                            <button id="btnValidarCorreoSoporte" onclick="validarCorreoSoporte()" style="flex:1; padding:14px; border:none; background:linear-gradient(135deg,#FF6B6B,#4ECDC4); color:#fff; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;">
+                                <i class="fas fa-paper-plane"></i> Enviar codigo
+                            </button>
+                            <button id="btnValidarCodigoSoporte" onclick="validarCodigoSoporte()" style="display:none; flex:1; padding:14px; border:none; background:linear-gradient(135deg,#FF6B6B,#4ECDC4); color:#fff; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;">
+                                <i class="fas fa-check"></i> Verificar
                             </button>
                         </div>
                     </div>
@@ -1203,7 +1239,59 @@
                 });
                 input.focus();
             }
+
+            const inputCodigo = document.getElementById('inputCodigoSoporte');
+            if (inputCodigo) {
+                inputCodigo.addEventListener('input', function(e) {
+                    e.target.value = e.target.value.replace(/\D/g, '');
+                    if (e.target.value.length === SOPORTE_VERIFY_CONFIG.codeLength) {
+                        validarCodigoSoporte();
+                    }
+                });
+                inputCodigo.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') validarCodigoSoporte();
+                });
+            }
         }
+
+        function generarCodigoSoporte() {
+            let codigo = '';
+            for (let i = 0; i < SOPORTE_VERIFY_CONFIG.codeLength; i++) {
+                codigo += Math.floor(Math.random() * 10);
+            }
+            return codigo;
+        }
+
+        async function enviarCodigoSoporte(correo, codigo) {
+            const url = URL_GOOGLE_SCRIPT +
+                '?action=sendVerifyCode' +
+                '&email=' + encodeURIComponent(correo) +
+                '&code=' + encodeURIComponent(codigo);
+            const result = await jsonpRequest(url);
+            return result && result.status === 'ok';
+        }
+
+        function mostrarPasoCodigoSoporte(correo) {
+            const emailStep = document.getElementById('soporteEmailStep');
+            const codeStep = document.getElementById('soporteCodeStep');
+            const subtitle = document.getElementById('soporteModalSubtitle');
+            const display = document.getElementById('soporteCorreoDisplay');
+            const btnCorreo = document.getElementById('btnValidarCorreoSoporte');
+            const btnCodigo = document.getElementById('btnValidarCodigoSoporte');
+            const inputCodigo = document.getElementById('inputCodigoSoporte');
+
+            if (emailStep) emailStep.style.display = 'none';
+            if (codeStep) codeStep.style.display = 'block';
+            if (subtitle) subtitle.textContent = 'Escribe el codigo de verificacion que enviamos a tu correo';
+            if (display) display.textContent = correo;
+            if (btnCorreo) btnCorreo.style.display = 'none';
+            if (btnCodigo) btnCodigo.style.display = 'block';
+            if (inputCodigo) {
+                inputCodigo.value = '';
+                setTimeout(() => inputCodigo.focus(), 100);
+            }
+        }
+
         async function validarCorreoSoporte() {
             const input = document.getElementById('inputCorreoSoporte');
             const correo = input.value.trim().toLowerCase();
@@ -1221,26 +1309,39 @@
             }
 
             const modal = document.getElementById('modalCorreoSoporte');
-            const btnValidar = modal.querySelector('button[onclick="validarCorreoSoporte()"]');
+            const btnValidar = document.getElementById('btnValidarCorreoSoporte');
             const textoOriginal = btnValidar.innerHTML;
 
-            btnValidar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validando...';
+            btnValidar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
             btnValidar.disabled = true;
             input.disabled = true;
 
             try {
-                // 👇 Usamos jsonpRequest en lugar de fetch
                 const result = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=validarCorreoSoporte&correo=' + encodeURIComponent(correo));
 
                 console.log('Respuesta del servidor:', result);
 
                 if (result.status === 'ok' && result.sede) {
-                    guardarSesionSoporte(correo, result.sede);
-                    cerrarModalCorreoSoporte();
-                    actualizarUIparaSoporte(result.sede);
-                    showToast('✅ Colegio detectado: ' + capitalizarSede(result.sedeOriginal || result.sede), 'success');
+                    const codigo = generarCodigoSoporte();
+                    const enviado = await enviarCodigoSoporte(correo, codigo);
+
+                    if (!enviado) {
+                        throw new Error('No se pudo enviar el codigo de verificacion');
+                    }
+
+                    soporteVerificationData = {
+                        code: codigo,
+                        correo: correo,
+                        sede: result.sede,
+                        sedeOriginal: result.sedeOriginal || result.sede,
+                        attempts: 0,
+                        timestamp: Date.now()
+                    };
+
+                    mostrarPasoCodigoSoporte(correo);
+                    showToast('Codigo enviado a ' + correo, 'success');
                 } else {
-                    showToast(result.error || '❌ Correo no autorizado para soporte', 'error');
+                    showToast(result.error || 'Correo no autorizado para soporte', 'error');
                     input.disabled = false;
                     input.focus();
                     input.select();
@@ -1254,6 +1355,56 @@
                 btnValidar.innerHTML = textoOriginal;
                 btnValidar.disabled = false;
             }
+        }
+
+        function validarCodigoSoporte() {
+            const inputCodigo = document.getElementById('inputCodigoSoporte');
+            const codigoIngresado = (inputCodigo?.value || '').trim();
+
+            if (!soporteVerificationData.code || !soporteVerificationData.correo) {
+                showToast('Primero solicita el codigo de verificacion', 'error');
+                return false;
+            }
+
+            if ((Date.now() - soporteVerificationData.timestamp) > SOPORTE_VERIFY_CONFIG.expirationMs) {
+                showToast('El codigo expiro. Solicita uno nuevo.', 'error');
+                cerrarModalCorreoSoporte();
+                mostrarModalCorreoSoporte();
+                return false;
+            }
+
+            soporteVerificationData.attempts++;
+
+            if (codigoIngresado === soporteVerificationData.code) {
+                guardarSesionSoporte(soporteVerificationData.correo, soporteVerificationData.sede);
+                cerrarModalCorreoSoporte();
+                actualizarUIparaSoporte(soporteVerificationData.sede);
+                showToast('Soporte verificado: ' + capitalizarSede(soporteVerificationData.sedeOriginal), 'success');
+                soporteVerificationData = {
+                    code: null,
+                    correo: null,
+                    sede: null,
+                    sedeOriginal: null,
+                    attempts: 0,
+                    timestamp: null
+                };
+                return true;
+            }
+
+            const restantes = SOPORTE_VERIFY_CONFIG.maxAttempts - soporteVerificationData.attempts;
+            if (restantes <= 0) {
+                showToast('Demasiados intentos. Solicita un nuevo codigo.', 'error');
+                cerrarModalCorreoSoporte();
+                mostrarModalCorreoSoporte();
+                return false;
+            }
+
+            showToast('Codigo incorrecto. Intentos restantes: ' + restantes, 'warning');
+            if (inputCodigo) {
+                inputCodigo.value = '';
+                inputCodigo.focus();
+            }
+            return false;
         }
 
         // ✅ NUEVA FUNCIÓN: Actualizar toda la UI para soporte en una sola llamada
@@ -2476,8 +2627,17 @@ Estado: ${registro.estado || 'EN_CURSO'}
             const emailGuardado = localStorage.getItem('emailSoporte');
             const sedeGuardada = localStorage.getItem('sedeSoporte');
             const rolGuardado = localStorage.getItem('role');
+            const soporteVerificado = localStorage.getItem('soporteEmailVerified') === 'true';
+
+            if (!soporteVerificado) {
+                localStorage.removeItem('emailSoporte');
+                localStorage.removeItem('sedeSoporte');
+                localStorage.removeItem('soporteEmailVerifiedAt');
+                currentEmailSoporte = '';
+                currentSedeSoporte = '';
+            }
             
-            if (rolGuardado === 'SOPORTE' && emailGuardado && sedeGuardada) {
+            if (rolGuardado === 'SOPORTE' && emailGuardado && sedeGuardada && soporteVerificado) {
                 // Restaurar variables
                 currentEmailSoporte = emailGuardado;
                 currentSedeSoporte = sedeGuardada;
