@@ -1,4 +1,4 @@
-// Configuración
+﻿// Configuración
 const URL_GOOGLE_SCRIPT = "https://script.google.com/a/macros/innovaschools.edu.co/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
 let currentRecord = null;
 let currentStep = 1;
@@ -145,9 +145,31 @@ let carrosOcupados = [];
 let solicitudDevolucionSeleccionada = null;
 let equiposBodegaTI = [];
 let equiposAdicionalesSeleccionados = [];
+let disponibilidadCarrosCache = {
+    sede: '',
+    fecha: '',
+    ocupados: {},
+    loadedAt: 0
+};
 
 function validarCorreoInstitucional(email) {
     return /^[^\s@]+@innovaschools\.edu\.co$/i.test(String(email || '').trim());
+}
+
+function normalizarClave(valor) {
+    return String(valor || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function obtenerFechaLocalISO() {
+    const ahora = new Date();
+    const year = ahora.getFullYear();
+    const month = String(ahora.getMonth() + 1).padStart(2, '0');
+    const day = String(ahora.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
 }
 
 function obtenerUrlPreviewDrive(url) {
@@ -198,13 +220,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     asegurarSelectorMetodoFirma();
 
-    if (document.getElementById('sede')) {
-        cargarEquiposPorSede();
-    }
     inicializarEquiposAdicionales();
     if (document.getElementById('sede') || window.location.search.includes('sede=')) {
+        cargarEquiposPorSede();
         setTimeout(() => {
-            cargarEquiposPorSede();
             cargarEquiposAdicionalesBodega();
         }, 100); 
     }
@@ -234,9 +253,7 @@ async function cargarEquiposPorSede() {
 
     const correoSoporte = localStorage.getItem('emailSoporte') || '';
     // Normalizar nombre para URL (quitar tildes, minúsculas)
-    const sedeParaURL = sedeNombre.toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
+    const sedeParaURL = normalizarClave(sedeNombre);
 
     console.log(`=== INICIANDO CARGA DE EQUIPOS ===`);
     console.log(`Sede detectada: ${sedeNombre}`);
@@ -245,8 +262,15 @@ async function cargarEquiposPorSede() {
     try {
         // Construir URL de petición
         const url = `${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeParaURL)}&correo=${encodeURIComponent(correoSoporte)}`;
+        const disponibilidadUrl = `${URL_GOOGLE_SCRIPT}?action=getDisponibilidadSede&sede=${encodeURIComponent(sedeParaURL)}&fecha=${encodeURIComponent(obtenerFechaLocalISO())}`;
         
-        const data = await jsonpRequest(url);
+        const [data, disponibilidad] = await Promise.all([
+            jsonpRequest(url),
+            jsonpRequest(disponibilidadUrl).catch(err => {
+                console.warn("No se pudo precargar disponibilidad:", err);
+                return null;
+            })
+        ]);
 
         if (data.error) {
             console.error("Error del servidor al cargar equipos:", data.error);
@@ -300,6 +324,9 @@ async function cargarEquiposPorSede() {
             option.textContent = carro;
             select.appendChild(option);
         });
+
+        guardarDisponibilidadCache(sedeParaURL, disponibilidad);
+        aplicarDisponibilidadAlSelect();
 
         console.log(`✅ ÉXITO: Cargados ${carrosDisponibles.length} carros para la sede ${sedeNombre}`);
 
@@ -896,6 +923,74 @@ function validarHora() {
     return true;
 }
 
+function guardarDisponibilidadCache(sede, data) {
+    if (!data || data.status === 'error') return;
+    disponibilidadCarrosCache = {
+        sede: normalizarClave(data.sede || sede),
+        fecha: data.fecha || obtenerFechaLocalISO(),
+        ocupados: data.ocupados || {},
+        loadedAt: Date.now()
+    };
+}
+
+function obtenerDisponibilidadLocal(carro, sede) {
+    const mismaSede = normalizarClave(sede) === normalizarClave(disponibilidadCarrosCache.sede);
+    const mismaFecha = disponibilidadCarrosCache.fecha === obtenerFechaLocalISO();
+    if (!mismaSede || !mismaFecha) return null;
+    return disponibilidadCarrosCache.ocupados[carro] || null;
+}
+
+function aplicarDisponibilidadAlSelect() {
+    const select = document.getElementById('carroSelect');
+    if (!select) return;
+
+    Array.from(select.options).forEach(option => {
+        if (!option.value) return;
+        const info = disponibilidadCarrosCache.ocupados[option.value];
+        option.disabled = Boolean(info);
+        option.textContent = info ? `${option.value} (Ocupado)` : option.value;
+    });
+}
+
+function pintarDisponibilidad(data) {
+    const msgDiv = document.getElementById('disponibilidadMsg');
+    const btnNext = document.querySelector('.btn-next');
+    if (!msgDiv) return;
+
+    if (data && data.ocupado) {
+        msgDiv.innerHTML = `
+            <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px; padding: 10px; margin-top: 5px;">
+                <span style="color: #dc2626; font-weight: 600;">
+                    <i class="fas fa-ban"></i> CARRO NO DISPONIBLE
+                </span><br>
+                <span style="color: #7f1d1d; font-size: 0.9rem;">
+                    Este carro estÃ¡ ocupado hasta las <strong>${data.hora_devolucion || '16:00'}</strong><br>
+                    Por: ${data.usuario || 'Usuario no especificado'}
+                </span>
+            </div>
+        `;
+        if (btnNext) {
+            btnNext.disabled = true;
+            btnNext.style.opacity = '0.5';
+            btnNext.style.cursor = 'not-allowed';
+        }
+        return;
+    }
+
+    msgDiv.innerHTML = `
+        <div style="background: #dcfce7; border: 1px solid #22c55e; border-radius: 6px; padding: 8px; margin-top: 5px;">
+            <span style="color: #16a34a; font-weight: 600;">
+                <i class="fas fa-check-circle"></i> CARRO DISPONIBLE
+            </span>
+        </div>
+    `;
+    if (btnNext) {
+        btnNext.disabled = false;
+        btnNext.style.opacity = '1';
+        btnNext.style.cursor = 'pointer';
+    }
+}
+
 async function verificarDisponibilidad() {
     const carro = document.getElementById('carroSelect')?.value || '';
     const sede = document.getElementById('sede')?.value || '';
@@ -915,9 +1010,20 @@ async function verificarDisponibilidad() {
         }
         return;
     }
+
+    const local = obtenerDisponibilidadLocal(carro, sede);
+    if (local) {
+        pintarDisponibilidad({ ocupado: true, ...local });
+        return;
+    }
+
+    if (normalizarClave(sede) === normalizarClave(disponibilidadCarrosCache.sede)) {
+        pintarDisponibilidad({ ocupado: false });
+        return;
+    }
     
     try {
-        const fechaHoy = new Date().toISOString().split('T')[0];
+        const fechaHoy = obtenerFechaLocalISO();
         
         // ←←← AQUÍ ESTÁ EL CAMBIO IMPORTANTE
         const url = `${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carro)}&fecha=${fechaHoy}&sede=${encodeURIComponent(sede)}`;
@@ -925,6 +1031,8 @@ async function verificarDisponibilidad() {
         console.log("URL de consulta:", url);
         
         const data = await jsonpRequest(url);
+        pintarDisponibilidad(data);
+        return;
         
         console.log("Respuesta del servidor:", data);
         
@@ -1858,7 +1966,7 @@ async function collectFormData() {
         // Verificar disponibilidad antes de enviar
             try {
                 const sede = document.getElementById('sede').value;   // ← NUEVO
-                const checkData = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carroSeleccionado)}&fecha=${new Date().toISOString().split('T')[0]}&sede=${encodeURIComponent(sede)}`);
+                const checkData = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carroSeleccionado)}&fecha=${obtenerFechaLocalISO()}&sede=${encodeURIComponent(sede)}`);
             
             if (checkData.ocupado) {
                 showToast(`Carro NO disponible. Estará libre a las ${checkData.hora_devolucion}`, 'error');
@@ -2916,5 +3024,3 @@ function obtenerSedeDesdeURL() {
     const params = new URLSearchParams(window.location.search);
     return params.get("sede") || "";
 }
-
-

@@ -123,6 +123,19 @@ function doGet(e) {
     }
 
     // ==============================
+    // DISPONIBILIDAD POR SEDE
+    // ==============================
+    if (action === "getDisponibilidadSede") {
+      try {
+        const sedeParam = String(e.parameter.sede || "").trim();
+        const fecha = String(e.parameter.fecha || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd")).trim();
+        return jsonResponse(getDisponibilidadSedeHandler(sedeParam, fecha));
+      } catch (err) {
+        return jsonResponse({ status: "error", error: err.toString(), ocupados: {} });
+      }
+    }
+
+    // ==============================
     // VERIFICAR DISPONIBILIDAD
     // ==============================
     if (action === 'verificarDisponibilidad') {
@@ -134,6 +147,19 @@ function doGet(e) {
         if (!carro) {
           return jsonResponse({ ocupado: false });
         }
+
+        const disponibilidad = getDisponibilidadSedeHandler(sedeParam, fecha);
+        const ocupado = disponibilidad.ocupados && disponibilidad.ocupados[carro];
+        if (ocupado) {
+          return jsonResponse({
+            ocupado: true,
+            usuario: ocupado.usuario || "Usuario desconocido",
+            hora_devolucion: ocupado.hora_devolucion || "16:00",
+            id_solicitud: ocupado.id_solicitud || ""
+          });
+        }
+
+        return jsonResponse({ ocupado: false });
 
         const sheet = getMainSheet();
         const colMap = getColumnMap(sheet);
@@ -736,6 +762,7 @@ function doPost(e) {
     Logger.log("Insertando fila con " + rowData.length + " columnas");
     const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
     sheet.appendRow(rowData);
+    limpiarCacheDisponibilidadSede(data.sede, data.fecha || Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd"));
 
     const lastRow = sheet.getLastRow();
     Logger.log("Fila insertada en: " + lastRow);
@@ -1088,6 +1115,79 @@ function enviarCodigoVerificacion(email, code) {
   } catch (error) {
     Logger.log("Error enviando código: " + error.toString());
     return false;
+  }
+}
+
+function getDisponibilidadSedeHandler(sede, fecha) {
+  const sedeNormalizada = normalizarTexto(sede || "");
+  const fechaConsulta = String(fecha || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd")).trim();
+  const cache = CacheService.getScriptCache();
+  const cacheKey = "disp_" + sedeNormalizada + "_" + fechaConsulta;
+  const cached = cache.get(cacheKey);
+
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
+  const result = {
+    status: "ok",
+    sede: sedeNormalizada,
+    fecha: fechaConsulta,
+    ocupados: {}
+  };
+
+  const sheet = getMainSheet();
+  const colMap = getColumnMap(sheet);
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+
+  if (lastRow <= 1) {
+    cache.put(cacheKey, JSON.stringify(result), 20);
+    return result;
+  }
+
+  const zonaHoraria = Session.getScriptTimeZone();
+  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  rows.forEach(row => {
+    const r = getRowDataObject(row, colMap);
+    let fechaRegistro = r.fecha || "";
+
+    if (fechaRegistro instanceof Date) {
+      fechaRegistro = Utilities.formatDate(fechaRegistro, zonaHoraria, "yyyy-MM-dd");
+    } else {
+      fechaRegistro = String(fechaRegistro).split("T")[0].split(" ")[0];
+    }
+
+    const equipo = String(r.equipo || "").trim();
+    const estado = String(r.estado || "").trim().toUpperCase();
+    const sedeRegistro = normalizarTexto(r.sede || "");
+
+    if (
+      fechaRegistro === fechaConsulta &&
+      sedeRegistro === sedeNormalizada &&
+      estado === "EN_CURSO" &&
+      equipo
+    ) {
+      result.ocupados[equipo] = {
+        usuario: r.nombre || "Usuario desconocido",
+        hora_devolucion: formatearHoraSheet(r.hora_devolucion) || "16:00",
+        id_solicitud: r.id_solicitud || ""
+      };
+    }
+  });
+
+  cache.put(cacheKey, JSON.stringify(result), 20);
+  return result;
+}
+
+function limpiarCacheDisponibilidadSede(sede, fecha) {
+  try {
+    const sedeNormalizada = normalizarTexto(sede || "");
+    const fechaCache = String(fecha || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd")).trim();
+    CacheService.getScriptCache().remove("disp_" + sedeNormalizada + "_" + fechaCache);
+  } catch (err) {
+    Logger.log("No se pudo limpiar cache disponibilidad: " + err);
   }
 }
 
@@ -1756,6 +1856,7 @@ function cerrarSolicitud(data) {
     if (colMap.estado) sheet.getRange(targetRowNumber, colMap.estado).setValue(hayEquipoAdicionalPendiente ? "EN_CURSO" : "CERRADO");
 
     SpreadsheetApp.flush();
+    limpiarCacheDisponibilidadSede(targetRow.sede || data.sede, targetRow.fecha || fechaDevolucion);
 
     const updatedRow = sheet.getRange(targetRowNumber, 1, 1, lastCol).getValues()[0];
     const updatedObj = getRowDataObject(updatedRow, colMap);
