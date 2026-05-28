@@ -1,7 +1,7 @@
 ﻿// Configuración
 const URL_GOOGLE_SCRIPT_DOMAIN = "https://script.google.com/a/macros/innovaschools.edu.co/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
 const URL_GOOGLE_SCRIPT_PUBLIC = "https://script.google.com/macros/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
-const URL_GOOGLE_SCRIPT = URL_GOOGLE_SCRIPT_DOMAIN;
+const URL_GOOGLE_SCRIPT = URL_GOOGLE_SCRIPT_PUBLIC;
 let currentRecord = null;
 let currentStep = 1;
 const totalSteps = 3;

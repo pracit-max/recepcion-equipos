@@ -71,6 +71,10 @@ function aplicarCuentaInnovaGuardada() {
     document.querySelectorAll('.innova-account-notice').forEach(notice => {
         notice.style.display = 'none';
     });
+
+    if (document.getElementById('carroSelect') && typeof cargarEquiposPorSede === 'function') {
+        cargarEquiposPorSede();
+    }
 }
 
 function mostrarModalCuentaInnova(forzar) {
