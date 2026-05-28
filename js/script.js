@@ -59,11 +59,68 @@ function jsonpRequest(url, timeoutMs = 15000, allowFallback = true) {
 }
 
 function abrirSelectorCuentaInnova() {
-    const volverA = new URL(window.location.href);
-    volverA.searchParams.set('googleAuth', 'ok');
-    const puente = `${URL_GOOGLE_SCRIPT}?action=authCheck&returnUrl=${encodeURIComponent(volverA.toString())}`;
-    const url = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(puente);
-    window.location.href = url;
+    const correo = pedirCorreoCuentaInnova();
+    if (!correo) return;
+
+    guardarCuentaInnova(correo);
+    sessionStorage.setItem('innovaAccountReady', 'true');
+    cerrarModalCuentaInnova();
+    if (typeof showToast === 'function') {
+        showToast('Cuenta Innova guardada: ' + correo, 'success');
+    }
+}
+
+function obtenerCuentaInnovaGuardada() {
+    return String(localStorage.getItem('innovaAccountEmail') || '').trim().toLowerCase();
+}
+
+function avisarCuentaInnova(mensaje, tipo) {
+    if (typeof showToast === 'function') {
+        showToast(mensaje, tipo || 'info');
+    } else {
+        alert(mensaje);
+    }
+}
+
+function pedirCorreoCuentaInnova() {
+    const correoActual = obtenerCuentaInnovaGuardada() || document.getElementById('correo')?.value.trim().toLowerCase() || '';
+    const correo = String(prompt('Escribe tu correo Innova (@innovaschools.edu.co):', correoActual) || '').trim().toLowerCase();
+
+    if (!correo) {
+        return '';
+    }
+
+    if (!validarCorreoInstitucional(correo)) {
+        avisarCuentaInnova('Solo se permite correo @innovaschools.edu.co', 'error');
+        return '';
+    }
+
+    return correo;
+}
+
+function guardarCuentaInnova(correo) {
+    const limpio = String(correo || '').trim().toLowerCase();
+    if (!validarCorreoInstitucional(limpio)) return;
+    localStorage.setItem('innovaAccountEmail', limpio);
+    aplicarCuentaInnovaGuardada();
+}
+
+function aplicarCuentaInnovaGuardada() {
+    const correo = obtenerCuentaInnovaGuardada();
+    if (!correo) return;
+
+    const inputCorreo = document.getElementById('correo');
+    if (inputCorreo && !inputCorreo.value.trim()) {
+        inputCorreo.value = correo;
+    }
+
+    document.querySelectorAll('.innova-account-copy span').forEach(span => {
+        span.innerHTML = `Cuenta Innova guardada: <strong>${correo}</strong>.`;
+    });
+
+    document.querySelectorAll('.innova-account-btn').forEach(btn => {
+        btn.innerHTML = '<i class="fas fa-right-to-bracket"></i> Cambiar cuenta Innova';
+    });
 }
 
 function mostrarModalCuentaInnova() {
@@ -77,12 +134,19 @@ function mostrarModalCuentaInnova() {
         return;
     }
 
+    const yaHayCuenta = obtenerCuentaInnovaGuardada();
+    if (yaHayCuenta) {
+        sessionStorage.setItem('innovaAccountReady', 'true');
+        aplicarCuentaInnovaGuardada();
+        return;
+    }
+
     document.body.insertAdjacentHTML('beforeend', `
         <div id="modalCuentaInnova" class="innova-account-modal">
             <div class="innova-account-dialog">
                 <div class="innova-account-dialog-icon"><i class="fas fa-circle-user"></i></div>
                 <h2>Selecciona tu cuenta Innova</h2>
-                <p>Para cargar carros y formularios debes elegir una cuenta Google <strong>@innovaschools.edu.co</strong>.</p>
+                <p>Guarda tu correo Innova, elige esa cuenta en Google y vuelve a esta página.</p>
                 <button type="button" class="innova-account-btn" onclick="abrirSelectorCuentaInnova()">
                     <i class="fas fa-right-to-bracket"></i>
                     Elegir cuenta Innova
@@ -279,6 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
     mostrarModalCuentaInnova();
     insertarAvisoCuentaInnova();
+    aplicarCuentaInnovaGuardada();
 
     if (document.getElementById('form')) {
         initializeEventListeners();
