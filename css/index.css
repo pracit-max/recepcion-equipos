@@ -584,6 +584,67 @@ body > * {
     transform: translateY(-1px);
 }
 
+.innova-account-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(10px);
+}
+
+.innova-account-dialog {
+    width: min(440px, 100%);
+    padding: 28px;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.26);
+    text-align: center;
+}
+
+.innova-account-dialog-icon {
+    width: 62px;
+    height: 62px;
+    margin: 0 auto 14px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    background: linear-gradient(135deg, var(--green-600), var(--blue-500));
+    font-size: 1.6rem;
+}
+
+.innova-account-dialog h2 {
+    margin: 0 0 10px;
+    color: var(--text-primary);
+    font-size: 1.35rem;
+}
+
+.innova-account-dialog p {
+    margin: 0 0 18px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.innova-account-dialog .innova-account-btn {
+    width: 100%;
+}
+
+.innova-account-skip {
+    margin-top: 10px;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--text-tertiary);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 10px;
+}
+
 /* Línea decorativa separadora bajo el hero */
 .hero::after {
     content: '';

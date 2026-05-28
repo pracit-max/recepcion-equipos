@@ -59,9 +59,45 @@ function jsonpRequest(url, timeoutMs = 15000, allowFallback = true) {
 }
 
 function abrirSelectorCuentaInnova() {
-    const volverA = window.location.href;
-    const url = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(volverA);
+    const volverA = new URL(window.location.href);
+    volverA.searchParams.set('googleAuth', 'ok');
+    const puente = `${URL_GOOGLE_SCRIPT}?action=authCheck&returnUrl=${encodeURIComponent(volverA.toString())}`;
+    const url = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(puente);
     window.location.href = url;
+}
+
+function mostrarModalCuentaInnova() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('googleAuth') === 'ok') {
+        sessionStorage.setItem('innovaAccountReady', 'true');
+        return;
+    }
+
+    if (sessionStorage.getItem('innovaAccountReady') === 'true' || document.getElementById('modalCuentaInnova')) {
+        return;
+    }
+
+    document.body.insertAdjacentHTML('beforeend', `
+        <div id="modalCuentaInnova" class="innova-account-modal">
+            <div class="innova-account-dialog">
+                <div class="innova-account-dialog-icon"><i class="fas fa-circle-user"></i></div>
+                <h2>Selecciona tu cuenta Innova</h2>
+                <p>Para cargar carros y formularios debes elegir una cuenta Google <strong>@innovaschools.edu.co</strong>.</p>
+                <button type="button" class="innova-account-btn" onclick="abrirSelectorCuentaInnova()">
+                    <i class="fas fa-right-to-bracket"></i>
+                    Elegir cuenta Innova
+                </button>
+                <button type="button" class="innova-account-skip" onclick="cerrarModalCuentaInnova()">
+                    Continuar por ahora
+                </button>
+            </div>
+        </div>
+    `);
+}
+
+function cerrarModalCuentaInnova() {
+    const modal = document.getElementById('modalCuentaInnova');
+    if (modal) modal.remove();
 }
 
 function insertarAvisoCuentaInnova() {
@@ -241,6 +277,7 @@ function esValorSi(valor) {
 // Cargar equipos al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
+    mostrarModalCuentaInnova();
     insertarAvisoCuentaInnova();
 
     if (document.getElementById('form')) {

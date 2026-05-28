@@ -22,6 +22,24 @@ function doGet(e) {
     const action = e && e.parameter ? e.parameter.action : null;
     const sede = e && e.parameter ? e.parameter.sede : null;
 
+    if (action === "authCheck") {
+      const returnUrl = String(e.parameter.returnUrl || "");
+      const safeReturnUrl = /^https:\/\/[A-Za-z0-9.-]+\.netlify\.app(\/|$)/.test(returnUrl)
+        ? returnUrl
+        : "https://sistema-recepcion.netlify.app/";
+
+      return HtmlService
+        .createHtmlOutput(
+          '<!doctype html><html><head><meta charset="utf-8">' +
+          '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+          '<title>Cuenta verificada</title></head><body>' +
+          '<p>Cuenta Google validada. Volviendo al sistema...</p>' +
+          '<script>location.replace(' + JSON.stringify(safeReturnUrl) + ');</script>' +
+          '</body></html>'
+        )
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    }
+
 
 // En tu funciÃ³n doGet, reemplaza el bloque de validarCorreoSoporte por:
 
