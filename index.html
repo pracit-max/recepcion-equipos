@@ -476,6 +476,7 @@
         <span>0 nuevas</span>
     </button>
 
+    <script src="./js/innova-account.js"></script>
     <script>
         // ── Configuración Global ──
         const URL_GOOGLE_SCRIPT_DOMAIN = "https://script.google.com/a/macros/innovaschools.edu.co/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
@@ -578,111 +579,6 @@
         }
         window.postToAppsScript = postToAppsScript;
 
-        function abrirSelectorCuentaInnova() {
-            const correo = pedirCorreoCuentaInnova();
-            if (!correo) return;
-
-            guardarCuentaInnova(correo);
-            sessionStorage.setItem('innovaAccountReady', 'true');
-            cerrarModalCuentaInnova();
-            if (typeof showToast === 'function') {
-                showToast('Cuenta Innova guardada: ' + correo, 'success');
-            }
-        }
-
-        function validarCorreoInstitucional(email) {
-            return /^[^\s@]+@innovaschools\.edu\.co$/i.test(String(email || '').trim());
-        }
-
-        function obtenerCuentaInnovaGuardada() {
-            return String(localStorage.getItem('innovaAccountEmail') || '').trim().toLowerCase();
-        }
-
-        function avisarCuentaInnova(mensaje, tipo) {
-            if (typeof showToast === 'function') {
-                showToast(mensaje, tipo || 'info');
-            } else {
-                alert(mensaje);
-            }
-        }
-
-        function pedirCorreoCuentaInnova() {
-            const correoActual = obtenerCuentaInnovaGuardada();
-            const correo = String(prompt('Escribe tu correo Innova (@innovaschools.edu.co):', correoActual) || '').trim().toLowerCase();
-
-            if (!correo) {
-                return '';
-            }
-
-            if (!validarCorreoInstitucional(correo)) {
-                avisarCuentaInnova('Solo se permite correo @innovaschools.edu.co', 'error');
-                return '';
-            }
-
-            return correo;
-        }
-
-        function guardarCuentaInnova(correo) {
-            const limpio = String(correo || '').trim().toLowerCase();
-            if (!validarCorreoInstitucional(limpio)) return;
-            localStorage.setItem('innovaAccountEmail', limpio);
-            aplicarCuentaInnovaGuardada();
-        }
-
-        function aplicarCuentaInnovaGuardada() {
-            const correo = obtenerCuentaInnovaGuardada();
-            if (!correo) return;
-
-            document.querySelectorAll('.innova-account-copy span').forEach(span => {
-                span.innerHTML = `Cuenta Innova guardada: <strong>${correo}</strong>.`;
-            });
-
-            document.querySelectorAll('.innova-account-btn').forEach(btn => {
-                btn.innerHTML = '<i class="fas fa-right-to-bracket"></i> Cambiar cuenta Innova';
-            });
-        }
-
-        function mostrarModalCuentaInnova() {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('googleAuth') === 'ok') {
-                sessionStorage.setItem('innovaAccountReady', 'true');
-                return;
-            }
-
-            if (sessionStorage.getItem('innovaAccountReady') === 'true' || document.getElementById('modalCuentaInnova')) {
-                return;
-            }
-
-            const yaHayCuenta = obtenerCuentaInnovaGuardada();
-            if (yaHayCuenta) {
-                sessionStorage.setItem('innovaAccountReady', 'true');
-                aplicarCuentaInnovaGuardada();
-                return;
-            }
-
-            document.body.insertAdjacentHTML('beforeend', `
-                <div id="modalCuentaInnova" class="innova-account-modal">
-                    <div class="innova-account-dialog">
-                        <div class="innova-account-dialog-icon"><i class="fas fa-circle-user"></i></div>
-                        <h2>Selecciona tu cuenta Innova</h2>
-                        <p>Guarda tu correo Innova, elige esa cuenta en Google y vuelve a esta página.</p>
-                        <button type="button" class="innova-account-btn" onclick="abrirSelectorCuentaInnova()">
-                            <i class="fas fa-right-to-bracket"></i>
-                            Elegir cuenta Innova
-                        </button>
-                        <button type="button" class="innova-account-skip" onclick="cerrarModalCuentaInnova()">
-                            Continuar por ahora
-                        </button>
-                    </div>
-                </div>
-            `);
-        }
-
-        function cerrarModalCuentaInnova() {
-            const modal = document.getElementById('modalCuentaInnova');
-            if (modal) modal.remove();
-        }
-        
         // JSONP helper para comunicarse con Google Apps Script (GET)
         function getAppsScriptFallbackUrl(url) {
             if (url.startsWith(URL_GOOGLE_SCRIPT_DOMAIN)) {
