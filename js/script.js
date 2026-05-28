@@ -58,6 +58,32 @@ function jsonpRequest(url, timeoutMs = 15000, allowFallback = true) {
     });
 }
 
+function abrirSelectorCuentaInnova() {
+    const volverA = window.location.href;
+    const url = 'https://accounts.google.com/AccountChooser?continue=' + encodeURIComponent(volverA);
+    window.location.href = url;
+}
+
+function insertarAvisoCuentaInnova() {
+    if (!document.getElementById('form') || document.getElementById('innovaAccountNotice')) return;
+
+    const formHeader = document.querySelector('.form-header');
+    if (!formHeader) return;
+
+    formHeader.insertAdjacentHTML('afterend', `
+        <div class="innova-account-notice" id="innovaAccountNotice">
+            <div class="innova-account-copy">
+                <i class="fas fa-circle-user"></i>
+                <span>Antes de pedir carros, selecciona una cuenta Google <strong>@innovaschools.edu.co</strong>. Solo se permiten cuentas Innova.</span>
+            </div>
+            <button type="button" class="innova-account-btn" onclick="abrirSelectorCuentaInnova()">
+                <i class="fas fa-right-to-bracket"></i>
+                Elegir cuenta Innova
+            </button>
+        </div>
+    `);
+}
+
 async function postToAppsScript(payload) {
     return new Promise((resolve, reject) => {
         const id = `appsScriptPost_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -215,6 +241,7 @@ function esValorSi(valor) {
 // Cargar equipos al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
+    insertarAvisoCuentaInnova();
 
     if (document.getElementById('form')) {
         initializeEventListeners();

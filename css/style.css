@@ -423,6 +423,67 @@ body > * {
     position: relative;
 }
 
+@media (max-width: 640px) {
+    .innova-account-notice {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .innova-account-btn {
+        width: 100%;
+    }
+}
+
+.innova-account-notice {
+    margin: 0 auto 22px;
+    max-width: 980px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 1px solid rgba(20, 184, 166, 0.28);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.innova-account-copy {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    line-height: 1.4;
+}
+
+.innova-account-copy i {
+    color: var(--green-500);
+    font-size: 1.25rem;
+}
+
+.innova-account-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 12px;
+    padding: 11px 14px;
+    background: linear-gradient(135deg, var(--green-600), var(--blue-500));
+    color: white;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 10px 22px rgba(20, 184, 166, 0.24);
+}
+
+.innova-account-btn:hover {
+    transform: translateY(-1px);
+}
+
 /* Gradiente animado en el título principal */
 .form-header h1 {
     font-size: 2.375rem;
