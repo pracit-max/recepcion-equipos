@@ -478,12 +478,12 @@
 
     <script src="./js/innova-account.js"></script>
     <script>
-        // ── Configuración Global ──
+        // -- Configuración Global --
         const URL_GOOGLE_SCRIPT_DOMAIN = "https://script.google.com/a/macros/innovaschools.edu.co/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
         const URL_GOOGLE_SCRIPT_PUBLIC = "https://script.google.com/macros/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
         const URL_GOOGLE_SCRIPT = URL_GOOGLE_SCRIPT_PUBLIC;
         
-        // 🔴 FUNCIÓN GLOBAL - postToAppsScript para POST
+        // ?? FUNCIÓN GLOBAL - postToAppsScript para POST
         async function postToAppsScript(payload) {
             return new Promise((resolve, reject) => {
                 const id = `appsScriptPost_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -630,7 +630,7 @@
                 document.head.appendChild(script);
             });
         }
-        // ── Greeting por hora ──
+        // -- Greeting por hora --
         (function() {
             const h = new Date().getHours();
             const el = document.getElementById('heroGreeting');
@@ -641,13 +641,13 @@
             el.innerHTML = `<i class="fas ${icon}"></i><span>${text}</span>`;
         })();
 
-        // ── Logo fallback ──
+        // -- Logo fallback --
         document.getElementById('mainLogo').onerror = function() {
             this.style.display = 'none';
             document.querySelector('.logo-fallback').style.display = 'flex';
         };
 
-        // ── Sliding pill ──
+        // -- Sliding pill --
         function updatePill() {
             const pill = document.getElementById('navPill');
             const activeTab = document.querySelector('.nav-tab.active');
@@ -663,7 +663,7 @@
         document.fonts.ready.then(updatePill);
         window.addEventListener('resize', updatePill);
 
-        // ── Mouse-follow glow en cards ──
+        // -- Mouse-follow glow en cards --
         document.querySelectorAll('.sede-card').forEach(card => {
             card.addEventListener('mousemove', e => {
                 const r = card.getBoundingClientRect();
@@ -672,7 +672,7 @@
             });
         });
 
-        // ── Prevenir navegación a otros colegios para soporte ──
+        // -- Prevenir navegación a otros colegios para soporte --
         document.querySelectorAll('.sede-card').forEach(card => {
             card.addEventListener('click', e => {
                 if (currentRole !== 'SOPORTE') return;
@@ -695,7 +695,7 @@
             });
         });
 
-        // ── Vista switching ──
+        // -- Vista switching --
 
         
         function mostrarVista(tipo) {
@@ -750,7 +750,7 @@
                     title.textContent = 'Devoluciones ' + sedeDisplay;
                     sub.textContent = 'Equipos en curso de tu colegio';
                     
-                    // ✅ FILTRAR solo la card de el colegio del soporte
+                    // ? FILTRAR solo la card de el colegio del soporte
                     filtrarTarjetasSoporte();
                     
                     if (typeof cargarSolicitudesSoporte === 'function') {
@@ -878,7 +878,7 @@
             });
         }
 
-        // ── Menu ──
+        // -- Menu --
         function cerrarMenu() {
             document.getElementById('navTabs').classList.remove('active');
             document.getElementById('hamburgerBtn').classList.remove('active');
@@ -889,7 +889,7 @@
             document.getElementById('navTabs').classList.toggle('active');
         });
 
-        // ── Toast ──
+        // -- Toast --
         function showToast(msg, type = 'info') {
             const c = document.getElementById('toastContainer');
             const t = document.createElement('div');
@@ -900,7 +900,7 @@
             setTimeout(() => { t.classList.add('hide'); setTimeout(() => t.remove(), 300); }, 5000);
         }
 
-        // ── GESTIÓN DE ROLES ──
+        // -- GESTIÓN DE ROLES --
         let currentRole = localStorage.getItem('role') || 'DOCENTE';
         let currentSedeSoporte = localStorage.getItem('sedeSoporte') || '';
         let currentEmailSoporte = localStorage.getItem('emailSoporte') || '';
@@ -1035,7 +1035,7 @@
                 if (roleDocente) roleDocente.classList.add('active');
                 if (roleSoporte) roleSoporte.classList.remove('active');
                 
-                // ✅ RESTAURAR TABS CORRECTAMENTE
+                // ? RESTAURAR TABS CORRECTAMENTE
                 const tabFormularios = document.querySelector('.nav-tab');
                 const tabDev = document.getElementById('tabDevoluciones');
                 const tabDash = document.getElementById('navDashboard');
@@ -1109,7 +1109,7 @@
                 if (sub) sub.textContent = 'Equipos en curso de tu colegio';
                 if (legend) legend.style.display = 'none';
                 
-                // ✅ FILTRAR solo la card de el colegio del soporte
+                // ? FILTRAR solo la card de el colegio del soporte
                 filtrarTarjetasSoporte();
                 
                 if (typeof cargarSolicitudesSoporte === 'function') {
@@ -1163,7 +1163,7 @@
                 const tabDashboard = document.getElementById('navDashboard');
 
                 if (role === 'SOPORTE') {
-                    // 🔴 VALIDACIÓN - Si no hay sesión, mostrar modal
+                    // ?? VALIDACIÓN - Si no hay sesión, mostrar modal
                     if (!currentEmailSoporte || !currentSedeSoporte) {
                         mostrarModalCorreoSoporte();
                         return;
@@ -1172,8 +1172,8 @@
                     currentRole = 'SOPORTE';
                     localStorage.setItem('role', 'SOPORTE');
 
-                    // ✅ DOCENTE: Solo Formularios
-                    // ✅ SOPORTE: Devoluciones, Dashboard, Equipos (NO Formularios)
+                    // ? DOCENTE: Solo Formularios
+                    // ? SOPORTE: Devoluciones, Dashboard, Equipos (NO Formularios)
                     if (tabFormularios) tabFormularios.style.display = 'none';
                     if (tabDevoluciones) tabDevoluciones.style.display = 'flex';
                     if (tabEquipos) tabEquipos.style.display = 'flex';
@@ -1200,7 +1200,7 @@
                     currentRole = 'DOCENTE';
                     localStorage.setItem('role', 'DOCENTE');
 
-                    // ✅ DOCENTE: Solo Formularios
+                    // ? DOCENTE: Solo Formularios
                     if (tabFormularios) tabFormularios.style.display = 'flex';
                     if (tabDevoluciones) tabDevoluciones.style.display = 'none';
                     if (tabEquipos) tabEquipos.style.display = 'none';
@@ -1440,7 +1440,7 @@
             return false;
         }
 
-        // ✅ NUEVA FUNCIÓN: Actualizar toda la UI para soporte en una sola llamada
+        // ? NUEVA FUNCIÓN: Actualizar toda la UI para soporte en una sola llamada
         function actualizarUIparaSoporte(sede) {
             // 1. Actualizar variables globales
             currentRole = 'SOPORTE';
@@ -2063,7 +2063,7 @@
                     const carro = sol.carro || sol.equipo || 'Sin carro';
                     const hora = sol.hora_entrega || '--:--';
                     const fecha = sol.fecha ? new Date(sol.fecha).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : 'Hoy';
-                    const horaDev = sol.hora_devolucion || '16:00';
+                    const horaDev = sol.hora_devolucion || '15:00';
                     
                     // Determinar si es nueva (últimas 5 min)
                     const esNueva = sol.fecha && (new Date() - new Date(sol.fecha)) < 300000;
@@ -2107,7 +2107,7 @@
                         <i class="fas fa-bell"></i>
                     </div>
                     <div class="notif-content">
-                        <strong>🔔 NUEVA SOLICITUD</strong>
+                        <strong>?? NUEVA SOLICITUD</strong>
                         <span>${nombre} • ${cantidad} ${equipo}</span>
                         <small>Carro: ${carro}</small>
                     </div>
@@ -2312,7 +2312,7 @@
             tbody.innerHTML = data.map(r => {
                 const estado = r.estado || 'EN_CURSO';
                 const fecha = r.fecha ? new Date(r.fecha).toLocaleDateString('es-ES') : '-';
-                const horaMax = formatearHoraFrontend(r.hora_devolucion || '16:00');
+                const horaMax = formatearHoraFrontend(r.hora_devolucion || '15:00');
                 
                 const estadoClass = estado === 'CERRADO' ? 'cerrado' : 'en-curso';
                 const estadoTexto = estado === 'CERRADO' ? 'Cerrado' : 'En curso';
@@ -2382,23 +2382,23 @@
             }
             
             const mensaje = `
-📋 DETALLE DEL REGISTRO
+?? DETALLE DEL REGISTRO
 
-👤 Docente: ${registro.nombre || '-'}
-📄 Cédula: ${registro.cedula || '-'}
-📧 Correo: ${registro.correo || '-'}
-🏢 Colegio: ${registro.sede || '-'}
-📦 Equipo: ${registro.equipo || '-'}
-📊 Cantidad: ${registro.cantidad || '0'}
-🔌 Cargador: ${registro.cargador || 'No'}
-⏰ Hora máx.: ${registro.hora_devolucion || '16:00'}
+?? Docente: ${registro.nombre || '-'}
+?? Cédula: ${registro.cedula || '-'}
+?? Correo: ${registro.correo || '-'}
+?? Colegio: ${registro.sede || '-'}
+?? Equipo: ${registro.equipo || '-'}
+?? Cantidad: ${registro.cantidad || '0'}
+?? Cargador: ${registro.cargador || 'No'}
+? Hora máx.: ${registro.hora_devolucion || '15:00'}
 Estado: ${registro.estado || 'EN_CURSO'}
             `.trim();
             
             alert(mensaje);
         }
 
-        // ── PANEL DE ADMINISTRACIÓN (SOPORTE) ──
+        // -- PANEL DE ADMINISTRACIÓN (SOPORTE) --
         async function cargarTodosRegistros() {
             const tbody = document.getElementById('adminTableBody');
             if (!tbody) return;

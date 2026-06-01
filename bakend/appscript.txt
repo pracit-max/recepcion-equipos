@@ -1,4 +1,4 @@
-const SHEET_ID = "1Z1DXZr_dK1BuutNET3u5C68ourccKU5bNRjUD5YWw-U";
+﻿const SHEET_ID = "1Z1DXZr_dK1BuutNET3u5C68ourccKU5bNRjUD5YWw-U";
 
 const SUPPORT_EMAIL = "desarrollosoporte@innovaschools.edu.co";
 const ADMIN_EMAILS = [SUPPORT_EMAIL, "jmacias@innovaschools.edu.co"];
@@ -424,7 +424,7 @@ function doGet(e) {
         es_otros_equipos: row[20] || "No",
         rango_inicio: row[21] || "",
         rango_fin: row[22] || "",
-        hora_devolucion: formatearHoraSheet(row[23]) || "16:00",
+        hora_devolucion: formatearHoraSheet(row[23]) || "15:00",
         id_solicitud: row[24] || "",
         estado: row[25] || "",
         hora_entrega: formatearHoraSheet(row[26]),
@@ -570,7 +570,7 @@ function doPost(e) {
 
         const sedeRegistrada = String(row[4] || "").trim();
         const equipoRegistrado = String(row[5] || "").trim();
-        let horaDevolucionStr = "16:00";
+        let horaDevolucionStr = "15:00";
         const horaRaw = row[23];
         if (horaRaw instanceof Date) {
           horaDevolucionStr = Utilities.formatDate(horaRaw, zonaHoraria, "HH:mm");
@@ -680,7 +680,7 @@ function doPost(e) {
       data.es_otros_equipos || "No",
       data.rango_inicio || "",
       data.rango_fin || "",
-      data.hora_devolucion || "16:00",
+      data.hora_devolucion || "15:00",
       idSolicitud,
       estadoInicial,
       horaEntrega,

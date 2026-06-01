@@ -1,4 +1,4 @@
-function validarCorreoInstitucional(email) {
+﻿function validarCorreoInstitucional(email) {
     return /^[^\s@]+@innovaschools\.edu\.co$/i.test(String(email || '').trim());
 }
 
@@ -43,20 +43,53 @@ function guardarCuentaInnovaDesdeModal(event) {
 
     cerrarModalCuentaInnova();
     avisarCuentaInnova('Cuenta Innova guardada', 'success');
+    pedirCodigoCuentaInnova();
 }
 
 function abrirCambioSesionGoogle() {
     const input = document.getElementById('innovaAccountEmailInput');
     const correo = String(input?.value || obtenerCuentaInnovaGuardada() || '').trim().toLowerCase();
-    const params = new URLSearchParams({
-        continue: 'https://myaccount.google.com/'
-    });
-
-    if (validarCorreoInstitucional(correo)) {
-        params.set('Email', correo);
+    if (!validarCorreoInstitucional(correo)) {
+        avisarCuentaInnova('Primero escribe tu correo @innovaschools.edu.co', 'error');
+        input?.focus();
+        return;
     }
 
-    window.open('https://accounts.google.com/AccountChooser?' + params.toString(), '_blank', 'noopener,noreferrer');
+    guardarCuentaInnova(correo);
+    sessionStorage.setItem('innovaPendingVerifyCode', 'true');
+
+    const params = new URLSearchParams({
+        Email: correo,
+        continue: window.location.href
+    });
+
+    window.location.href = 'https://accounts.google.com/AccountChooser?' + params.toString();
+}
+
+function pedirCodigoCuentaInnova() {
+    const correo = obtenerCuentaInnovaGuardada();
+    const inputCorreo = document.getElementById('correo');
+    const btnVerificar = document.getElementById('btnVerificar');
+
+    if (!correo || !inputCorreo || !btnVerificar) {
+        return false;
+    }
+
+    if (!inputCorreo.value.trim()) {
+        inputCorreo.value = correo;
+    }
+
+    if (inputCorreo.disabled || btnVerificar.disabled) {
+        return true;
+    }
+
+    if (typeof iniciarVerificacion === 'function') {
+        iniciarVerificacion();
+        return true;
+    }
+
+    sessionStorage.setItem('innovaPendingVerifyCode', 'true');
+    return false;
 }
 
 function aplicarCuentaInnovaGuardada() {
@@ -136,4 +169,11 @@ function cerrarModalCuentaInnova() {
     if (modal) modal.remove();
 }
 
-window.addEventListener('DOMContentLoaded', aplicarCuentaInnovaGuardada);
+window.addEventListener('DOMContentLoaded', () => {
+    aplicarCuentaInnovaGuardada();
+
+    if (sessionStorage.getItem('innovaPendingVerifyCode') === 'true') {
+        sessionStorage.removeItem('innovaPendingVerifyCode');
+        setTimeout(pedirCodigoCuentaInnova, 250);
+    }
+});

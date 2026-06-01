@@ -1,4 +1,4 @@
-// verify.js - Sistema de verificación de correo
+﻿// verify.js - Sistema de verificación de correo
 const VERIFY_CONFIG = {
     codeLength: 6,
     expirationMinutes: 10,
@@ -45,6 +45,7 @@ async function iniciarVerificacion() {
             attempts: 0,
             timestamp: Date.now()
         };
+        window.verificationData = verificationData;
         
         // Enviar código por correo (via Google Apps Script)
         const enviado = await enviarCodigoPorCorreo(email, codigo);
@@ -56,6 +57,10 @@ async function iniciarVerificacion() {
         // Mostrar modal de verificación
         mostrarModalVerificacion(email);
         showToast(`Código enviado a ${email}`, 'success');
+
+        if (typeof precargarEquiposPorSede === 'function') {
+            precargarEquiposPorSede(email);
+        }
         
         return true;
         
@@ -95,12 +100,22 @@ function validarCodigoIngresado() {
     if (codigoIngresado === verificationData.code) {
         // ÉXITO
         verificationData.verified = true;
+        window.verificationData = verificationData;
+        localStorage.setItem('innovaAccountEmail', verificationData.email);
         marcarCorreoVerificado();
         cerrarModalVerificacion();
         showToast('✅ Correo verificado correctamente', 'success');
         
         // Habilitar el botón siguiente del formulario principal
         habilitarBotonSiguiente();
+
+        if (typeof cargarEquiposPorSede === 'function') {
+            cargarEquiposPorSede();
+        }
+
+        if (typeof cargarEquiposAdicionalesBodega === 'function') {
+            cargarEquiposAdicionalesBodega(true);
+        }
         
         return true;
     } else {
@@ -377,10 +392,16 @@ function verificarAntesDeAvanzar() {
     return true;
 }
 
+function correoEstaVerificado(email) {
+    const limpio = String(email || '').trim().toLowerCase();
+    return Boolean(verificationData.verified && verificationData.email === limpio && !haExpirado());
+}
+
 // Exportar para usar en script.js
 window.iniciarVerificacion = iniciarVerificacion;
 window.validarCodigoIngresado = validarCodigoIngresado;
 window.reenviarCodigo = reenviarCodigo;
 window.cerrarModalVerificacion = cerrarModalVerificacion;
 window.verificarAntesDeAvanzar = verificarAntesDeAvanzar;
+window.correoEstaVerificado = correoEstaVerificado;
 window.verificationData = verificationData;

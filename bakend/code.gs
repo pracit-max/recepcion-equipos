@@ -22,7 +22,7 @@ function doGet(e) {
     const action = e && e.parameter ? e.parameter.action : null;
     const sede = e && e.parameter ? e.parameter.sede : null;
 
-// En tu funciÃ³n doGet, reemplaza el bloque de validarCorreoSoporte por:
+// En tu función doGet, reemplaza el bloque de validarCorreoSoporte por:
 
     if (action === "validarCorreoSoporte") {
       try {
@@ -31,7 +31,7 @@ function doGet(e) {
         Logger.log("Correo recibido: " + correo);
         
         if (!correo) {
-          Logger.log("âŒ Correo vacÃ­o");
+          Logger.log("❌ Correo vacío");
           return jsonResponse({ status: "error", error: "Debes ingresar un correo" });
         }
         
@@ -40,7 +40,7 @@ function doGet(e) {
         
         return jsonResponse(resultado);
       } catch (err) {
-        Logger.log("ðŸ”¥ Error catch validarCorreoSoporte: " + err.toString());
+        Logger.log("🔥 Error catch validarCorreoSoporte: " + err.toString());
         return jsonResponse({ status: "error", error: err.toString() });
       }
     }
@@ -153,7 +153,7 @@ function doGet(e) {
           return jsonResponse({
             ocupado: true,
             usuario: ocupado.usuario || "Usuario desconocido",
-            hora_devolucion: ocupado.hora_devolucion || "16:00",
+            hora_devolucion: ocupado.hora_devolucion || "15:00",
             id_solicitud: ocupado.id_solicitud || ""
           });
         }
@@ -239,7 +239,7 @@ function doGet(e) {
     }
 
     // ==============================
-    // TRAER EQUIPOS POR SEDE (DINÃMICO)
+    // TRAER EQUIPOS POR SEDE (DINÁMICO)
     // ==============================
     if (action === 'getEquipos' && sede) {
       try {
@@ -257,14 +257,14 @@ function doGet(e) {
         const sheet = ss.getSheetByName(sheetName);
 
         if (!sheet) {
-          Logger.log("âŒ No existe la hoja: " + sheetName);
+          Logger.log("❌ No existe la hoja: " + sheetName);
           // Listar hojas disponibles para debug
           const hojas = ss.getSheets().map(s => s.getName());
           Logger.log("Hojas disponibles: " + hojas.join(", "));
           return jsonResponse({ error: "No existe la hoja '" + sheetName + "'. Hojas: " + hojas.join(", ") });
         }
 
-        Logger.log("âœ… Hoja encontrada: " + sheetName);
+        Logger.log("✅ Hoja encontrada: " + sheetName);
 
         const data = sheet.getDataRange().getValues();
         Logger.log("Filas en hoja: " + data.length);
@@ -279,11 +279,11 @@ function doGet(e) {
             serial: row[4]
           }));
 
-        Logger.log("âœ… Equipos encontrados: " + equipos.length);
+        Logger.log("✅ Equipos encontrados: " + equipos.length);
         return jsonResponse(equipos);
 
       } catch (err) {
-        Logger.log("âŒ Error en getEquipos: " + err.toString());
+        Logger.log("❌ Error en getEquipos: " + err.toString());
         return jsonResponse({ error: err.toString() });
       }
     }
@@ -467,7 +467,7 @@ function doGet(e) {
         es_otros_equipos: row[20] || "No",
         rango_inicio: row[21] || "",
         rango_fin: row[22] || "",
-        hora_devolucion: formatearHoraSheet(row[23]) || "16:00",
+        hora_devolucion: formatearHoraSheet(row[23]) || "15:00",
         id_solicitud: row[24] || "",
         estado: row[25] || "",
         hora_entrega: formatearHoraSheet(row[26]),
@@ -492,7 +492,7 @@ function doGet(e) {
     }
 
   } catch (err) {
-    Logger.log("âŒ ERROR doGet: " + err.toString());
+    Logger.log("❌ ERROR doGet: " + err.toString());
     return jsonResponse({ error: err.toString() });
   }
 }
@@ -601,7 +601,7 @@ function doPost(e) {
       });
     }
 
-    // === VALIDACIÃ“N DE DISPONIBILIDAD ===
+    // === VALIDACIÓN DE DISPONIBILIDAD ===
     const textoEquipoAdicionalEntrada = obtenerTextoEquiposAdicionales(data);
     if (textoEquipoAdicionalEntrada) {
       const validacionBodega = validarEquiposAdicionalesDisponibles(data);
@@ -631,7 +631,7 @@ function doPost(e) {
 
         const sedeRegistrada = String(row[4] || "").trim();
         const equipoRegistrado = String(row[5] || "").trim();
-        let horaDevolucionStr = "16:00";
+        let horaDevolucionStr = "15:00";
         const horaRaw = row[23];
         if (horaRaw instanceof Date) {
           horaDevolucionStr = Utilities.formatDate(horaRaw, zonaHoraria, "HH:mm");
@@ -658,7 +658,7 @@ function doPost(e) {
       }
     }
 
-    // === GUARDAR IMÃGENES ===
+    // === GUARDAR IMÁGENES ===
     let fotoDanoURL = "";
     try {
       if (data.foto_dano && String(data.foto_dano).startsWith("data:image")) {
@@ -741,7 +741,7 @@ function doPost(e) {
       data.es_otros_equipos || "No",
       data.rango_inicio || "",
       data.rango_fin || "",
-      data.hora_devolucion || "16:00",
+      data.hora_devolucion || "15:00",
       idSolicitud,
       estadoInicial,
       horaEntrega,
@@ -810,7 +810,7 @@ function doPost(e) {
     const COLUMNA_ACTA = colMapGuardado && colMapGuardado.acta ? colMapGuardado.acta : 19;
     if (pdfUrl && pdfUrl.includes("drive.google.com")) {
       sheet.getRange(lastRow, COLUMNA_ACTA).setValue(pdfUrl);
-      Logger.log("âœ… PDF guardado en columna " + COLUMNA_ACTA);
+      Logger.log("✅ PDF guardado en columna " + COLUMNA_ACTA);
     }
 
     // === CORREO NOVEDAD ===
@@ -828,7 +828,7 @@ function doPost(e) {
     return jsonResponse({ status: "ok", id_solicitud: idSolicitud });
 
   } catch (err) {
-    Logger.log("âŒ ERROR CRÃTICO doPost: " + err.toString());
+    Logger.log("❌ ERROR CRÍTICO doPost: " + err.toString());
     Logger.log("Stack: " + err.stack);
     return jsonResponse({ status: "error", error: err.toString() });
   } finally {
@@ -1043,7 +1043,7 @@ function enviarPDFporCorreo(data) {
     return pdfUrl;
 
   } catch (error) {
-    Logger.log("âŒ ERROR en enviarPDFporCorreo: " + error.toString());
+    Logger.log("❌ ERROR en enviarPDFporCorreo: " + error.toString());
     Logger.log("Stack: " + error.stack);
     return "";
   }
@@ -1170,7 +1170,7 @@ function getDisponibilidadSedeHandler(sede, fecha) {
     ) {
       result.ocupados[equipo] = {
         usuario: r.nombre || "Usuario desconocido",
-        hora_devolucion: formatearHoraSheet(r.hora_devolucion) || "16:00",
+        hora_devolucion: formatearHoraSheet(r.hora_devolucion) || "15:00",
         id_solicitud: r.id_solicitud || ""
       };
     }
@@ -2268,14 +2268,14 @@ function agregarEquipo(data) {
     // Validar acceso
     const permiso = validarAccesoSoporte(correo, sede);
     if (!permiso.ok) {
-      Logger.log("âŒ Error de acceso agregarEquipo: " + permiso.error);
+      Logger.log("❌ Error de acceso agregarEquipo: " + permiso.error);
       return jsonResponse({ status: "error", error: "Acceso denegado: " + permiso.error });
     }
     
     const sheet = getHojaEquipos(sede);
 
     if (!sheet) {
-      Logger.log("âŒ Hoja no encontrada para sede: " + sede);
+      Logger.log("❌ Hoja no encontrada para sede: " + sede);
       return jsonResponse({ status: "error", error: "No existe la hoja de equipos para la sede: " + sede });
     }
 
@@ -2288,12 +2288,12 @@ function agregarEquipo(data) {
     ];
 
     sheet.appendRow(nuevaFila);
-    Logger.log("âœ… Equipo agregado: " + data.placa);
+    Logger.log("✅ Equipo agregado: " + data.placa);
 
     return jsonResponse({ status: "ok", message: "Equipo agregado correctamente" });
 
   } catch (err) {
-    Logger.log("âŒ Error agregarEquipo: " + err.toString());
+    Logger.log("❌ Error agregarEquipo: " + err.toString());
     return jsonResponse({ status: "error", error: "Error al agregar equipo: " + err.toString() });
   }
 }
@@ -2302,12 +2302,12 @@ function agregarEquipo(data) {
 // ACTUALIZAR EQUIPO (Mejorado)
 // ============================================================
 function actualizarEquipo(data) {
-  // Iniciamos un try/catch especÃ­fico para capturar cualquier error
+  // Iniciamos un try/catch específico para capturar cualquier error
   try {
     const sede = data.sede;
     const serialOriginal = data.serialOriginal;
     
-    // Validaciones bÃ¡sicas
+    // Validaciones básicas
     if (!sede || !serialOriginal) {
       return jsonResponse({ status: "error", error: "Faltan datos: sede o serial original" });
     }
@@ -2315,7 +2315,7 @@ function actualizarEquipo(data) {
     const sheet = getHojaEquipos(sede);
 
     if (!sheet) {
-      Logger.log("âŒ Error actualizarEquipo: Hoja no encontrada para sede " + sede);
+      Logger.log("❌ Error actualizarEquipo: Hoja no encontrada para sede " + sede);
       return jsonResponse({ status: "error", error: "No existe la hoja de equipos para esta sede: " + sede });
     }
 
@@ -2334,8 +2334,8 @@ function actualizarEquipo(data) {
 
     // Buscamos el equipo por el serial original
     for (let i = 0; i < dataRange.length; i++) {
-      // Asumimos que el serial estÃ¡ en el Ã­ndice 4 (Columna E) basado en tu Excel
-      // AsegÃºrate de que esto coincida con tu hoja de cÃ¡lculo
+      // Asumimos que el serial está en el índice 4 (Columna E) basado en tu Excel
+      // Asegúrate de que esto coincida con tu hoja de cálculo
       const rowSerial = String(dataRange[i][4] || "").trim(); 
 
       if (rowSerial === serialOriginal) {
@@ -2346,16 +2346,16 @@ function actualizarEquipo(data) {
     }
 
     if (!encontrado) {
-      Logger.log("âŒ Error actualizarEquipo: Serial no encontrado " + serialOriginal);
+      Logger.log("❌ Error actualizarEquipo: Serial no encontrado " + serialOriginal);
       return jsonResponse({ status: "error", error: "No se encontró el equipo con el serial: " + serialOriginal });
     }
 
     // ACTUALIZAMOS LAS CELDAS
-    // AsegÃºrate de que los Ã­ndices coincidan con tus columnas:
+    // Asegúrate de que los índices coincidan con tus columnas:
     // 1: Sede, 2: Equipo, 3: Carro, 4: Placa, 5: Serial
     
     // No solemos actualizar la Sede (col 1) ni el Serial si es clave primaria, 
-    // pero si quieres permitir cambiar el serial, hazlo aquÃ­:
+    // pero si quieres permitir cambiar el serial, hazlo aquí:
     
     // Columna 2: Equipo
     if (data.equipo !== undefined) sheet.getRange(rowNumber, 2).setValue(data.equipo);
@@ -2371,13 +2371,13 @@ function actualizarEquipo(data) {
        sheet.getRange(rowNumber, 5).setValue(data.serial);
     }
 
-    Logger.log("âœ… Equipo actualizado correctamente en fila " + rowNumber);
+    Logger.log("✅ Equipo actualizado correctamente en fila " + rowNumber);
 
     return jsonResponse({ status: "ok", message: "Equipo actualizado correctamente" });
 
   } catch (err) {
-    Logger.log("ðŸ”¥ ERROR CRÃTICO en actualizarEquipo: " + err.toString());
-    // Devolvemos un error JSON explÃ­cito para que el frontend no se cuelgue con "Failed to fetch"
+    Logger.log("🔥 ERROR CRÍTICO en actualizarEquipo: " + err.toString());
+    // Devolvemos un error JSON explícito para que el frontend no se cuelgue con "Failed to fetch"
     return jsonResponse({ status: "error", error: "Error interno del servidor: " + err.toString() });
   }
 }
@@ -2390,14 +2390,14 @@ function eliminarEquipo(data) {
     // Validar acceso
     const permiso = validarAccesoSoporte(correo, sede);
     if (!permiso.ok) {
-      Logger.log("âŒ Error de acceso eliminarEquipo: " + permiso.error);
+      Logger.log("❌ Error de acceso eliminarEquipo: " + permiso.error);
       return jsonResponse({ status: "error", error: "Acceso denegado: " + permiso.error });
     }
     
     const sheet = getHojaEquipos(sede);
 
     if (!sheet) {
-      Logger.log("âŒ Hoja no encontrada para sede: " + sede);
+      Logger.log("❌ Hoja no encontrada para sede: " + sede);
       return jsonResponse({ status: "error", error: "No existe la hoja de equipos para la sede: " + sede });
     }
 
@@ -2416,16 +2416,16 @@ function eliminarEquipo(data) {
       if (rowSerial === serial) {
         const rowNumber = i + 2;
         sheet.deleteRow(rowNumber);
-        Logger.log("âœ… Equipo eliminado: " + serial);
+        Logger.log("✅ Equipo eliminado: " + serial);
         return jsonResponse({ status: "ok", message: "Equipo eliminado correctamente" });
       }
     }
 
-    Logger.log("âŒ Equipo no encontrado: " + serial);
+    Logger.log("❌ Equipo no encontrado: " + serial);
     return jsonResponse({ status: "error", error: "No se encontró el equipo con serial: " + serial });
 
   } catch (err) {
-    Logger.log("âŒ Error eliminarEquipo: " + err.toString());
+    Logger.log("❌ Error eliminarEquipo: " + err.toString());
     return jsonResponse({ status: "error", error: "Error al eliminar equipo: " + err.toString() });
   }
 }
@@ -2445,7 +2445,7 @@ function obtenerHojaCorreosSede() {
   for (let hoja of hojas) {
     const nombre = hoja.getName().toLowerCase();
     if (nombre.includes("correo") && nombre.includes("sede")) {
-      Logger.log("âœ… Hoja encontrada: " + hoja.getName());
+      Logger.log("✅ Hoja encontrada: " + hoja.getName());
       return hoja;
     }
   }
@@ -2462,17 +2462,17 @@ function buscarSedePorCorreo(correo) {
     const ss = SpreadsheetApp.openById(SHEET_ID);
     const hoja = ss.getSheetByName("correos_sede");
     if (!hoja) {
-      Logger.log("âŒ No existe la hoja 'correos_sede'");
+      Logger.log("❌ No existe la hoja 'correos_sede'");
       return null;
     }
 
     const data = hoja.getDataRange().getValues();
     if (data.length < 2) {
-      Logger.log("âš ï¸ La hoja solo tiene encabezados o estÃ¡ vacÃ­a");
+      Logger.log("⚠️ La hoja solo tiene encabezados o está vacía");
       return null;
     }
 
-    // Encontrar Ã­ndices de columnas
+    // Encontrar índices de columnas
     const encabezados = data[0];
     let idxSede = -1, idxCorreo = -1;
     for (let i = 0; i < encabezados.length; i++) {
@@ -2482,13 +2482,13 @@ function buscarSedePorCorreo(correo) {
     }
 
     if (idxSede === -1 || idxCorreo === -1) {
-      Logger.log(`âŒ Columnas no encontradas. Encabezados: ${encabezados.join(", ")}`);
+      Logger.log(`❌ Columnas no encontradas. Encabezados: ${encabezados.join(", ")}`);
       return null;
     }
 
-    // NORMALIZACIÃ“N CORREGIDA - NO eliminar el @ ni el punto del dominio
+    // NORMALIZACIÓN CORREGIDA - NO eliminar el @ ni el punto del dominio
     const correoBuscado = String(correo || "").trim().toLowerCase();
-    Logger.log(`ðŸ” Buscando correo: "${correoBuscado}"`);
+    Logger.log(`🔍 Buscando correo: "${correoBuscado}"`);
 
     for (let i = 1; i < data.length; i++) {
       const filaCorreo = String(data[i][idxCorreo] || "").trim().toLowerCase();
@@ -2496,9 +2496,9 @@ function buscarSedePorCorreo(correo) {
       
       Logger.log(`Comparando fila ${i}: "${filaCorreo}" con "${correoBuscado}"`);
       
-      // ComparaciÃ³n exacta (sin normalizaciÃ³n extra)
+      // Comparación exacta (sin normalización extra)
       if (filaCorreo === correoBuscado) {
-        Logger.log(`âœ… Correo encontrado! Sede: ${filaSede}`);
+        Logger.log(`✅ Correo encontrado! Sede: ${filaSede}`);
         return {
           sede: filaSede.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
           sedeOriginal: filaSede,
@@ -2507,10 +2507,10 @@ function buscarSedePorCorreo(correo) {
       }
     }
 
-    Logger.log(`âŒ No se encontrÃ³ el correo "${correoBuscado}" en la lista`);
+    Logger.log(`❌ No se encontró el correo "${correoBuscado}" en la lista`);
     return null;
   } catch (error) {
-    Logger.log(`ðŸ”¥ Error en buscarSedePorCorreo: ${error.toString()}`);
+    Logger.log(`🔥 Error en buscarSedePorCorreo: ${error.toString()}`);
     return null;
   }
 }
@@ -2558,7 +2558,7 @@ function validarCorreoSoporteHandler(correo) {
 }
 
 // ============================================================
-// OBTENER SEDES Y CORREOS DE FORMA DINÃMICA
+// OBTENER SEDES Y CORREOS DE FORMA DINÁMICA
 // ============================================================
 function getSedesSoporteHandler() {
   try {
@@ -2566,13 +2566,13 @@ function getSedesSoporteHandler() {
     const hoja = ss.getSheetByName("correos_sede");
     
     if (!hoja) {
-      Logger.log("âŒ No existe la hoja 'correos_sede'");
+      Logger.log("❌ No existe la hoja 'correos_sede'");
       return jsonResponse({ error: "No se encontró la hoja 'correos_sede'" });
     }
     
     const data = hoja.getDataRange().getValues();
     if (data.length < 2) {
-      Logger.log("âš ï¸ La hoja solo tiene encabezados");
+      Logger.log("⚠️ La hoja solo tiene encabezados");
       return jsonResponse([]);
     }
     
@@ -2591,10 +2591,10 @@ function getSedesSoporteHandler() {
       }
     }
     
-    Logger.log("âœ… Sedes cargadas: " + sedes.length);
+    Logger.log("✅ Sedes cargadas: " + sedes.length);
     return jsonResponse(sedes);
   } catch (err) {
-    Logger.log("âŒ Error en getSedesSoporteHandler: " + err.toString());
+    Logger.log("❌ Error en getSedesSoporteHandler: " + err.toString());
     return jsonResponse({ error: err.toString() });
   }
 }
@@ -2605,7 +2605,7 @@ function getSedesSoporteHandler() {
 function getLogoBase64() {
   try {
     if (!LOGO_ID && !LOGO_FOLDER_ID) {
-      Logger.log("âš ï¸ Logo ID no configurado");
+      Logger.log("⚠️ Logo ID no configurado");
       return null;
     }
 
@@ -2615,10 +2615,10 @@ function getLogoBase64() {
     const base64 = Utilities.base64Encode(blob.getBytes());
     const mimeType = blob.getContentType();
 
-    Logger.log("âœ… Logo cargado correctamente");
+    Logger.log("✅ Logo cargado correctamente");
     return `data:${mimeType};base64,${base64}`;
   } catch (e) {
-    Logger.log("âŒ Error obteniendo logo: " + e.toString());
+    Logger.log("❌ Error obteniendo logo: " + e.toString());
     return null;
   }
 }

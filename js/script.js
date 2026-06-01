@@ -193,9 +193,40 @@ let disponibilidadCarrosCache = {
     ocupados: {},
     loadedAt: 0
 };
+const EQUIPOS_CACHE_TTL_MS = 10 * 60 * 1000;
+let equiposPrecarga = {
+    key: '',
+    promise: null,
+    data: null,
+    disponibilidad: null
+};
 
 function validarCorreoInstitucional(email) {
     return /^[^\s@]+@innovaschools\.edu\.co$/i.test(String(email || '').trim());
+}
+
+function obtenerCorreoInnovaActual() {
+    const correoFormulario = document.getElementById('correo')?.value || '';
+    const correoGuardado = localStorage.getItem('innovaAccountEmail') || '';
+    const correoSoporte = localStorage.getItem('emailSoporte') || '';
+    return String(correoFormulario || correoGuardado || correoSoporte || '').trim().toLowerCase();
+}
+
+function requiereVerificarCorreoParaCargar() {
+    return Boolean(document.getElementById('form') && document.getElementById('correo') && document.getElementById('btnVerificar'));
+}
+
+function puedeCargarEquiposConCorreoVerificado() {
+    if (!requiereVerificarCorreoParaCargar()) return true;
+
+    const correo = obtenerCorreoInnovaActual();
+    if (!validarCorreoInstitucional(correo)) return false;
+
+    if (typeof correoEstaVerificado === 'function') {
+        return correoEstaVerificado(correo);
+    }
+
+    return false;
 }
 
 function normalizarClave(valor) {
@@ -213,6 +244,171 @@ function obtenerFechaLocalISO() {
     const day = String(ahora.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 }
+
+function obtenerClaveCacheEquipos(sede) {
+    return `equipos_${normalizarClave(sede)}_${obtenerFechaLocalISO()}`;
+}
+
+function prepararCarrosDesdeEquipos(data) {
+    equiposZipaquira = Array.isArray(data)
+        ? data.filter(e => String(e?.carro || '').trim().toLowerCase() !== 'bodega ti')
+        : [];
+
+    const carrosSet = new Set();
+    equiposZipaquira.forEach(e => {
+        if (e && e.carro) carrosSet.add(String(e.carro));
+    });
+
+    try {
+        carrosDisponibles = [...carrosSet].sort((a, b) => {
+            const strA = String(a);
+            const strB = String(b);
+            const matchA = strA.match(/\d+/);
+            const matchB = strB.match(/\d+/);
+            const numA = matchA ? parseInt(matchA[0]) : 999;
+            const numB = matchB ? parseInt(matchB[0]) : 999;
+            return numA - numB;
+        });
+    } catch (e) {
+        carrosDisponibles = [...carrosSet];
+    }
+
+    return carrosDisponibles;
+}
+
+function renderizarCarrosSelect() {
+    const select = document.getElementById('carroSelect');
+    if (!select) {
+        console.warn("No se encontró el elemento #carroSelect en el DOM.");
+        return false;
+    }
+
+    select.innerHTML = '<option value="">Seleccione un carro...</option>';
+    select.disabled = false;
+
+    carrosDisponibles.forEach(carro => {
+        const option = document.createElement('option');
+        option.value = carro;
+        option.textContent = carro;
+        select.appendChild(option);
+    });
+
+    aplicarDisponibilidadAlSelect();
+    return true;
+}
+
+function guardarEquiposCache(sede, data) {
+    if (!Array.isArray(data)) return;
+
+    try {
+        localStorage.setItem(obtenerClaveCacheEquipos(sede), JSON.stringify({
+            savedAt: Date.now(),
+            data
+        }));
+    } catch (err) {
+        console.warn("No se pudo guardar caché de equipos:", err);
+    }
+}
+
+function cargarEquiposCache(sede) {
+    try {
+        const raw = localStorage.getItem(obtenerClaveCacheEquipos(sede));
+        if (!raw) return null;
+
+        const cached = JSON.parse(raw);
+        if (!cached || !Array.isArray(cached.data)) return null;
+        if ((Date.now() - Number(cached.savedAt || 0)) > EQUIPOS_CACHE_TTL_MS) return null;
+
+        return cached.data;
+    } catch (err) {
+        console.warn("No se pudo leer caché de equipos:", err);
+        return null;
+    }
+}
+
+function obtenerSedeActualNormalizada() {
+    const sedeInput = document.getElementById('sede');
+    if (sedeInput?.value) return normalizarClave(sedeInput.value);
+
+    const params = new URLSearchParams(window.location.search);
+    return normalizarClave(params.get('sede') || '');
+}
+
+function obtenerClavePrecargaEquipos(sede, correo) {
+    return `${normalizarClave(sede)}_${String(correo || '').trim().toLowerCase()}_${obtenerFechaLocalISO()}`;
+}
+
+function guardarPrecargaEquipos(sede, correo, data, disponibilidad) {
+    const key = obtenerClavePrecargaEquipos(sede, correo);
+    equiposPrecarga = {
+        key,
+        promise: null,
+        data: Array.isArray(data) ? data : null,
+        disponibilidad: disponibilidad || null
+    };
+}
+
+function consumirPrecargaEquipos(sede, correo) {
+    const key = obtenerClavePrecargaEquipos(sede, correo);
+    if (equiposPrecarga.key !== key || !Array.isArray(equiposPrecarga.data)) return null;
+    return {
+        data: equiposPrecarga.data,
+        disponibilidad: equiposPrecarga.disponibilidad
+    };
+}
+
+function precargarEquiposPorSede(correo) {
+    const sedeParaURL = obtenerSedeActualNormalizada();
+    const correoLimpio = String(correo || obtenerCorreoInnovaActual()).trim().toLowerCase();
+    if (!sedeParaURL || !validarCorreoInstitucional(correoLimpio)) return null;
+
+    const cached = cargarEquiposCache(sedeParaURL);
+    if (Array.isArray(cached) && cached.length > 0) {
+        guardarPrecargaEquipos(sedeParaURL, correoLimpio, cached, disponibilidadCarrosCache);
+        return Promise.resolve(cached);
+    }
+
+    const key = obtenerClavePrecargaEquipos(sedeParaURL, correoLimpio);
+    if (equiposPrecarga.key === key && equiposPrecarga.promise) {
+        return equiposPrecarga.promise;
+    }
+
+    const select = document.getElementById('carroSelect');
+    if (select && select.disabled) {
+        select.innerHTML = '<option value="">Preparando carros...</option>';
+    }
+
+    const url = `${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeParaURL)}&correo=${encodeURIComponent(correoLimpio)}`;
+    const disponibilidadUrl = `${URL_GOOGLE_SCRIPT}?action=getDisponibilidadSede&sede=${encodeURIComponent(sedeParaURL)}&fecha=${encodeURIComponent(obtenerFechaLocalISO())}&correo=${encodeURIComponent(correoLimpio)}`;
+
+    const promise = Promise.all([
+        jsonpRequest(url),
+        jsonpRequest(disponibilidadUrl).catch(err => {
+            console.warn("No se pudo precargar disponibilidad:", err);
+            return null;
+        })
+    ]).then(([data, disponibilidad]) => {
+        if (data && data.error) throw new Error(data.error);
+        guardarPrecargaEquipos(sedeParaURL, correoLimpio, data, disponibilidad);
+        guardarEquiposCache(sedeParaURL, data);
+        return data;
+    }).catch(err => {
+        console.warn("No se pudo precargar equipos:", err);
+        if (equiposPrecarga.key === key) equiposPrecarga.promise = null;
+        return null;
+    });
+
+    equiposPrecarga = {
+        key,
+        promise,
+        data: null,
+        disponibilidad: null
+    };
+
+    return promise;
+}
+
+window.precargarEquiposPorSede = precargarEquiposPorSede;
 
 function obtenerUrlPreviewDrive(url) {
     const texto = String(url || '').trim();
@@ -296,18 +492,58 @@ async function cargarEquiposPorSede() {
         return;
     }
 
-    const correoSoporte = localStorage.getItem('emailSoporte') || '';
+    const correoSoporte = obtenerCorreoInnovaActual();
     // Normalizar nombre para URL (quitar tildes, minúsculas)
     const sedeParaURL = normalizarClave(sedeNombre);
+
+    if (!puedeCargarEquiposConCorreoVerificado()) {
+        const select = document.getElementById('carroSelect');
+        if (select) {
+            select.innerHTML = '<option value="">Verifica tu correo Innova para cargar los carros</option>';
+            select.disabled = true;
+        }
+        return;
+    }
 
     console.log(`=== INICIANDO CARGA DE EQUIPOS ===`);
     console.log(`Sede detectada: ${sedeNombre}`);
     console.log(`Sede para URL: ${sedeParaURL}`);
 
+    const equiposCache = cargarEquiposCache(sedeParaURL);
+    const tieneCache = Array.isArray(equiposCache) && equiposCache.length > 0;
+
+    if (tieneCache) {
+        prepararCarrosDesdeEquipos(equiposCache);
+        renderizarCarrosSelect();
+        console.log(`? Carros cargados desde caché para ${sedeNombre}`);
+    }
+
+    const precargaLista = consumirPrecargaEquipos(sedeParaURL, correoSoporte);
+    if (!tieneCache && precargaLista) {
+        prepararCarrosDesdeEquipos(precargaLista.data);
+        guardarDisponibilidadCache(sedeParaURL, precargaLista.disponibilidad);
+        renderizarCarrosSelect();
+        console.log(`Carros cargados desde precarga para ${sedeNombre}`);
+        return;
+    }
+
+    const keyPrecarga = obtenerClavePrecargaEquipos(sedeParaURL, correoSoporte);
+    if (!tieneCache && equiposPrecarga.key === keyPrecarga && equiposPrecarga.promise) {
+        await equiposPrecarga.promise;
+        const precargaTerminada = consumirPrecargaEquipos(sedeParaURL, correoSoporte);
+        if (precargaTerminada) {
+            prepararCarrosDesdeEquipos(precargaTerminada.data);
+            guardarDisponibilidadCache(sedeParaURL, precargaTerminada.disponibilidad);
+            renderizarCarrosSelect();
+            console.log(`Carros cargados desde precarga finalizada para ${sedeNombre}`);
+            return;
+        }
+    }
+
     try {
         // Construir URL de petición
         const url = `${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeParaURL)}&correo=${encodeURIComponent(correoSoporte)}`;
-        const disponibilidadUrl = `${URL_GOOGLE_SCRIPT}?action=getDisponibilidadSede&sede=${encodeURIComponent(sedeParaURL)}&fecha=${encodeURIComponent(obtenerFechaLocalISO())}`;
+        const disponibilidadUrl = `${URL_GOOGLE_SCRIPT}?action=getDisponibilidadSede&sede=${encodeURIComponent(sedeParaURL)}&fecha=${encodeURIComponent(obtenerFechaLocalISO())}&correo=${encodeURIComponent(correoSoporte)}`;
         
         const [data, disponibilidad] = await Promise.all([
             jsonpRequest(url),
@@ -327,56 +563,20 @@ async function cargarEquiposPorSede() {
             return;
         }
 
-        // Si data es un array, es que trajo equipos correctamente
-        equiposZipaquira = Array.isArray(data)
-            ? data.filter(e => String(e?.carro || '').trim().toLowerCase() !== 'bodega ti')
-            : [];
-
-        // Extraer carros únicos
-        const carrosSet = new Set();
-        equiposZipaquira.forEach(e => {
-            if (e && e.carro) carrosSet.add(String(e.carro));
-        });
-
-        // Ordenar carros numéricamente (si es posible)
-        try {
-            carrosDisponibles = [...carrosSet].sort((a, b) => {
-                const strA = String(a);
-                const strB = String(b);
-                const matchA = strA.match(/\d+/);
-                const matchB = strB.match(/\d+/);
-                const numA = matchA ? parseInt(matchA[0]) : 999;
-                const numB = matchB ? parseInt(matchB[0]) : 999;
-                return numA - numB;
-            });
-        } catch(e) {
-            carrosDisponibles = [...carrosSet];
-        }
-
-        // Llenar el select en el DOM
-        const select = document.getElementById('carroSelect');
-        if (!select) {
-            console.warn("No se encontró el elemento #carroSelect en el DOM.");
-            return;
-        }
-
-        select.innerHTML = '<option value="">Seleccione un carro...</option>';
-        select.disabled = false; // Asegurar que esté habilitado
-
-        carrosDisponibles.forEach(carro => {
-            const option = document.createElement('option');
-            option.value = carro;
-            option.textContent = carro;
-            select.appendChild(option);
-        });
-
+        prepararCarrosDesdeEquipos(data);
+        guardarEquiposCache(sedeParaURL, data);
         guardarDisponibilidadCache(sedeParaURL, disponibilidad);
-        aplicarDisponibilidadAlSelect();
+        renderizarCarrosSelect();
 
-        console.log(`✅ ÉXITO: Cargados ${carrosDisponibles.length} carros para la sede ${sedeNombre}`);
+        console.log(`? ÉXITO: Cargados ${carrosDisponibles.length} carros para la sede ${sedeNombre}`);
 
     } catch (error) {
         console.error("Error crítico cargando equipos:", error);
+        if (tieneCache) {
+            showToast('Mostrando carros guardados. No se pudo refrescar con Google.', 'warning');
+            return;
+        }
+
         const select = document.getElementById('carroSelect');
         if(select) {
             select.innerHTML = '<option value="">Error de conexión</option>';
@@ -700,6 +900,12 @@ async function cargarEquiposAdicionalesBodega(force = false) {
     const sede = sedeInput ? sedeInput.value : obtenerSedeDesdeURL();
     if (!sede) return;
 
+    if (!puedeCargarEquiposConCorreoVerificado()) {
+        const lista = document.getElementById('equiposAdicionalesLista');
+        if (lista) lista.innerHTML = '<div class="table-empty">Verifica tu correo Innova para cargar BODEGA TI</div>';
+        return;
+    }
+
     if (!force && equiposBodegaTI.length) {
         renderizarEquiposAdicionales();
         return;
@@ -709,7 +915,8 @@ async function cargarEquiposAdicionalesBodega(force = false) {
     if (lista) lista.innerHTML = '<div class="table-empty">Cargando inventario...</div>';
 
     try {
-        const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=getEquiposBodega&sede=${encodeURIComponent(sede)}`);
+        const correoSoporte = obtenerCorreoInnovaActual();
+        const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=getEquiposBodega&sede=${encodeURIComponent(sede)}&correo=${encodeURIComponent(correoSoporte)}`);
         if (data && data.status === 'error') throw new Error(data.error || 'Error cargando BODEGA TI');
         equiposBodegaTI = Array.isArray(data) ? data : [];
         equiposAdicionalesSeleccionados = equiposAdicionalesSeleccionados.filter(sel =>
@@ -942,18 +1149,18 @@ function validarRango() {
     return false;
 }
 
-// Validar hora máxima (4pm)
+// Validar hora máxima (3pm)
 function validarHora() {
     const horaInput = document.getElementById('horaDevolucion');
     const hora = horaInput.value;
     const errorMsg = document.getElementById('horaError');
     
     const horaMin = "07:00";
-    const horaMax = "16:00";
+    const horaMax = "15:00";
 
     if (hora < horaMin || hora > horaMax) {
         errorMsg.style.display = 'block';
-        errorMsg.textContent = "La hora debe estar entre 7:00 AM y 4:00 PM";
+        errorMsg.textContent = "La hora debe estar entre 7:00 AM y 3:00 PM";
         
         horaInput.value = ""; // limpiar
         
@@ -1009,7 +1216,7 @@ function pintarDisponibilidad(data) {
                     <i class="fas fa-ban"></i> CARRO NO DISPONIBLE
                 </span><br>
                 <span style="color: #7f1d1d; font-size: 0.9rem;">
-                    Este carro estÃ¡ ocupado hasta las <strong>${data.hora_devolucion || '16:00'}</strong><br>
+                    Este carro está ocupado hasta las <strong>${data.hora_devolucion || '15:00'}</strong><br>
                     Por: ${data.usuario || 'Usuario no especificado'}
                 </span>
             </div>
@@ -1070,7 +1277,7 @@ async function verificarDisponibilidad() {
     try {
         const fechaHoy = obtenerFechaLocalISO();
         
-        // ←←← AQUÍ ESTÁ EL CAMBIO IMPORTANTE
+        // ??? AQUÍ ESTÁ EL CAMBIO IMPORTANTE
         const url = `${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carro)}&fecha=${fechaHoy}&sede=${encodeURIComponent(sede)}`;
         
         console.log("URL de consulta:", url);
@@ -1082,14 +1289,14 @@ async function verificarDisponibilidad() {
         console.log("Respuesta del servidor:", data);
         
         if (data.ocupado) {
-            console.log("ðŸ”´ Carro OCUPADO");
+            console.log("🔴 Carro OCUPADO");
             msgDiv.innerHTML = `
                 <div style="background: #fee2e2; border: 1px solid #ef4444; border-radius: 6px; padding: 10px; margin-top: 5px;">
                     <span style="color: #dc2626; font-weight: 600;">
                         <i class="fas fa-ban"></i> CARRO NO DISPONIBLE
                     </span><br>
                     <span style="color: #7f1d1d; font-size: 0.9rem;">
-                        Este carro está ocupado hasta las <strong>${data.hora_devolucion || '16:00'}</strong><br>
+                        Este carro está ocupado hasta las <strong>${data.hora_devolucion || '15:00'}</strong><br>
                         Por: ${data.usuario || 'Usuario no especificado'}
                     </span>
                 </div>
@@ -1100,7 +1307,7 @@ async function verificarDisponibilidad() {
                 btnNext.style.cursor = 'not-allowed';
             }
         } else {
-            console.log("ðŸŸ¢ Carro DISPONIBLE");
+            console.log("🟢 Carro DISPONIBLE");
             msgDiv.innerHTML = `
                 <div style="background: #dcfce7; border: 1px solid #22c55e; border-radius: 6px; padding: 8px; margin-top: 5px;">
                     <span style="color: #16a34a; font-weight: 600;">
@@ -1162,8 +1369,8 @@ let records = [
         id: 1,
         fecha: "2024-01-15",
         nombre: "Juan Pérez",
-        cedula: "80720145",        // ← NUEVO
-        correo: "juan@ejemplo.com", // ← NUEVO
+        cedula: "80720145",        // ? NUEVO
+        correo: "juan@ejemplo.com", // ? NUEVO
         equipo: "Carro 1",
         cantidad: "2",
         cargador: "Sí",
@@ -1959,8 +2166,8 @@ async function collectFormData() {
     const horaDevolucion = document.getElementById('horaDevolucion').value;
     
     // Validar hora
-    if (!horaDevolucion || horaDevolucion < "07:00" || horaDevolucion > "16:00") {
-        showToast('La hora debe estar entre 7:00 AM y 4:00 PM', 'error');
+    if (!horaDevolucion || horaDevolucion < "07:00" || horaDevolucion > "15:00") {
+        showToast('La hora debe estar entre 7:00 AM y 3:00 PM', 'error');
         return false;
     }
     
@@ -2010,7 +2217,7 @@ async function collectFormData() {
         
         // Verificar disponibilidad antes de enviar
             try {
-                const sede = document.getElementById('sede').value;   // ← NUEVO
+                const sede = document.getElementById('sede').value;   // ? NUEVO
                 const checkData = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carroSeleccionado)}&fecha=${obtenerFechaLocalISO()}&sede=${encodeURIComponent(sede)}`);
             
             if (checkData.ocupado) {
@@ -2276,7 +2483,7 @@ function generatePDF(record) {
     // NUEVO: Mostrar hora de devolución destacada
     doc.setTextColor(220, 38, 38); // Rojo para destacar
     doc.setFont('helvetica', 'bold');
-    doc.text(`Hora máxima de devolución: ${record.hora_devolucion || '16:00'}`, 20, y);
+    doc.text(`Hora máxima de devolución: ${record.hora_devolucion || '15:00'}`, 20, y);
     doc.setTextColor(26, 26, 26);
     doc.setFont('helvetica', 'normal');
     doc.text(`Cargador: ${record.cargador || 'No'}`, 110, y);

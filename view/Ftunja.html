@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -142,11 +142,11 @@
                             <div class="input-group">
                                 <label for="horaDevolucion">
                                     <i class="fas fa-clock"></i> Hora máxima de devolución * 
-                                    <span style="font-size: 0.8rem; color: #64748b;">(Máx 4:00 PM)</span>
+                                    <span style="font-size: 0.8rem; color: #64748b;">(Máx 3:00 PM)</span>
                                 </label>
-                                <input type="time" id="horaDevolucion" name="horaDevolucion" required min="07:00" max="16:00" onchange="validarHora()" value="16:00">
+                                <div class="time-picker-card"><input type="time" id="horaDevolucion" name="horaDevolucion" required min="07:00" max="15:00" onchange="validarHora()" value="15:00"></div>
                                 <span id="horaError" style="color: #ef4444; font-size: 0.8rem; display: none;">
-                                    <i class="fas fa-exclamation-circle"></i> La hora máxima es 4:00 PM (16:00)
+                                    <i class="fas fa-exclamation-circle"></i> La hora máxima es 3:00 PM (15:00)
                                 </span>
                             </div>
 
