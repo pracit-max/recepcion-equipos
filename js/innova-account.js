@@ -46,26 +46,6 @@ function guardarCuentaInnovaDesdeModal(event) {
     pedirCodigoCuentaInnova();
 }
 
-function abrirCambioSesionGoogle() {
-    const input = document.getElementById('innovaAccountEmailInput');
-    const correo = String(input?.value || obtenerCuentaInnovaGuardada() || '').trim().toLowerCase();
-    if (!validarCorreoInstitucional(correo)) {
-        avisarCuentaInnova('Primero escribe tu correo @innovaschools.edu.co', 'error');
-        input?.focus();
-        return;
-    }
-
-    guardarCuentaInnova(correo);
-    sessionStorage.setItem('innovaPendingVerifyCode', 'true');
-
-    const params = new URLSearchParams({
-        Email: correo,
-        continue: window.location.href
-    });
-
-    window.location.href = 'https://accounts.google.com/AccountChooser?' + params.toString();
-}
-
 function pedirCodigoCuentaInnova() {
     const correo = obtenerCuentaInnovaGuardada();
     const inputCorreo = document.getElementById('correo');
@@ -148,10 +128,6 @@ function mostrarModalCuentaInnova(forzar) {
                     <button type="submit" class="innova-account-btn">
                         <i class="fas fa-check"></i>
                         Guardar cuenta Innova
-                    </button>
-                    <button type="button" class="innova-account-google" onclick="abrirCambioSesionGoogle()">
-                        <i class="fab fa-google"></i>
-                        Ver cuentas Google
                     </button>
                     <button type="button" class="innova-account-skip" onclick="cerrarModalCuentaInnova()">
                         Continuar por ahora
