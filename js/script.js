@@ -1,7 +1,7 @@
 ﻿// Configuración
 const URL_GOOGLE_SCRIPT_DOMAIN = "https://script.google.com/a/macros/innovaschools.edu.co/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
 const URL_GOOGLE_SCRIPT_PUBLIC = "https://script.google.com/macros/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
-const URL_GOOGLE_SCRIPT = URL_GOOGLE_SCRIPT_PUBLIC;
+const URL_GOOGLE_SCRIPT = URL_GOOGLE_SCRIPT_DOMAIN;
 let currentRecord = null;
 let currentStep = 1;
 const totalSteps = 3;
@@ -130,6 +130,12 @@ async function postToAppsScript(payload) {
                         return;
                     }
 
+                    if (/Sign in - Google Accounts|accounts\.google\.com|AccountChooser/i.test(responseText)) {
+                        cleanup();
+                        reject(new Error('Apps Script está pidiendo iniciar sesión. Revisa el deployment: debe permitir acceso al formulario o estar abierto para Anyone.'));
+                        return;
+                    }
+
                     const data = JSON.parse(responseText);
                     cleanup();
                     resolve(data);
@@ -171,6 +177,19 @@ async function postToAppsScript(payload) {
 }
 
 window.postToAppsScript = postToAppsScript;
+
+async function assertAppsScriptDisponible() {
+    try {
+        const result = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=getSedesSoporte`, 8000, true);
+        if (result && (Array.isArray(result) || result.status === 'ok' || result.error !== undefined)) {
+            return true;
+        }
+    } catch (err) {
+        throw new Error('Apps Script no está disponible como API. Abre el deployment y revisa permisos/acceso: ' + err.message);
+    }
+
+    throw new Error('Apps Script respondió algo inesperado. Revisa que la URL sea del deployment activo.');
+}
 
 // Variables para el canvas de firma
 let signatureCanvas, ctx;
@@ -431,9 +450,15 @@ function esValorSi(valor) {
 // Cargar equipos al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
-    mostrarModalCuentaInnova();
-    insertarAvisoCuentaInnova();
-    aplicarCuentaInnovaGuardada();
+    if (typeof mostrarModalCuentaInnova === 'function') {
+        mostrarModalCuentaInnova();
+    }
+    if (typeof insertarAvisoCuentaInnova === 'function') {
+        insertarAvisoCuentaInnova();
+    }
+    if (typeof aplicarCuentaInnovaGuardada === 'function') {
+        aplicarCuentaInnovaGuardada();
+    }
 
     if (document.getElementById('form')) {
         initializeEventListeners();
@@ -462,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
     asegurarSelectorMetodoFirma();
 
     inicializarEquiposAdicionales();
-    if (document.getElementById('sede') || window.location.search.includes('sede=')) {
+    if (document.getElementById('carroSelect') && (document.getElementById('sede') || window.location.search.includes('sede='))) {
         cargarEquiposPorSede();
         setTimeout(() => {
             cargarEquiposAdicionalesBodega();
@@ -2213,20 +2238,6 @@ async function collectFormData() {
         if (!carroSeleccionado) {
             showToast('Debe seleccionar un carro', 'error');
             return false;
-        }
-        
-        // Verificar disponibilidad antes de enviar
-            try {
-                const sede = document.getElementById('sede').value;   // ? NUEVO
-                const checkData = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carroSeleccionado)}&fecha=${obtenerFechaLocalISO()}&sede=${encodeURIComponent(sede)}`);
-            
-            if (checkData.ocupado) {
-                showToast(`Carro NO disponible. Estará libre a las ${checkData.hora_devolucion}`, 'error');
-                return false;
-            }
-        } catch(e) {
-            console.error("Error verificando disponibilidad:", e);
-            showToast('No se pudo verificar disponibilidad, se intentará guardar de todos modos.', 'warning');
         }
         
         const equiposCarro = equiposZipaquira.filter(e => e.carro === carroSeleccionado);

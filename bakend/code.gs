@@ -12,6 +12,7 @@ const FOLDER_PDF_DEVOLUCION = "1GIloMbYUg8FuGy0fmrPVt7lRRFh0y79E";
 const FOLDER_FOTO_DEVOLUCION = "1rVpx5J4GQq6krM-BWT-JEMHI2HWXF_Ux";
 const LOGO_FOLDER_ID = "1duxfWaq4aKlvsAW20Q7_H6ti8nT7JeZ1";
 const LOGO_ID = "";
+const MAIN_SHEET_GID = 364802551;
 let JSONP_CALLBACK = "";
 // ============================================================
 // doGet - UNIFICADA (solo puede haber una!)
@@ -439,7 +440,7 @@ function doGet(e) {
     // CASO POR DEFECTO: TRAER REGISTROS GUARDADOS
     // ==============================
     try {
-      const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+      const sheet = getMainSheet();
       const data = sheet.getDataRange().getValues();
 
       if (data.length <= 1) {
@@ -611,7 +612,7 @@ function doPost(e) {
     }
 
     if (data.equipo && data.equipo !== "Otros equipos" && data.sede && data.hora_devolucion) {
-      const sheetVal = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+      const sheetVal = getMainSheet();
       const registros = sheetVal.getDataRange().getValues();
       registros.shift();
 
@@ -678,7 +679,7 @@ function doPost(e) {
 
     // === SEGUNDO CHEQUEO ANTI-RACE-CONDITION ===
     if (data.equipo && data.equipo !== "Otros equipos") {
-      const sheetCheck = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+      const sheetCheck = getMainSheet();
       const lastRowCheck = sheetCheck.getLastRow();
       if (lastRowCheck > 1) {
         const rows = sheetCheck.getRange(2, 1, lastRowCheck - 1, 26).getValues();
@@ -759,7 +760,7 @@ function doPost(e) {
     ];
 
     Logger.log("Insertando fila con " + rowData.length + " columnas");
-    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+    const sheet = getMainSheet();
     sheet.appendRow(rowData);
     limpiarCacheDisponibilidadSede(data.sede, data.fecha || Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd"));
 
@@ -772,60 +773,38 @@ function doPost(e) {
       if (colMapGuardado.tipo_firma) {
         sheet.getRange(lastRow, colMapGuardado.tipo_firma).setValue(data.tipo_firma || "MANUAL");
       }
+      const textoEquiposAdicionales = obtenerTextoEquiposAdicionales(data);
+      const adicionalesPlano = formatearEquiposAdicionalesPlano(textoEquiposAdicionales);
+      const tieneAdicionales = Boolean(extraerEquiposAdicionales(textoEquiposAdicionales).length);
+
+      if (tieneAdicionales) {
+        const colEquiposAdicionales = asegurarColumnaPorClave(sheet, colMapGuardado, "equipos_adicionales", "equipos_adicionales");
+        const colSerialAdicional = asegurarColumnaPorClave(sheet, colMapGuardado, "serial_adicional", "serial_adicional");
+        const colDetalleEquipos = asegurarColumnaPorClave(sheet, colMapGuardado, "detalle_equipos", "detalle_equipos");
+
+        sheet.getRange(lastRow, colEquiposAdicionales).setValue("Sí");
+        sheet.getRange(lastRow, colSerialAdicional).setValue(data.serial_adicional || adicionalesPlano);
+        sheet.getRange(lastRow, colDetalleEquipos).setValue(data.detalle_equipos || "");
+      }
+
       const colEquipoAdicional = asegurarColumnaEquipoAdicional(sheet, colMapGuardado);
       Logger.log("Columna equipo_adicional: " + colEquipoAdicional);
-      sheet.getRange(lastRow, colEquipoAdicional).setValue(formatearEquiposAdicionalesPlano(data.equipo_adicional || ""));
+      sheet.getRange(lastRow, colEquipoAdicional).setValue(data.equipo_adicional || adicionalesPlano || "");
+
+      const colDocumentosPendientes = asegurarColumnaPorClave(sheet, colMapGuardado, "documentos_pendientes", "documentos_pendientes");
+      sheet.getRange(lastRow, colDocumentosPendientes).setValue("RECEPCION");
     } catch (mapErr) {
       Logger.log("No se pudo guardar tipo_firma: " + mapErr);
     }
 
-    // === GENERAR PDF ===
-    const datosPDF = {
-      nombre: data.nombre || "",
-      cedula: data.cedula || "",
-      correo: data.correo || "",
-      sede: data.sede || "",
-      equipo: data.equipo || "",
-      cantidad: data.cantidad || "",
-      cargador: data.cargador || "",
-      novedad: data.novedad || "No",
-      descripcion: data.descripcion || "",
-      foto_dano: fotoDanoURL,
-      observacion: data.observacion || "",
-      firma: data.firma,
-      tipo_firma: data.tipo_firma || "",
-      detalle_equipos: data.detalle_equipos || "",
-      fecha: data.fecha || "",
-      solicita_cambio: data.solicita_cambio || "No",
-      serial_cambio: data.serial_cambio || "",
-      foto_cambio: data.foto_cambio || "",
-      equipos_adicionales: data.equipos_adicionales || "No",
-      serial_adicional: data.serial_adicional || "",
-      equipo_adicional: data.equipo_adicional || data.serial_adicional || ""
-    };
-
-    const pdfUrl = enviarPDFporCorreo(datosPDF);
-    Logger.log("Resultado PDF: " + pdfUrl);
-
-    const COLUMNA_ACTA = colMapGuardado && colMapGuardado.acta ? colMapGuardado.acta : 19;
-    if (pdfUrl && pdfUrl.includes("drive.google.com")) {
-      sheet.getRange(lastRow, COLUMNA_ACTA).setValue(pdfUrl);
-      Logger.log("✅ PDF guardado en columna " + COLUMNA_ACTA);
-    }
-
-    // === CORREO NOVEDAD ===
-    if (normalizarSi(data.novedad) === "si" && (data.descripcion || fotoDanoURL)) {
-      try {
-        data.foto_dano = fotoDanoURL;
-        data.hora_entrega = horaEntrega;
-        enviarCorreoNovedad(data);
-      } catch (e) {
-        Logger.log("Error enviando correo de novedad: " + e);
-      }
-    }
+    programarProcesamientoDocumentosAsync();
 
     Logger.log("=== FIN doPost OK ===");
-    return jsonResponse({ status: "ok", id_solicitud: idSolicitud });
+    return jsonResponse({
+      status: "ok",
+      id_solicitud: idSolicitud,
+      message: "Registro guardado. El PDF y correos se procesarán en segundo plano."
+    });
 
   } catch (err) {
     Logger.log("❌ ERROR CRÍTICO doPost: " + err.toString());
@@ -846,6 +825,185 @@ function guardarImagen(base64, nombre, folderId) {
   const blob = Utilities.newBlob(decoded, "image/png", nombre + "_" + Date.now() + ".png");
   const file = folder.createFile(blob);
   return file.getUrl();
+}
+
+function programarProcesamientoDocumentosAsync() {
+  try {
+    const handler = "procesarDocumentosPendientesAsync";
+    const existe = ScriptApp.getProjectTriggers()
+      .some(trigger => trigger.getHandlerFunction && trigger.getHandlerFunction() === handler);
+
+    if (!existe) {
+      ScriptApp.newTrigger(handler)
+        .timeBased()
+        .after(60 * 1000)
+        .create();
+      Logger.log("Procesamiento de documentos programado.");
+    }
+  } catch (err) {
+    Logger.log("No se pudo programar procesamiento de documentos: " + err);
+  }
+}
+
+function procesarDocumentosPendientesAsync() {
+  const handler = "procesarDocumentosPendientesAsync";
+  try {
+    procesarRecepcionesPendientes_(3);
+    procesarDevolucionesPendientes_(3);
+  } catch (err) {
+    Logger.log("Error procesando documentos pendientes: " + err);
+  } finally {
+    try {
+      ScriptApp.getProjectTriggers()
+        .filter(trigger => trigger.getHandlerFunction && trigger.getHandlerFunction() === handler)
+        .forEach(trigger => ScriptApp.deleteTrigger(trigger));
+    } catch (triggerErr) {
+      Logger.log("No se pudo limpiar trigger de documentos: " + triggerErr);
+    }
+
+    try {
+      if (hayDocumentosPendientes_()) {
+        programarProcesamientoDocumentosAsync();
+      }
+    } catch (pendErr) {
+      Logger.log("No se pudo verificar documentos pendientes: " + pendErr);
+    }
+  }
+}
+
+function procesarRecepcionesPendientes_(limite) {
+  const sheet = getMainSheet();
+  const colMap = getColumnMap(sheet);
+  if (!colMap.documentos_pendientes) return;
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow <= 1) return;
+
+  const colActa = asegurarColumnaPorClave(sheet, colMap, "acta", "acta");
+  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  let procesados = 0;
+
+  for (let i = 0; i < rows.length && procesados < limite; i++) {
+    const rowNumber = i + 2;
+    const r = getRowDataObject(rows[i], colMap);
+    const pendiente = String(r.documentos_pendientes || "").toUpperCase();
+    if (pendiente !== "RECEPCION") continue;
+
+    const datosPDF = construirDatosPdfRecepcionDesdeFila_(r);
+    const pdfUrl = enviarPDFporCorreo(datosPDF);
+    if (pdfUrl && pdfUrl.includes("drive.google.com")) {
+      sheet.getRange(rowNumber, colActa).setValue(pdfUrl);
+      Logger.log("PDF recepción guardado en fila " + rowNumber);
+    }
+
+    if (normalizarSi(r.novedad) === "si" && (r.descripcion || r.foto_dano)) {
+      try {
+        const datosNovedad = Object.assign({}, r, {
+          foto_dano: r.foto_dano || "",
+          hora_entrega: r.hora_entrega || ""
+        });
+        enviarCorreoNovedad(datosNovedad);
+      } catch (mailErr) {
+        Logger.log("Error enviando novedad pendiente: " + mailErr);
+      }
+    }
+
+    sheet.getRange(rowNumber, colMap.documentos_pendientes).setValue("");
+    procesados++;
+  }
+}
+
+function procesarDevolucionesPendientes_(limite) {
+  const sheet = getMainSheet();
+  const colMap = getColumnMap(sheet);
+  if (!colMap.documentos_pendientes) return;
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow <= 1) return;
+
+  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  let procesados = 0;
+
+  for (let i = 0; i < rows.length && procesados < limite; i++) {
+    const rowNumber = i + 2;
+    const updatedObj = getRowDataObject(rows[i], colMap);
+    const pendiente = String(updatedObj.documentos_pendientes || "").toUpperCase();
+    if (pendiente !== "DEVOLUCION") continue;
+
+    updatedObj.acta = updatedObj.acta || buscarActaRecepcionRelacionada(updatedObj);
+    const pdfResumenUrl = generarPdfResumenFinal(updatedObj);
+    if (colMap.pdf_resumen_url) {
+      sheet.getRange(rowNumber, colMap.pdf_resumen_url).setValue(pdfResumenUrl || "");
+    }
+
+    if (!pdfResumenUrl && updatedObj.correo) {
+      try {
+        GmailApp.sendEmail({
+          to: String(updatedObj.correo).trim(),
+          replyTo: SUPPORT_EMAIL,
+          subject: "Devolución de equipo registrada",
+          htmlBody: `
+            <h2>Devolución registrada correctamente</h2>
+            <p><strong>Nombre:</strong> ${updatedObj.nombre || ""}</p>
+            <p><strong>Sede:</strong> ${updatedObj.sede || ""}</p>
+            <p><strong>Equipo:</strong> ${updatedObj.equipo || ""}</p>
+            <p><strong>Cantidad devuelta:</strong> ${updatedObj.cantidad_devuelta || ""}</p>
+            <p><strong>Estado final:</strong> ${updatedObj.estado_final || ""}</p>
+            <p><strong>Fecha devolución:</strong> ${updatedObj.fecha_devolucion || ""}</p>
+            <p><strong>Hora devolución:</strong> ${updatedObj.hora_devolucion_real || ""}</p>
+            ${updatedObj.foto_devolucion ? '<p><a href="' + updatedObj.foto_devolucion + '">Ver foto de la novedad</a></p>' : ""}
+            <hr><p>Sistema de recepción de equipos</p>
+          `
+        });
+      } catch (mailErr) {
+        Logger.log("Error enviando correo devolución sin PDF: " + mailErr);
+      }
+    }
+
+    sheet.getRange(rowNumber, colMap.documentos_pendientes).setValue("");
+    procesados++;
+  }
+}
+
+function hayDocumentosPendientes_() {
+  const sheet = getMainSheet();
+  const colMap = getColumnMap(sheet);
+  if (!colMap.documentos_pendientes) return false;
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return false;
+
+  const valores = sheet.getRange(2, colMap.documentos_pendientes, lastRow - 1, 1).getValues();
+  return valores.some(row => String(row[0] || "").trim() !== "");
+}
+
+function construirDatosPdfRecepcionDesdeFila_(r) {
+  const textoAdicional = obtenerTextoEquiposAdicionales(r);
+  return {
+    nombre: r.nombre || "",
+    cedula: r.cedula || "",
+    correo: r.correo || "",
+    sede: r.sede || "",
+    equipo: r.equipo || "",
+    cantidad: r.cantidad || "",
+    cargador: r.cargador || "",
+    novedad: r.novedad || "No",
+    descripcion: r.descripcion || "",
+    foto_dano: r.foto_dano || "",
+    observacion: r.observacion || "",
+    firma: r.firma || "",
+    tipo_firma: r.tipo_firma || "",
+    detalle_equipos: r.detalle_equipos || "",
+    fecha: r.fecha || "",
+    solicita_cambio: r.solicita_cambio || "No",
+    serial_cambio: r.serial_cambio || "",
+    foto_cambio: r.foto_cambio || "",
+    equipos_adicionales: extraerEquiposAdicionales(textoAdicional).length ? "Sí" : (r.equipos_adicionales || "No"),
+    serial_adicional: r.serial_adicional || "",
+    equipo_adicional: r.equipo_adicional || r.serial_adicional || textoAdicional || ""
+  };
 }
 
 function esFirmaSiAutoriza(valor) {
@@ -1327,7 +1485,10 @@ function enviarCorreoNovedad(data) {
   Logger.log("Correo de novedad enviado a: " + destinatarios);
 }
 function getMainSheet() {
-  return SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheets = ss.getSheets();
+  const target = sheets.find(sheet => sheet.getSheetId() === MAIN_SHEET_GID);
+  return target || sheets[0];
 }
 
 function getColumnMap(sheet) {
@@ -1394,6 +1555,7 @@ function getColumnMap(sheet) {
   map.foto_devolucion = buscarColumna("foto_devolucion");
   map.equipo_adicional = buscarColumna("equipo_adicional", "equipo adicional", "equipos_adicionales_detalle", "detalle_adicionales");
   map.correo_soporte_devolucion = buscarColumna("correo_soporte_devolucion", "correo_institucional_soporte", "correo_soporte");
+  map.documentos_pendientes = buscarColumna("documentos_pendientes", "documentos pendientes");
 
   Logger.log("MAP COLUMNAS: " + JSON.stringify(map));
   return map;
@@ -1405,6 +1567,15 @@ function asegurarColumnaEquipoAdicional(sheet, colMap) {
   sheet.getRange(1, nuevaCol).setValue("equipo_adicional");
   if (colMap) colMap.equipo_adicional = nuevaCol;
       Logger.log("Se creó la columna equipo_adicional en la posición: " + nuevaCol);
+  return nuevaCol;
+}
+
+function asegurarColumnaPorClave(sheet, colMap, key, header) {
+  if (colMap && colMap[key]) return colMap[key];
+  const nuevaCol = sheet.getLastColumn() + 1;
+  sheet.getRange(1, nuevaCol).setValue(header || key);
+  if (colMap) colMap[key] = nuevaCol;
+  Logger.log("Se creó la columna " + (header || key) + " en la posición: " + nuevaCol);
   return nuevaCol;
 }
 
@@ -1853,6 +2024,8 @@ function cerrarSolicitud(data) {
     if (colMap.foto_devolucion) sheet.getRange(targetRowNumber, colMap.foto_devolucion).setValue(fotoDevolucionURL);
     if (colMap.correo_soporte_devolucion) sheet.getRange(targetRowNumber, colMap.correo_soporte_devolucion).setValue(correoSoporteDevolucion);
     if (colMap.estado) sheet.getRange(targetRowNumber, colMap.estado).setValue(hayEquipoAdicionalPendiente ? "EN_CURSO" : "CERRADO");
+    const colDocumentosPendientes = asegurarColumnaPorClave(sheet, colMap, "documentos_pendientes", "documentos_pendientes");
+    sheet.getRange(targetRowNumber, colDocumentosPendientes).setValue("DEVOLUCION");
 
     SpreadsheetApp.flush();
     limpiarCacheDisponibilidadSede(targetRow.sede || data.sede, targetRow.fecha || fechaDevolucion);
@@ -1864,43 +2037,12 @@ function cerrarSolicitud(data) {
     updatedObj.equipo_adicional = equipoAdicionalActualizado || updatedObj.equipo_adicional || updatedObj.serial_adicional || "";
     updatedObj.estado_final = estadoFinalGuardado;
     updatedObj.foto_devolucion = fotoDevolucionURL || updatedObj.foto_devolucion || "";
-    updatedObj.foto_devolucion_base64 = fotoDevolucionURL
-      ? obtenerImagenBase64(fotoDevolucionURL)
-      : (data.foto_devolucion && String(data.foto_devolucion).startsWith("data:image") ? data.foto_devolucion : "");
-
-    const pdfResumenUrl = generarPdfResumenFinal(updatedObj);
-    if (colMap.pdf_resumen_url) sheet.getRange(targetRowNumber, colMap.pdf_resumen_url).setValue(pdfResumenUrl || "");
-
-    try {
-      if (!pdfResumenUrl && updatedObj.correo) {
-        GmailApp.sendEmail({
-          to: String(updatedObj.correo).trim(),
-          replyTo: SUPPORT_EMAIL,
-          subject: "Devolución de equipo registrada",
-          htmlBody: `
-            <h2>Devolución registrada correctamente</h2>
-            <p><strong>Nombre:</strong> ${updatedObj.nombre || ""}</p>
-            <p><strong>Sede:</strong> ${updatedObj.sede || ""}</p>
-            <p><strong>Equipo:</strong> ${updatedObj.equipo || ""}</p>
-            <p><strong>Cantidad devuelta:</strong> ${data.cantidad_devuelta || ""}</p>
-            <p><strong>Estado final:</strong> ${data.estado_final || ""}</p>
-            <p><strong>Fecha devolución:</strong> ${fechaDevolucion}</p>
-            <p><strong>Hora devolución:</strong> ${horaDevolucionReal}</p>
-            ${fotoDevolucionURL ? '<p><a href="' + fotoDevolucionURL + '">Ver foto de la novedad</a></p>' : ""}
-            ${pdfResumenUrl ? '<p><a href="' + pdfResumenUrl + '">Ver acta final PDF</a></p>' : ""}
-            <hr><p>Sistema de recepción de equipos</p>
-          `
-        });
-        Logger.log("Correo devolución enviado a: " + updatedObj.correo);
-      }
-    } catch (mailError) {
-      Logger.log("Error enviando correo: " + mailError);
-    }
+    programarProcesamientoDocumentosAsync();
 
     return jsonResponse({
       status: "ok",
-      message: "Solicitud cerrada correctamente",
-      pdf_resumen_url: pdfResumenUrl || "",
+      message: "Solicitud cerrada correctamente. El PDF final se procesará en segundo plano.",
+      pdf_resumen_url: "",
       pdf_recepcion_url: updatedObj.acta || ""
     });
 

@@ -481,10 +481,16 @@
         // -- Configuración Global --
         const URL_GOOGLE_SCRIPT_DOMAIN = "https://script.google.com/a/macros/innovaschools.edu.co/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
         const URL_GOOGLE_SCRIPT_PUBLIC = "https://script.google.com/macros/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
-        const URL_GOOGLE_SCRIPT = URL_GOOGLE_SCRIPT_PUBLIC;
+        const URL_GOOGLE_SCRIPT = URL_GOOGLE_SCRIPT_DOMAIN;
         
         // ?? FUNCIÓN GLOBAL - postToAppsScript para POST
         async function postToAppsScript(payload) {
+            try {
+                await assertAppsScriptDisponible();
+            } catch (err) {
+                console.warn("No se pudo validar Apps Script antes del POST; se intentará guardar de todas formas:", err);
+            }
+
             return new Promise((resolve, reject) => {
                 const id = `appsScriptPost_${Date.now()}_${Math.random().toString(36).slice(2)}`;
                 const iframe = document.createElement('iframe');
@@ -536,6 +542,12 @@
                             return;
                         }
 
+                        if (/Sign in - Google Accounts|accounts\.google\.com|AccountChooser/i.test(responseText)) {
+                            cleanup();
+                            reject(new Error('Apps Script está pidiendo iniciar sesión. Revisa el deployment: debe permitir acceso al formulario o estar abierto para Anyone.'));
+                            return;
+                        }
+
                         const data = JSON.parse(responseText);
                         cleanup();
                         resolve(data);
@@ -578,6 +590,19 @@
             });
         }
         window.postToAppsScript = postToAppsScript;
+
+        async function assertAppsScriptDisponible() {
+            try {
+                const result = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=getSedesSoporte`, 8000, true);
+                if (result && (Array.isArray(result) || result.status === 'ok' || result.error !== undefined)) {
+                    return true;
+                }
+            } catch (err) {
+                throw new Error('Apps Script no está disponible como API. Abre el deployment y revisa permisos/acceso: ' + err.message);
+            }
+
+            throw new Error('Apps Script respondió algo inesperado. Revisa que la URL sea del deployment activo.');
+        }
 
         // JSONP helper para comunicarse con Google Apps Script (GET)
         function getAppsScriptFallbackUrl(url) {
