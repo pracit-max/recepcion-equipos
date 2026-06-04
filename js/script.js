@@ -178,6 +178,17 @@ async function postToAppsScript(payload) {
 
 window.postToAppsScript = postToAppsScript;
 
+function dispararProcesamientoDocumentosPendientes() {
+    try {
+        const url = `${URL_GOOGLE_SCRIPT}?action=procesarDocumentosPendientes&t=${Date.now()}`;
+        const beacon = new Image();
+        beacon.referrerPolicy = 'no-referrer';
+        beacon.src = url;
+    } catch (err) {
+        console.warn("No se pudo disparar procesamiento de documentos:", err);
+    }
+}
+
 async function assertAppsScriptDisponible() {
     try {
         const result = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=getSedesSoporte`, 8000, true);
@@ -494,7 +505,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 100); 
     }
 });
-
 
 // Función general para cargar equipos según la sede
 // Función mejorada para cargar equipos según la sede
@@ -1101,6 +1111,10 @@ function toggleSeleccionEquipoAdicional(eq) {
     equiposAdicionalesSeleccionados = exists
         ? equiposAdicionalesSeleccionados.filter(item => getEquipoAdicionalKey(item) !== key)
         : [...equiposAdicionalesSeleccionados, eq];
+    const toggle = document.getElementById('equiposAdicionalesToggle');
+    if (toggle) toggle.checked = equiposAdicionalesSeleccionados.length > 0;
+    const resumen = document.getElementById('equiposAdicionalesResumen');
+    if (resumen) resumen.hidden = equiposAdicionalesSeleccionados.length === 0;
     renderizarEquiposAdicionales();
     actualizarResumenEquiposAdicionales();
 }
@@ -1157,13 +1171,13 @@ function validarRango() {
     if (!errorMsg || !totalLabel) return true;
     
     if (inicio > 0 && fin > 0) {
-        if (fin <= inicio || (fin - inicio) > 500) {
+        const total = fin - inicio + 1;
+        if (fin < inicio || total > 500) {
             errorMsg.style.display = 'block';
             totalLabel.textContent = '0';
             return false;
         } else {
             errorMsg.style.display = 'none';
-            const total = fin - inicio + 1;
             totalLabel.textContent = total;
             if (total > 100) {
                 totalLabel.innerHTML = total + ' <span style="color: #f59e0b;"><i class="fas fa-exclamation-triangle"></i> Muchos equipos</span>';
@@ -2135,6 +2149,7 @@ async function handleSubmit(e) {
         const result = await postToAppsScript(formData);
 
         if (result.status === 'ok') {
+            dispararProcesamientoDocumentosPendientes();
             showToast('¡Registro guardado exitosamente!<br>Recargando...', 'success');
 
             setTimeout(() => {
@@ -2222,14 +2237,16 @@ async function collectFormData() {
         const rangoInicio = parseInt(document.getElementById('rangoInicio').value);
         const rangoFin = parseInt(document.getElementById('rangoFin').value);
         
-        if (!rangoInicio || !rangoFin || rangoFin <= rangoInicio || rangoFin > 500) {
+        const totalOtros = rangoFin - rangoInicio + 1;
+        if (!rangoInicio || !rangoFin || rangoFin < rangoInicio || totalOtros > 500) {
             showToast('Verifique el rango numérico (1-500)', 'error');
             return false;
         }
         data.sede = document.getElementById('sede').value;
         data.equipo = `Otros equipos (${rangoInicio} - ${rangoFin})`;
-        data.cantidad = rangoFin - rangoInicio + 1;
+        data.cantidad = totalOtros;
         data.detalle_equipos = `Equipos del número ${rangoInicio} hasta ${rangoFin} (Total: ${data.cantidad})`;
+        data.serial_y_placa = `Rango: ${rangoInicio} - ${rangoFin}`;
         data.rango_inicio = rangoInicio;
         data.rango_fin = rangoFin;
     } else {
@@ -2246,11 +2263,12 @@ async function collectFormData() {
         data.detalle_equipos = equiposCarro.map((e, i) => 
             `${i + 1}. Placa: ${e.placa} - Serial: ${e.serial}`
         ).join('\n');
+        data.serial_y_placa = equiposCarro.map(e => `Placa: ${e.placa || '-'} - Serial: ${e.serial || '-'}`).join('\n');
         data.rango_inicio = '';
         data.rango_fin = '';
     }
 
-    const quiereAdicionales = Boolean(document.getElementById('equiposAdicionalesToggle')?.checked);
+    const quiereAdicionales = Boolean(document.getElementById('equiposAdicionalesToggle')?.checked || equiposAdicionalesSeleccionados.length);
     if (quiereAdicionales) {
         if (!equiposAdicionalesSeleccionados.length) {
             showToast('Selecciona al menos un equipo adicional de BODEGA TI', 'error');
@@ -2275,6 +2293,9 @@ async function collectFormData() {
         data.equipos_adicionales = 'Sí';
         data.serial_adicional = detalleAdicional;
         data.equipo_adicional = stringifyEquiposAdicionales(adicionalesJson);
+        data.additionalEquipment = stringifyEquiposAdicionales(adicionalesJson);
+        data.equiposAdicionales = stringifyEquiposAdicionales(adicionalesJson);
+        data.cantidad_adicional = equiposAdicionalesSeleccionados.length;
         console.log("Equipo adicional capturado:", adicionalesJson);
         data.cantidad = Number(data.cantidad || 0) + equiposAdicionalesSeleccionados.length;
         data.detalle_equipos = [data.detalle_equipos, '--- Equipos adicionales BODEGA TI ---', detalleAdicional]
@@ -2284,6 +2305,9 @@ async function collectFormData() {
         data.equipos_adicionales = 'No';
         data.serial_adicional = '';
         data.equipo_adicional = '';
+        data.additionalEquipment = '';
+        data.equiposAdicionales = '';
+        data.cantidad_adicional = 0;
     }
     
     // Procesar fotos (solo foto_dano)
@@ -2809,7 +2833,8 @@ function showToast(message, type = 'info', duration = 3000) {
 }
 
 function showLoading(show) {
-    document.getElementById('loadingOverlay').classList.toggle('active', show);
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) overlay.classList.toggle('active', show);
 }
 
 // Cerrar modal al hacer clic fuera
@@ -3056,16 +3081,16 @@ function validarCorreoSoporteDevolucion(mostrarMensaje = true) {
     if (!input) return true;
 
     const value = input.value.trim().toLowerCase();
-    const valido = validarCorreoInstitucional(value);
+    const valido = !value || validarCorreoInstitucional(value);
     input.value = value;
     input.classList.toggle("input-error", Boolean(value) && !valido);
-    input.classList.toggle("input-ok", valido);
+    input.classList.toggle("input-ok", Boolean(value) && valido);
 
     if (error) {
         error.style.display = value && !valido ? "flex" : "none";
     }
 
-    if (mostrarMensaje && !valido) {
+    if (mostrarMensaje && value && !valido) {
         showToast("El correo de soporte debe ser @innovaschools.edu.co", "error");
     }
 
@@ -3194,6 +3219,9 @@ function obtenerFirmaDevolucion() {
     };
 }
 async function cerrarSolicitudFrontend() {
+    const submitButton = document.querySelector('#formCerrarBox .btn-primary');
+    if (submitButton?.disabled) return;
+
     const id_solicitud = document.getElementById("devolucion_id_solicitud").value;
     const cantidad_devuelta = document.getElementById("cantidad_devuelta").value;
     const estado_final = document.getElementById("estado_final").value;
@@ -3217,7 +3245,7 @@ async function cerrarSolicitudFrontend() {
         return;
     }
 
-    if (!validarCorreoInstitucional(correo_soporte_devolucion)) {
+    if (correo_soporte_devolucion && !validarCorreoInstitucional(correo_soporte_devolucion)) {
         validarCorreoSoporteDevolucion(true);
         document.getElementById("correo_soporte_devolucion")?.focus();
         return;
@@ -3243,6 +3271,12 @@ async function cerrarSolicitudFrontend() {
     }
 
     try {
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+        }
+        showLoading(true);
+
         const payload = {
             action: "cerrarSolicitud",
             id_solicitud,
@@ -3271,6 +3305,7 @@ async function cerrarSolicitudFrontend() {
         const result = await postToAppsScript(payload);
 
         if (result.status === "ok") {
+            dispararProcesamientoDocumentosPendientes();
             showToast("Solicitud cerrada correctamente", "success");
             document.getElementById("formCerrarBox").style.display = "none";
             removeFotoDevolucion();
@@ -3281,6 +3316,12 @@ async function cerrarSolicitudFrontend() {
     } catch (err) {
         console.error(err);
         showToast("Error de conexión al cerrar la solicitud", "error");
+    } finally {
+        showLoading(false);
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-check"></i> Confirmar devolución';
+        }
     }
 }
 function obtenerSedeDesdeURL() {
