@@ -699,10 +699,9 @@ function doPost(e) {
     cache.put(key, "1", 60);
 
     const sheet = getMainSheet();
-    sheet.appendRow(new Array(sheet.getLastColumn()).fill(""));
+    const lastRow = obtenerSiguienteFilaDatos_(sheet);
     limpiarCacheDisponibilidadSede(data.sede, data.fecha || Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd"));
 
-    const lastRow = sheet.getLastRow();
     Logger.log("Fila insertada en: " + lastRow);
 
     let colMapGuardado = null;
@@ -787,6 +786,17 @@ function guardarImagen(base64, nombre, folderId) {
   const blob = Utilities.newBlob(decoded, "image/png", nombre + "_" + Date.now() + ".png");
   const file = folder.createFile(blob);
   return file.getUrl();
+}
+
+function obtenerSiguienteFilaDatos_(sheet) {
+  const ultimaFilaConDatos = Math.max(sheet.getLastRow(), 1);
+  const siguienteFila = Math.max(ultimaFilaConDatos + 1, 2);
+
+  if (siguienteFila > sheet.getMaxRows()) {
+    sheet.insertRowsAfter(sheet.getMaxRows(), siguienteFila - sheet.getMaxRows());
+  }
+
+  return siguienteFila;
 }
 
 function programarProcesamientoDocumentosAsync() {
