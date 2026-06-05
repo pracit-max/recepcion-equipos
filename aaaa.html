@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generador QR con Logo</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      color: #111827;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 540px;
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 30px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      text-align: center;
+      color: #0f172a;
+      margin-bottom: 10px;
+      font-size: 32px;
+    }
+
+    p {
+      text-align: center;
+      color: #64748b;
+      margin-bottom: 25px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+      color: #334155;
+    }
+
+    input[type="url"],
+    input[type="file"],
+    input[type="color"] {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      font-size: 15px;
+    }
+
+    input[type="url"]:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .range-info {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 5px;
+    }
+
+    .colors {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: 0.25s ease;
+    }
+
+    #generateBtn {
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    #generateBtn:hover {
+      background: #1d4ed8;
+    }
+
+    #downloadBtn {
+      background: #16a34a;
+      color: #ffffff;
+    }
+
+    #downloadBtn:hover {
+      background: #15803d;
+    }
+
+    #downloadBtn:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    .qr-box {
+      margin-top: 25px;
+      min-height: 350px;
+      background: #f8fafc;
+      border: 2px dashed #cbd5e1;
+      border-radius: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 15px;
+    }
+
+    #qrTemporal {
+      display: none;
+    }
+
+    canvas {
+      max-width: 100%;
+      background: white;
+      border-radius: 8px;
+    }
+
+    .note {
+      margin-top: 15px;
+      font-size: 13px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+    <h1>Generador QR</h1>
+    <p>Pega un link, agrega un logo y descarga tu código QR.</p>
+
+    <div class="form-group">
+      <label for="urlInput">Link de la página</label>
+      <input 
+        type="url" 
+        id="urlInput" 
+        placeholder="https://ejemplo.com"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="logoInput">Logo opcional</label>
+      <input 
+        type="file" 
+        id="logoInput" 
+        accept="image/*"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="logoSize">Tamaño del logo</label>
+      <input 
+        type="range" 
+        id="logoSize" 
+        min="35" 
+        max="120" 
+        value="75"
+      />
+      <div class="range-info">
+        Tamaño actual: <span id="logoSizeText">75</span> px
+      </div>
+    </div>
+
+    <div class="colors">
+      <div class="form-group">
+        <label for="qrColor">Color QR</label>
+        <input type="color" id="qrColor" value="#000000">
+      </div>
+
+      <div class="form-group">
+        <label for="bgColor">Color fondo</label>
+        <input type="color" id="bgColor" value="#ffffff">
+      </div>
+    </div>
+
+    <button id="generateBtn">Generar QR</button>
+    <button id="downloadBtn" disabled>Descargar QR</button>
+
+    <div class="qr-box">
+      <canvas id="finalCanvas"></canvas>
+    </div>
+
+    <div id="qrTemporal"></div>
+
+    <div class="note">
+      Usa links con https:// para que el QR funcione correctamente.
+    </div>
+  </div>
+
+  <!-- Librería QR corregida -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <script>
+    const urlInput = document.getElementById("urlInput");
+    const logoInput = document.getElementById("logoInput");
+    const logoSizeInput = document.getElementById("logoSize");
+    const logoSizeText = document.getElementById("logoSizeText");
+    const generateBtn = document.getElementById("generateBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+    const finalCanvas = document.getElementById("finalCanvas");
+    const qrTemporal = document.getElementById("qrTemporal");
+    const qrColor = document.getElementById("qrColor");
+    const bgColor = document.getElementById("bgColor");
+
+    const ctx = finalCanvas.getContext("2d");
+
+    let logoImage = null;
+
+    logoSizeInput.addEventListener("input", () => {
+      logoSizeText.textContent = logoSizeInput.value;
+    });
+
+    logoInput.addEventListener("change", function () {
+      const file = logoInput.files[0];
+
+      if (!file) {
+        logoImage = null;
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = function (event) {
+        logoImage = new Image();
+
+        logoImage.onload = function () {
+          console.log("Logo cargado correctamente");
+        };
+
+        logoImage.src = event.target.result;
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    generateBtn.addEventListener("click", function () {
+      const url = urlInput.value.trim();
+
+      if (!url) {
+        alert("Pega un link primero.");
+        return;
+      }
+
+      if (!isValidUrl(url)) {
+        alert("El link no es válido. Usa algo como https://ejemplo.com");
+        return;
+      }
+
+      if (typeof QRCode === "undefined") {
+        alert("No cargó la librería QR. Revisa que tengas internet o que el CDN no esté bloqueado.");
+        return;
+      }
+
+      generateQR(url);
+    });
+
+    downloadBtn.addEventListener("click", function () {
+      const link = document.createElement("a");
+      link.download = "codigo-qr-con-logo.png";
+      link.href = finalCanvas.toDataURL("image/png");
+      link.click();
+    });
+
+    function generateQR(url) {
+      const qrSize = 320;
+
+      qrTemporal.innerHTML = "";
+
+      new QRCode(qrTemporal, {
+        text: url,
+        width: qrSize,
+        height: qrSize,
+        colorDark: qrColor.value,
+        colorLight: bgColor.value,
+        correctLevel: QRCode.CorrectLevel.H
+      });
+
+      setTimeout(() => {
+        const qrCanvas = qrTemporal.querySelector("canvas");
+        const qrImg = qrTemporal.querySelector("img");
+
+        finalCanvas.width = qrSize;
+        finalCanvas.height = qrSize;
+
+        ctx.clearRect(0, 0, qrSize, qrSize);
+
+        if (qrCanvas) {
+          ctx.drawImage(qrCanvas, 0, 0, qrSize, qrSize);
+
+          if (logoImage) {
+            drawLogo();
+          }
+
+          downloadBtn.disabled = false;
+        } else if (qrImg) {
+          const img = new Image();
+          img.onload = function () {
+            ctx.drawImage(img, 0, 0, qrSize, qrSize);
+
+            if (logoImage) {
+              drawLogo();
+            }
+
+            downloadBtn.disabled = false;
+          };
+          img.src = qrImg.src;
+        } else {
+          alert("No se pudo generar el QR.");
+        }
+      }, 300);
+    }
+
+    function drawLogo() {
+      const logoSize = Number(logoSizeInput.value);
+
+      const x = (finalCanvas.width - logoSize) / 2;
+      const y = (finalCanvas.height - logoSize) / 2;
+
+      const padding = 10;
+      const borderRadius = 16;
+
+      ctx.fillStyle = "#ffffff";
+      roundRect(
+        ctx,
+        x - padding,
+        y - padding,
+        logoSize + padding * 2,
+        logoSize + padding * 2,
+        borderRadius
+      );
+      ctx.fill();
+
+      ctx.drawImage(logoImage, x, y, logoSize, logoSize);
+    }
+
+    function roundRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    }
+
+    function isValidUrl(value) {
+      try {
+        new URL(value);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  </script>
+
+</body>
+</html>
