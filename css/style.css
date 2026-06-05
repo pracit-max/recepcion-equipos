@@ -3080,12 +3080,13 @@ input.verified {
         scroll-behavior: auto;
     }
 
-    /* ---- VIEWPORT FIJO PARA EVITAR SALTOS ---- */
-    /* Esto evita que el viewport se mueva cuando aparece el teclado */
+    /* ---- VIEWPORT MOVIL ---- */
+    /* Permite llegar al final del formulario cuando aparece el teclado. */
     body {
-        height: 100vh;
-        min-height: 100vh;
+        height: auto !important;
+        min-height: 100dvh;
         position: relative;
+        overflow-y: auto;
     }
 
     /* ---- EVITAR MOVIMIENTO AL ABRIR TECLADO ---- */
@@ -3107,20 +3108,22 @@ input.verified {
     }
 
     .section-actions {
-        position: sticky;
-        bottom: 0;
+        position: static;
+        bottom: auto;
         background: var(--bg-primary, #F8FAF9);
+        padding-bottom: calc(1rem + env(safe-area-inset-bottom));
     }
 
     /* ---- CONTAINER ESTABLE ---- */
     .container {
-        min-height: calc(100vh - 120px);
+        min-height: auto;
+        padding-bottom: calc(2rem + env(safe-area-inset-bottom));
     }
 
     /* ---- PROGRESS STEPS: mantener posición ---- */
     .progress-container {
-        position: sticky;
-        top: 60px;
+        position: static;
+        top: auto;
         z-index: 50;
         background: var(--bg-primary, #F8FAF9);
     }
@@ -3718,11 +3721,11 @@ input.verified {
         display: flex;
         flex-direction: column-reverse;
         gap: 0.75rem;
-        position: sticky;
-        bottom: 0;
+        position: static;
+        bottom: auto;
         background: var(--bg-primary);
-        padding: 1rem 0;
-        margin-top: 1rem;
+        padding: 1rem 0 calc(1.25rem + env(safe-area-inset-bottom));
+        margin: 1rem 0 0;
         z-index: 10;
     }
 

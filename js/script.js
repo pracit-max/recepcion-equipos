@@ -59,23 +59,7 @@ function jsonpRequest(url, timeoutMs = 15000, allowFallback = true) {
 }
 
 function insertarAvisoCuentaInnova() {
-    if (!document.getElementById('form') || document.getElementById('innovaAccountNotice')) return;
-
-    const formHeader = document.querySelector('.form-header');
-    if (!formHeader) return;
-
-    formHeader.insertAdjacentHTML('afterend', `
-        <div class="innova-account-notice" id="innovaAccountNotice">
-            <div class="innova-account-copy">
-                <i class="fas fa-circle-user"></i>
-                <span>Antes de pedir carros, selecciona una cuenta Google <strong>@innovaschools.edu.co</strong>. Solo se permiten cuentas Innova.</span>
-            </div>
-            <button type="button" class="innova-account-btn" onclick="abrirSelectorCuentaInnova()">
-                <i class="fas fa-right-to-bracket"></i>
-                Elegir cuenta Innova
-            </button>
-        </div>
-    `);
+    return;
 }
 
 async function postToAppsScript(payload) {
@@ -461,12 +445,6 @@ function esValorSi(valor) {
 // Cargar equipos al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
-    if (typeof mostrarModalCuentaInnova === 'function') {
-        mostrarModalCuentaInnova();
-    }
-    if (typeof insertarAvisoCuentaInnova === 'function') {
-        insertarAvisoCuentaInnova();
-    }
     if (typeof aplicarCuentaInnovaGuardada === 'function') {
         aplicarCuentaInnovaGuardada();
     }

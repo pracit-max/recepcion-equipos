@@ -316,6 +316,63 @@
             font-weight: 700;
         }
 
+        .support-email-card {
+            border: 1px solid rgba(14, 165, 233, 0.18);
+            border-radius: 16px;
+            padding: 1rem;
+            background: linear-gradient(135deg,
+                rgba(14, 165, 233, 0.07),
+                rgba(34, 197, 94, 0.06),
+                rgba(249, 115, 22, 0.07));
+        }
+
+        .support-email-card label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .support-email-card label i {
+            color: #0EA5E9;
+        }
+
+        .support-optional {
+            margin-left: auto;
+            color: #15803D;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.16);
+            border-radius: 999px;
+            padding: 0.18rem 0.5rem;
+            font-size: 0.68rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        #correo_soporte_devolucion {
+            border-color: rgba(14, 165, 233, 0.28);
+            background: rgba(255, 255, 255, 0.92);
+        }
+
+        #correo_soporte_devolucion:focus {
+            border-color: #0EA5E9;
+            box-shadow:
+                0 0 0 3px rgba(14, 165, 233, 0.12),
+                0 0 0 6px rgba(34, 197, 94, 0.07);
+        }
+
+        #correo_soporte_devolucion.input-ok {
+            border-color: #16A34A !important;
+            background: #F0FDF4 !important;
+            box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12) !important;
+        }
+
+        #correo_soporte_devolucion.input-error {
+            border-color: #F97316 !important;
+            background: #FFF7ED !important;
+            box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.14) !important;
+        }
+
         .table-wrapper {
             overflow-x: auto;
             border-radius: 14px;
@@ -871,8 +928,9 @@
 
             /* Evitar saltos con teclado */
             .main-container {
-                min-height: 100vh;
+                min-height: 100dvh;
                 contain: layout style;
+                overflow: visible;
             }
 
             /* Cards simples */
@@ -1026,11 +1084,12 @@
                 -webkit-overflow-scrolling: touch;
             }
 
-            /* Viewport fijo para evitar saltos */
+            /* Viewport movil con scroll completo */
             body {
-                height: 100vh;
-                min-height: 100vh;
+                height: auto !important;
+                min-height: 100dvh;
                 position: relative;
+                overflow-y: auto !important;
             }
 
             /* Evitar movimiento al abrir teclado */
@@ -1050,22 +1109,32 @@
 
             .section-actions,
             .btn-row {
-                position: sticky;
-                bottom: 0;
-                background: var(--bg-primary, #F8FAF9);
+                position: static !important;
+                bottom: auto !important;
+                background: transparent !important;
+                padding-bottom: calc(1rem + env(safe-area-inset-bottom));
             }
 
             /* Container estable */
             .container {
-                min-height: calc(100vh - 120px);
+                min-height: auto;
+                padding-bottom: calc(2rem + env(safe-area-inset-bottom));
             }
 
             /* Stats mantener posición */
             .stats-row {
-                position: sticky;
-                top: 60px;
-                z-index: 50;
+                position: static !important;
+                top: auto !important;
+                z-index: auto;
                 background: var(--bg-primary, #F8FAF9);
+            }
+
+            .main-container {
+                padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+            }
+
+            #formCerrarBox {
+                scroll-margin-bottom: 140px;
             }
         }
 
@@ -1189,9 +1258,11 @@
                 </button>
             </div>
 
-            <div class="form-group">
+            <div class="form-group support-email-card">
                 <label for="correo_soporte_devolucion">
-                    Correo Institucional <span class="campo-obligatorio">*</span>
+                    <i class="fas fa-headset"></i>
+                    Correo institucional de soporte
+                    <span class="support-optional">Opcional</span>
                 </label>
                 <input
                     type="email"
@@ -1199,7 +1270,6 @@
                     class="form-input"
                     placeholder="soporte@innovaschools.edu.co"
                     autocomplete="email"
-                    required
                     oninput="validarCorreoSoporteDevolucion(false)"
                     onblur="validarCorreoSoporteDevolucion(true)"
                 >

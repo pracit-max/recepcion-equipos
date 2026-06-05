@@ -1929,8 +1929,9 @@ body > * {
 
     /* ---- EVITAR SALTOS CON TECLADO ---- */
     .main-container {
-        min-height: 100vh;
+        min-height: 100dvh;
         contain: layout style;
+        overflow: visible;
     }
 
     /* ---- CARDS: Fondo simple ---- */
@@ -2043,11 +2044,12 @@ body > * {
         scroll-behavior: auto;
     }
 
-    /* ---- VIEWPORT FIJO PARA EVITAR SALTOS ---- */
+    /* ---- VIEWPORT MOVIL ---- */
     body {
-        height: 100vh;
-        min-height: 100vh;
+        height: auto !important;
+        min-height: 100dvh;
         position: relative;
+        overflow-y: auto;
     }
 
     /* ---- EVITAR MOVIMIENTO AL ABRIR TECLADO ---- */
@@ -2066,7 +2068,8 @@ body > * {
 
     /* ---- CONTAINER ESTABLE ---- */
     .main-container {
-        min-height: calc(100vh - 100px);
+        min-height: auto;
+        padding-bottom: calc(2rem + env(safe-area-inset-bottom));
     }
 
     /* ---- HERO estable ---- */
@@ -3941,8 +3944,9 @@ body::after {
 
     /* Evitar saltos con teclado */
     .main-container {
-        min-height: 100vh;
+        min-height: 100dvh;
         contain: layout style;
+        overflow: visible;
     }
 }
 
@@ -4896,11 +4900,12 @@ DASHBOARD - Estilos profesionales
                 scroll-behavior: auto;
             }
 
-            /* Viewport fijo para evitar saltos */
+            /* Viewport movil con scroll completo */
             body {
-                height: 100vh;
-                min-height: 100vh;
+                height: auto !important;
+                min-height: 100dvh;
                 position: relative;
+                overflow-y: auto !important;
             }
 
             /* Evitar movimiento al abrir teclado */
@@ -4922,20 +4927,22 @@ DASHBOARD - Estilos profesionales
             }
 
             .section-actions {
-                position: sticky;
-                bottom: 0;
+                position: static;
+                bottom: auto;
                 background: var(--bg-primary);
+                padding-bottom: calc(1rem + env(safe-area-inset-bottom));
             }
 
             /* Container estable */
             .container {
-                min-height: calc(100vh - 120px);
+                min-height: auto;
+                padding-bottom: calc(2rem + env(safe-area-inset-bottom));
             }
 
             /* Progress steps mantener posición */
             .progress-container {
-                position: sticky;
-                top: 60px;
+                position: static;
+                top: auto;
                 z-index: 50;
                 background: var(--bg-primary);
             }

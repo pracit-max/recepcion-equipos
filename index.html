@@ -102,16 +102,6 @@
                 </div>
                 <h1 class="hero-title" id="heroTitle">¿En qué colegio te encuentras ?</h1>
                 <p class="hero-subtitle" id="heroSubtitle">Selecciona tu ubicación para acceder al formulario correspondiente de recepción de equipos</p>
-                <div class="innova-account-notice">
-                    <div class="innova-account-copy">
-                        <i class="fas fa-circle-user"></i>
-                        <span>Antes de usar el sistema, selecciona una cuenta Google <strong>@innovaschools.edu.co</strong>. Solo se permiten cuentas Innova.</span>
-                    </div>
-                    <button type="button" class="innova-account-btn" onclick="abrirSelectorCuentaInnova()">
-                        <i class="fas fa-right-to-bracket"></i>
-                        Elegir cuenta Innova
-                    </button>
-                </div>
                 <div class="hero-divider"></div>
                 <div class="region-legend" id="regionLegend">
                     <div class="legend-item"><div class="legend-dot cundinamarca"></div>Cundinamarca</div>
@@ -1250,7 +1240,7 @@
                 <div id="modalCorreoSoporte" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.85); display:flex; align-items:center; justify-content:center; z-index:99999; backdrop-filter:blur(8px);">
                     <div style="background:#fff; border-radius:20px; padding:32px; max-width:420px; width:90%; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
                         <div style="text-align:center; margin-bottom:24px;">
-                            <div style="width:64px; height:64px; background:linear-gradient(135deg,#FF6B6B,#4ECDC4); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                            <div style="width:64px; height:64px; background:linear-gradient(135deg,#0EA5E9,#22C55E,#F97316); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
                                 <i class="fas fa-user-shield" style="font-size:28px; color:#fff;"></i>
                             </div>
                             <h2 style="margin:0 0 8px; font-size:22px; color:#1a1a2e;">Identificación de Soporte</h2>
@@ -1259,8 +1249,8 @@
                         <div id="soporteEmailStep" style="margin-bottom:20px;">
                             <input type="email" id="inputCorreoSoporte" 
                                 placeholder="soportecnicoxxxx@innovaschools.edu.co"
-                                style="width:100%; padding:14px 16px; border:2px solid #e2e8f0; border-radius:12px; font-size:15px; box-sizing:border-box;">
-                            <p style="margin:8px 0 0; font-size:12px; color:#888;">
+                                style="width:100%; padding:14px 16px; border:2px solid rgba(14,165,233,0.35); border-radius:12px; font-size:15px; box-sizing:border-box; background:linear-gradient(180deg,#ffffff,#f0f9ff); color:#0f172a; outline:none; box-shadow:0 0 0 4px rgba(14,165,233,0.08);">
+                            <p style="margin:8px 0 0; font-size:12px; color:#f97316; font-weight:600;">
                                 <i class="fas fa-info-circle"></i> Usa el correo que termina en soportecnico...
                             </p>
                         </div>
@@ -1271,17 +1261,17 @@
                                 inputmode="numeric"
                                 autocomplete="one-time-code"
                                 placeholder="000000"
-                                style="width:100%; padding:14px 16px; border:2px solid #e2e8f0; border-radius:12px; font-size:24px; letter-spacing:8px; text-align:center; box-sizing:border-box;">
-                            <p style="margin:8px 0 0; font-size:12px; color:#888;">
+                                style="width:100%; padding:14px 16px; border:2px solid rgba(34,197,94,0.35); border-radius:12px; font-size:24px; letter-spacing:8px; text-align:center; box-sizing:border-box; background:linear-gradient(180deg,#ffffff,#f0fdf4); color:#0f172a; outline:none; box-shadow:0 0 0 4px rgba(34,197,94,0.08);">
+                            <p style="margin:8px 0 0; font-size:12px; color:#0ea5e9; font-weight:600;">
                                 <i class="fas fa-clock"></i> El codigo vence en 10 minutos
                             </p>
                         </div>
                         <div style="display:flex; gap:12px;">
                             <button onclick="cancelarCorreoSoporte()" style="flex:1; padding:14px; border:none; background:#f1f5f9; color:#64748b; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;">Cancelar</button>
-                            <button id="btnValidarCorreoSoporte" onclick="validarCorreoSoporte()" style="flex:1; padding:14px; border:none; background:linear-gradient(135deg,#FF6B6B,#4ECDC4); color:#fff; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;">
+                            <button id="btnValidarCorreoSoporte" onclick="validarCorreoSoporte()" style="flex:1; padding:14px; border:none; background:linear-gradient(135deg,#0EA5E9,#22C55E,#F97316); color:#fff; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer;">
                                 <i class="fas fa-paper-plane"></i> Enviar codigo
                             </button>
-                            <button id="btnValidarCodigoSoporte" onclick="validarCodigoSoporte()" style="display:none; flex:1; padding:14px; border:none; background:linear-gradient(135deg,#FF6B6B,#4ECDC4); color:#fff; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;">
+                            <button id="btnValidarCodigoSoporte" onclick="validarCodigoSoporte()" style="display:none; flex:1; padding:14px; border:none; background:linear-gradient(135deg,#0EA5E9,#22C55E,#F97316); color:#fff; border-radius:12px; font-size:15px; font-weight:700; cursor:pointer;">
                                 <i class="fas fa-check"></i> Verificar
                             </button>
                         </div>
@@ -2681,7 +2671,6 @@ Estado: ${registro.estado || 'EN_CURSO'}
 
         // Inicializar al cargar la página
         document.addEventListener('DOMContentLoaded', () => {
-            mostrarModalCuentaInnova();
             aplicarCuentaInnovaGuardada();
             // Si hay sesión de soporte guardada, restaurar UI completa
             const emailGuardado = localStorage.getItem('emailSoporte');
