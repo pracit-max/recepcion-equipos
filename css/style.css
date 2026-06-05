@@ -3827,3 +3827,47 @@ input.verified {
         padding: 2rem 1rem;
     }
 }
+
+/* ============================================
+   FIX MOVIL: permitir scroll vertical real
+   ============================================ */
+@media (max-width: 768px) {
+    html,
+    body {
+        height: auto !important;
+        min-height: 100% !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        touch-action: pan-y !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior-y: auto !important;
+    }
+
+    body {
+        position: static !important;
+    }
+
+    .main-container,
+    .container,
+    .form-section,
+    .form-section.active,
+    .section-card,
+    #form,
+    #formCerrarBox {
+        height: auto !important;
+        max-height: none !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        contain: none !important;
+        touch-action: pan-y !important;
+    }
+
+    .section-actions,
+    .btn-row,
+    .progress-container,
+    .stats-row {
+        position: static !important;
+        top: auto !important;
+        bottom: auto !important;
+    }
+}

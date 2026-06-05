@@ -1138,6 +1138,43 @@
             }
         }
 
+        @media (max-width: 768px) {
+            html,
+            body {
+                height: auto !important;
+                min-height: 100% !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+                touch-action: pan-y !important;
+                -webkit-overflow-scrolling: touch !important;
+                overscroll-behavior-y: auto !important;
+            }
+
+            body {
+                position: static !important;
+            }
+
+            .main-container,
+            .container,
+            .section-card,
+            #formCerrarBox {
+                height: auto !important;
+                max-height: none !important;
+                min-height: auto !important;
+                overflow: visible !important;
+                contain: none !important;
+                touch-action: pan-y !important;
+            }
+
+            .btn-row,
+            .stats-row,
+            .section-actions {
+                position: static !important;
+                top: auto !important;
+                bottom: auto !important;
+            }
+        }
+
     </style>
 </head>
 <body>
