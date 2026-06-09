@@ -443,32 +443,12 @@ function esValorSi(valor) {
     return limpio.startsWith('si');
 }
 
-function inicializarSelectorCurso() {
-    const select = document.getElementById('curso');
-    if (!select) return;
-
-    const grados = [
-        'Primero', 'Segundo', 'Tercero', 'Cuarto', 'Quinto', 'Sexto',
-        'Septimo', 'Octavo', 'Noveno', 'Decimo', 'Once'
-    ];
-    const opciones = grados.flatMap(grado => ['A', 'B'].map(grupo => `${grado} - ${grupo}`));
-    const valorActual = select.value;
-
-    select.innerHTML = '<option value="">Seleccione el curso...</option>' +
-        opciones.map(curso => `<option value="${curso}">${curso}</option>`).join('');
-
-    if (opciones.includes(valorActual)) {
-        select.value = valorActual;
-    }
-}
 // Cargar equipos al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
     if (typeof aplicarCuentaInnovaGuardada === 'function') {
         aplicarCuentaInnovaGuardada();
     }
-
-    inicializarSelectorCurso();
 
     if (document.getElementById('form')) {
         initializeEventListeners();
@@ -2231,7 +2211,7 @@ async function collectFormData() {
     };
 
     if (!data.curso) {
-        showToast('Debe seleccionar el curso', 'error');
+        showToast('Debe escribir el curso', 'error');
         document.getElementById('curso')?.focus();
         return false;
     }

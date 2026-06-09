@@ -639,7 +639,7 @@ function doPost(e) {
     if (!String(data.curso || "").trim()) {
       return jsonResponse({
         status: "error",
-        error: "Debe seleccionar el curso"
+        error: "Debe escribir el curso"
       });
     }
 
