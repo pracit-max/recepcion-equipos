@@ -1236,7 +1236,7 @@
             
             <div style="margin-bottom: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
                 <div style="flex: 1; min-width: 200px;">
-                    <input type="text" id="buscarSolicitud" class="form-input" placeholder="Buscar por nombre, equipo o placa..." onkeyup="filtrarSolicitudes()">
+                    <input type="text" id="buscarSolicitud" class="form-input" placeholder="Buscar por nombre, curso, equipo o placa..." onkeyup="filtrarSolicitudes()">
                 </div>
                 <div>
                     <select id="filtroCantidad" class="form-input" onchange="filtrarSolicitudes()" style="min-width: 120px;">
@@ -1254,6 +1254,7 @@
                         <tr>
                             <th>Nombre</th>
                             <th>Colegio</th>
+                            <th>Curso</th>
                             <th>Equipo</th>
                             <th>Cant.</th>
                             <th>Hora</th>
@@ -1263,9 +1264,47 @@
                     </thead>
                     <tbody id="enCursoTableBody">
                         <tr>
-                            <td colspan="7" class="table-empty">
+                            <td colspan="8" class="table-empty">
                                 <div class="table-empty-icon"><i class="fas fa-inbox"></i></div>
                                 <div class="table-empty-text">Cargando solicitudes...</div>
+                                <div class="table-empty-sub">Un momento por favor</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="section-card">
+            <h2 class="section-title">
+                <i class="fas fa-file-circle-check"></i>
+                Devoluciones realizadas
+            </h2>
+
+            <div style="margin-bottom: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                <div style="flex: 1; min-width: 200px;">
+                    <input type="text" id="buscarDevolucionCerrada" class="form-input" placeholder="Buscar por nombre, curso, equipo o fecha..." onkeyup="filtrarDevolucionesCerradas()">
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Curso</th>
+                            <th>Equipo</th>
+                            <th>Fecha dev.</th>
+                            <th>Estado final</th>
+                            <th>PDF devolución</th>
+                            <th>Acta original</th>
+                        </tr>
+                    </thead>
+                    <tbody id="devolucionesCerradasTableBody">
+                        <tr>
+                            <td colspan="7" class="table-empty">
+                                <div class="table-empty-icon"><i class="fas fa-file-pdf"></i></div>
+                                <div class="table-empty-text">Cargando devoluciones...</div>
                                 <div class="table-empty-sub">Un momento por favor</div>
                             </td>
                         </tr>

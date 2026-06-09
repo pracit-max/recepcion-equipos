@@ -101,6 +101,7 @@ function doGet(e) {
             nombre: r.nombre || "",
             cedula: r.cedula || "",
             correo: r.correo || "",
+            curso: r.curso || "",
             sede: r.sede || "",
             equipo: r.equipo || "",
             cantidad: r.cantidad || "",
@@ -114,6 +115,57 @@ function doGet(e) {
           }));
 
         return jsonResponse(enCurso);
+
+      } catch (err) {
+        return jsonResponse({ status: "error", error: err.toString() });
+      }
+    }
+
+    if (action === "devolucionesCerradas") {
+      try {
+        const sheet = getMainSheet();
+        const colMap = getColumnMap(sheet);
+        const lastRow = sheet.getLastRow();
+        const lastCol = sheet.getLastColumn();
+
+        if (lastRow <= 1) {
+          return jsonResponse([]);
+        }
+
+        const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+        const sedeFiltro = normalizarTexto(e.parameter.sede || "");
+
+        const cerradas = rows
+          .map(row => getRowDataObject(row, colMap))
+          .filter(r => {
+            const estadoOk = String(r.estado || "").trim().toUpperCase() === "CERRADO";
+            const tieneDevolucion = Boolean(r.fecha_devolucion || r.hora_devolucion_real || r.pdf_resumen_url);
+            const sedeRegistro = normalizarTexto(r.sede || "");
+            const sedeOk = !sedeFiltro || sedeRegistro === sedeFiltro;
+            return estadoOk && tieneDevolucion && sedeOk;
+          })
+          .map((r, index) => ({
+            id: index + 1,
+            id_solicitud: r.id_solicitud || "",
+            fecha: r.fecha || "",
+            nombre: r.nombre || "",
+            cedula: r.cedula || "",
+            correo: r.correo || "",
+            curso: r.curso || "",
+            sede: r.sede || "",
+            equipo: r.equipo || "",
+            cantidad: r.cantidad || "",
+            fecha_devolucion: r.fecha_devolucion || "",
+            hora_devolucion_real: formatearHoraSheet(r.hora_devolucion_real),
+            estado_final: r.estado_final || "",
+            novedad_devolucion: r.novedad_devolucion || "",
+            acta: r.acta || "",
+            pdf_recepcion_url: r.acta || "",
+            pdf_resumen_url: r.pdf_resumen_url || ""
+          }))
+          .sort((a, b) => new Date(b.fecha_devolucion || b.fecha || 0) - new Date(a.fecha_devolucion || a.fecha || 0));
+
+        return jsonResponse(cerradas);
 
       } catch (err) {
         return jsonResponse({ status: "error", error: err.toString() });
@@ -328,6 +380,7 @@ function doGet(e) {
             nombre: r.nombre || "",
             cedula: r.cedula || "",
             correo: r.correo || "",
+            curso: r.curso || "",
             sede: r.sede || "",
             equipo: r.equipo || "",
             cantidad: r.cantidad || "",
@@ -583,6 +636,13 @@ function doPost(e) {
       });
     }
 
+    if (!String(data.curso || "").trim()) {
+      return jsonResponse({
+        status: "error",
+        error: "Debe seleccionar el curso"
+      });
+    }
+
     // === VALIDACIÓN DE DISPONIBILIDAD ===
     const textoEquipoAdicionalEntrada = obtenerTextoEquiposAdicionales(data);
     if (textoEquipoAdicionalEntrada) {
@@ -712,6 +772,7 @@ function doPost(e) {
         nombre: data.nombre || "",
         cedula: data.cedula || "",
         correo: data.correo || "",
+        curso: data.curso || "",
         sede: data.sede || "",
         equipo: data.equipo || "",
         cantidad: data.cantidad || "",
@@ -1005,6 +1066,7 @@ function construirDatosPdfRecepcionDesdeFila_(r) {
     nombre: r.nombre || "",
     cedula: r.cedula || "",
     correo: r.correo || "",
+    curso: r.curso || "",
     sede: r.sede || "",
     equipo: r.equipo || "",
     cantidad: r.cantidad || "",
@@ -1114,6 +1176,7 @@ function enviarPDFporCorreo(data) {
             <div class="info-item"><span class="label">Nombre:</span> <span class="value">${safe(data.nombre)}</span></div>
             <div class="info-item"><span class="label">Cédula:</span> <span class="value">${safe(data.cedula)}</span></div>
             <div class="info-item"><span class="label">Correo:</span> <span class="value">${safe(data.correo)}</span></div>
+            <div class="info-item"><span class="label">Curso:</span> <span class="value">${safe(data.curso || "No registrado")}</span></div>
             <div class="info-item"><span class="label">Cargador:</span> <span class="value">${safe(data.cargador)}</span></div>
           </div>
           <h2>Equipos recibidos</h2>
@@ -1554,6 +1617,7 @@ function getColumnMap(sheet) {
   map.nombre = buscarColumna("nombre");
   map.cedula = buscarColumna("cedula");
   map.correo = buscarColumna("correo");
+  map.curso = buscarColumna("curso");
   map.sede = buscarColumna("sede");
   map.equipo = buscarColumna("equipo");
   map.cantidad = buscarColumna("cantidad");
@@ -1619,6 +1683,7 @@ function guardarCamposRecepcionPorEncabezado_(sheet, rowNumber, colMap, valores)
     nombre: "nombre",
     cedula: "cedula",
     correo: "correo",
+    curso: "curso",
     sede: "sede",
     equipo: "equipo",
     cantidad: "cantidad",
@@ -2275,6 +2340,7 @@ function generarPdfResumenFinal(data) {
           <tr><th>Nombre</th><td>${data.nombre || ""}</td></tr>
           <tr><th>Cédula</th><td>${data.cedula || ""}</td></tr>
           <tr><th>Correo</th><td>${data.correo || ""}</td></tr>
+          <tr><th>Curso</th><td>${data.curso || "No registrado"}</td></tr>
           <tr><th>Sede</th><td>${data.sede || ""}</td></tr>
           <tr><th>Equipo</th><td>${data.equipo || ""}</td></tr>
           <tr><th>Cantidad entregada</th><td>${data.cantidad || ""}</td></tr>
@@ -2371,6 +2437,7 @@ function generarPdfResumenFinal(data) {
         htmlBody: `
           <h2>Acta final de devolución</h2>
           <p><strong>Nombre:</strong> ${data.nombre || ""}</p>
+          <p><strong>Curso:</strong> ${data.curso || "No registrado"}</p>
           <p><strong>Sede:</strong> ${data.sede || ""}</p>
           <p><strong>Equipo:</strong> ${data.equipo || ""}</p>
           <p><strong>Cantidad devuelta:</strong> ${data.cantidad_devuelta || ""}</p>

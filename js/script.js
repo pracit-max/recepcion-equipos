@@ -442,12 +442,33 @@ function esValorSi(valor) {
         .replace(/[\u0300-\u036f]/g, '');
     return limpio.startsWith('si');
 }
+
+function inicializarSelectorCurso() {
+    const select = document.getElementById('curso');
+    if (!select) return;
+
+    const grados = [
+        'Primero', 'Segundo', 'Tercero', 'Cuarto', 'Quinto', 'Sexto',
+        'Septimo', 'Octavo', 'Noveno', 'Decimo', 'Once'
+    ];
+    const opciones = grados.flatMap(grado => ['A', 'B'].map(grupo => `${grado} - ${grupo}`));
+    const valorActual = select.value;
+
+    select.innerHTML = '<option value="">Seleccione el curso...</option>' +
+        opciones.map(curso => `<option value="${curso}">${curso}</option>`).join('');
+
+    if (opciones.includes(valorActual)) {
+        select.value = valorActual;
+    }
+}
 // Cargar equipos al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
     if (typeof aplicarCuentaInnovaGuardada === 'function') {
         aplicarCuentaInnovaGuardada();
     }
+
+    inicializarSelectorCurso();
 
     if (document.getElementById('form')) {
         initializeEventListeners();
@@ -467,6 +488,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (document.getElementById('enCursoTableBody')) {
         cargarSolicitudesEnCurso();
+    }
+
+    if (document.getElementById('devolucionesCerradasTableBody')) {
+        cargarDevolucionesCerradas();
     }
 
     if (document.getElementById('signatureCanvasDevolucion')) {
@@ -2194,6 +2219,7 @@ async function collectFormData() {
         nombre: document.getElementById('nombre').value.trim(),
         cedula: document.getElementById('cedula').value.trim(),
         correo: document.getElementById('correo').value.trim(),
+        curso: document.getElementById('curso')?.value.trim() || '',
         sede: document.getElementById('sede').value,
         hora_devolucion: horaDevolucion,
         cargador: document.getElementById('cargador').checked ? 'Sí' : 'No',
@@ -2203,6 +2229,12 @@ async function collectFormData() {
         es_otros_equipos: esOtrosEquipos ? 'Sí' : 'No'
         // observacion, solicita_cambio, etc. ya no se incluyen
     };
+
+    if (!data.curso) {
+        showToast('Debe seleccionar el curso', 'error');
+        document.getElementById('curso')?.focus();
+        return false;
+    }
 
     if (!validarCorreoInstitucional(data.correo)) {
         showToast('Use un correo institucional @innovaschools.edu.co', 'error');
@@ -2374,6 +2406,7 @@ function createRecordCard(record) {
             
             <div class="record-status">
                 <span class="status-badge info">Sede: ${record.sede || 'N/A'}</span>
+                <span class="status-badge success">Curso: ${record.curso || 'N/A'}</span>
                 <span class="status-badge warning">Hasta: ${record.hora_devolucion || 'N/A'}</span>
             </div>
             
@@ -2413,6 +2446,10 @@ function showDetail(id) {
             <div class="detail-item">
                 <div class="detail-label">Fecha</div>
                 <div class="detail-value">${new Date(currentRecord.fecha).toLocaleDateString('es-ES')}</div>
+            </div>
+            <div class="detail-item">
+                <div class="detail-label">Curso</div>
+                <div class="detail-value">${currentRecord.curso || 'N/A'}</div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">Equipo</div>
@@ -2492,6 +2529,8 @@ function generatePDF(record) {
     doc.text(`Cédula: ${record.cedula || 'N/A'}`, 20, y);
     doc.text(`Correo: ${record.correo || 'N/A'}`, 110, y);
     y += 8;
+    doc.text(`Curso: ${record.curso || 'N/A'}`, 20, y);
+    y += 8;
     
     // NUEVO: Mostrar hora de devolución destacada
     doc.setTextColor(220, 38, 38); // Rojo para destacar
@@ -2556,6 +2595,8 @@ function generatePDF(record) {
     
     doc.text(`Cédula: ${cedula}`, 20, y);
     doc.text(`Correo: ${record.correo || 'N/A'}`, 110, y);
+    y += 8;
+    doc.text(`Curso: ${record.curso || 'N/A'}`, 20, y);
     y += 8;
     
     doc.text(`Carro/Equipo: ${record.equipo || 'N/A'}`, 20, y);
@@ -2854,25 +2895,28 @@ async function cargarSolicitudesEnCurso() {
 
   const sede = obtenerSedeDesdeURL();
 
-  tbody.innerHTML = `<tr><td colspan="7">Cargando...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="8">Cargando...</td></tr>`;
 
   try {
     const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=enCurso&sede=${encodeURIComponent(sede)}`);
     console.log("RESPUESTA enCurso:", data);
 
     if (!Array.isArray(data) || data.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7">No hay solicitudes en curso para esta sede</td></tr>`;
+      window.solicitudesEnCurso = [];
+      actualizarEstadisticasDevoluciones();
+      tbody.innerHTML = `<tr><td colspan="8">No hay solicitudes en curso para esta sede</td></tr>`;
       return;
     }
 
     // Guardar datos globally para filtrar
     window.solicitudesEnCurso = data;
+    actualizarEstadisticasDevoluciones();
     
     renderizarSolicitudes(data);
 
   } catch (err) {
     console.error(err);
-    tbody.innerHTML = `<tr><td colspan="7">Error cargando solicitudes</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8">Error cargando solicitudes</td></tr>`;
   }
 }
 
@@ -2888,6 +2932,7 @@ function renderizarSolicitudes(data) {
     tr.innerHTML = `
       <td>${item.nombre || ""}</td>
       <td>${item.sede || ""}</td>
+      <td>${item.curso || ""}</td>
       <td>${item.equipo || ""}</td>
       <td>${item.cantidad || ""}</td>
       <td>${formatearHora(item.hora_entrega)}</td>
@@ -2909,10 +2954,120 @@ function renderizarSolicitudes(data) {
     btn.textContent = "Devolver";
     btn.addEventListener("click", () => abrirFormularioDevolucion(item));
 
-    tr.children[5].appendChild(btnPdf);
-    tr.children[6].appendChild(btn);
+    tr.children[6].appendChild(btnPdf);
+    tr.children[7].appendChild(btn);
     tbody.appendChild(tr);
   });
+}
+
+async function cargarDevolucionesCerradas() {
+  const tbody = document.getElementById("devolucionesCerradasTableBody");
+  if (!tbody) return;
+
+  const sede = obtenerSedeDesdeURL();
+  tbody.innerHTML = `<tr><td colspan="7">Cargando...</td></tr>`;
+
+  try {
+    const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=devolucionesCerradas&sede=${encodeURIComponent(sede)}`);
+    console.log("RESPUESTA devolucionesCerradas:", data);
+
+    if (!Array.isArray(data) || data.length === 0) {
+      window.devolucionesCerradas = [];
+      actualizarEstadisticasDevoluciones();
+      tbody.innerHTML = `<tr><td colspan="7">No hay devoluciones realizadas para esta sede</td></tr>`;
+      return;
+    }
+
+    window.devolucionesCerradas = data;
+    actualizarEstadisticasDevoluciones();
+    renderizarDevolucionesCerradas(data);
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = `<tr><td colspan="7">Error cargando devoluciones realizadas</td></tr>`;
+  }
+}
+
+function renderizarDevolucionesCerradas(data) {
+  const tbody = document.getElementById("devolucionesCerradasTableBody");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  data.forEach(item => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${item.nombre || ""}</td>
+      <td>${item.curso || ""}</td>
+      <td>${item.equipo || ""}</td>
+      <td>${item.fecha_devolucion || ""}</td>
+      <td>${item.estado_final || ""}</td>
+      <td></td>
+      <td></td>
+    `;
+
+    const btnResumen = document.createElement("button");
+    btnResumen.type = "button";
+    btnResumen.className = "btn-inline-pdf";
+    btnResumen.innerHTML = '<i class="fas fa-file-pdf"></i> Ver devolución';
+    btnResumen.disabled = !item.pdf_resumen_url;
+    btnResumen.title = btnResumen.disabled ? "El PDF final todavía no está registrado" : "Abrir PDF final de devolución";
+    btnResumen.addEventListener("click", () => abrirPdfDevolucion(item.pdf_resumen_url));
+
+    const btnRecepcion = document.createElement("button");
+    btnRecepcion.type = "button";
+    btnRecepcion.className = "btn-inline-pdf";
+    btnRecepcion.innerHTML = '<i class="fas fa-file-pdf"></i> Ver recepción';
+    btnRecepcion.disabled = !(item.pdf_recepcion_url || item.acta);
+    btnRecepcion.title = btnRecepcion.disabled ? "No hay acta original registrada" : "Abrir acta original";
+    btnRecepcion.addEventListener("click", () => abrirPdfRecepcion(item.pdf_recepcion_url || item.acta));
+
+    tr.children[5].appendChild(btnResumen);
+    tr.children[6].appendChild(btnRecepcion);
+    tbody.appendChild(tr);
+  });
+}
+
+function filtrarDevolucionesCerradas() {
+  if (!window.devolucionesCerradas) return;
+
+  const busqueda = document.getElementById('buscarDevolucionCerrada')?.value.toLowerCase() || '';
+  let filtrados = window.devolucionesCerradas;
+
+  if (busqueda) {
+    filtrados = filtrados.filter(item =>
+      (item.nombre || '').toLowerCase().includes(busqueda) ||
+      (item.curso || '').toLowerCase().includes(busqueda) ||
+      (item.equipo || '').toLowerCase().includes(busqueda) ||
+      (item.fecha_devolucion || '').toLowerCase().includes(busqueda) ||
+      (item.estado_final || '').toLowerCase().includes(busqueda)
+    );
+  }
+
+  renderizarDevolucionesCerradas(filtrados);
+}
+
+function abrirPdfDevolucion(url) {
+    const destino = obtenerUrlPreviewDrive(url);
+    if (!destino) {
+        showToast("No hay PDF de devolución relacionado con esta solicitud", "warning");
+        return;
+    }
+    window.open(destino, "_blank", "noopener,noreferrer");
+}
+
+function actualizarEstadisticasDevoluciones() {
+    const enCurso = Array.isArray(window.solicitudesEnCurso) ? window.solicitudesEnCurso : [];
+    const cerradas = Array.isArray(window.devolucionesCerradas) ? window.devolucionesCerradas : [];
+    const hoy = new Date().toISOString().slice(0, 10);
+    const pendientesHoy = enCurso.filter(item => String(item.fecha || '').slice(0, 10) === hoy).length;
+
+    const statTotal = document.getElementById('statTotal');
+    const statPendientes = document.getElementById('statPendientes');
+    const statCerradas = document.getElementById('statCerradas');
+
+    if (statTotal) statTotal.textContent = enCurso.length;
+    if (statPendientes) statPendientes.textContent = pendientesHoy;
+    if (statCerradas) statCerradas.textContent = cerradas.length;
 }
 
 function abrirPdfRecepcion(url) {
@@ -2935,6 +3090,7 @@ function filtrarSolicitudes() {
   if (busqueda) {
     filtrados = filtrados.filter(item => 
       (item.nombre || '').toLowerCase().includes(busqueda) ||
+      (item.curso || '').toLowerCase().includes(busqueda) ||
       (item.equipo || '').toLowerCase().includes(busqueda) ||
       (item.sede || '').toLowerCase().includes(busqueda) ||
       (item.cantidad || '').toString().includes(busqueda)
@@ -3288,6 +3444,7 @@ async function cerrarSolicitudFrontend() {
             document.getElementById("formCerrarBox").style.display = "none";
             removeFotoDevolucion();
             cargarSolicitudesEnCurso();
+            cargarDevolucionesCerradas();
         } else {
             showToast("Error: " + (result.error || "No se pudo cerrar"), "error");
         }

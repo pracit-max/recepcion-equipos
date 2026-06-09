@@ -329,7 +329,7 @@
                         <i class="fas fa-search"></i>
                         <input type="text" id="dashBuscar" placeholder="Buscar docente, Colegio o equipo..." onkeyup="filtrarDashboard()">
                     </div>
-                    <div class="filter-box">
+                    <div class="filter-box" id="dashFiltroSedeBox">
                         <i class="fas fa-filter"></i>
                         <select id="dashFiltroSede" onchange="filtrarDashboard()">
                             <option value="">Todos los colegios</option>
@@ -798,6 +798,7 @@
                 title.textContent = 'Panel de Control';
                 sub.textContent = 'Resumen y seguimiento de entregas';
                 
+                sincronizarFiltroSedeDashboard();
                 cargarDashboard();
             } else if (tipo === 'admin') {
                 // === ADMIN / SOPORTE ===
@@ -1092,8 +1093,10 @@
                 if (dashFiltroSede) {
                     dashFiltroSede.value = normalizarTexto(currentSedeSoporte);
                 }
+                sincronizarFiltroSedeDashboard();
             } else {
                 badge.style.display = 'none';
+                sincronizarFiltroSedeDashboard();
             }
         }
 
@@ -1495,6 +1498,7 @@
             if (dashFiltroSede) {
                 dashFiltroSede.value = normalizarTexto(sede);
             }
+            sincronizarFiltroSedeDashboard();
             
             // 7. Iniciar notificaciones
             iniciarNotificaciones();
@@ -1505,11 +1509,27 @@
             // 9. Actualizar pill del nav
             setTimeout(updatePill, 100);
         }
+
+        function sincronizarFiltroSedeDashboard() {
+            const dashFiltroSede = document.getElementById('dashFiltroSede');
+            const dashFiltroSedeBox = document.getElementById('dashFiltroSedeBox');
+            const esSoporte = currentRole === 'SOPORTE' && currentSedeSoporte;
+
+            if (dashFiltroSede) {
+                dashFiltroSede.value = esSoporte ? normalizarTexto(currentSedeSoporte) : "";
+                dashFiltroSede.disabled = Boolean(esSoporte);
+            }
+
+            if (dashFiltroSedeBox) {
+                dashFiltroSedeBox.style.display = esSoporte ? 'none' : '';
+            }
+        }
         function cancelarCorreoSoporte() {
             cerrarModalCorreoSoporte();
             currentRole = 'DOCENTE';
             localStorage.setItem('role', 'DOCENTE');
             limpiarSesionSoporte();
+            sincronizarFiltroSedeDashboard();
             updateRoleButtons();
             mostrarVista('docentes');
         }
@@ -2362,7 +2382,9 @@
 
         function filtrarDashboard() {
             const busqueda = document.getElementById('dashBuscar').value.toLowerCase();
-            const sedeFiltro = document.getElementById('dashFiltroSede').value;
+            const sedeFiltro = currentRole === 'SOPORTE' && currentSedeSoporte
+                ? normalizarTexto(currentSedeSoporte)
+                : document.getElementById('dashFiltroSede').value;
             const estadoFiltro = document.getElementById('dashFiltroEstado').value;
             
             let filtrados = [...dashboardData];
