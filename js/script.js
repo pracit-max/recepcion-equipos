@@ -4,7 +4,8 @@ const URL_GOOGLE_SCRIPT_PUBLIC = "https://script.google.com/macros/s/AKfycbw8vPL
 const URL_GOOGLE_SCRIPT = URL_GOOGLE_SCRIPT_DOMAIN;
 let currentRecord = null;
 let currentStep = 1;
-const totalSteps = 3;
+const totalSteps = 2;
+let revisionEquiposConfirmada = false;
 
 function getAppsScriptFallbackUrl(url) {
     if (url.startsWith(URL_GOOGLE_SCRIPT_DOMAIN)) {
@@ -451,6 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (document.getElementById('form')) {
+        configurarFlujoRevisionEquipos();
         initializeEventListeners();
     }
 
@@ -2013,6 +2015,181 @@ function updateFileName(input, displayId, isSignature = false) {
     }
 }
 
+function configurarFlujoRevisionEquipos() {
+    const form = document.getElementById('form');
+    const estadoSection = document.querySelector('.form-section[data-section="2"]');
+    const firmaSection = document.querySelector('.form-section[data-section="3"]');
+
+    if (!form || !estadoSection || !firmaSection || document.getElementById('revisionEquiposModal')) {
+        return;
+    }
+
+    const estadoCard = estadoSection.querySelector('.section-card');
+    if (!estadoCard) return;
+
+    const modal = document.createElement('div');
+    modal.className = 'equipment-review-modal';
+    modal.id = 'revisionEquiposModal';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+        <div class="equipment-review-dialog" role="dialog" aria-modal="true" aria-labelledby="revisionEquiposTitle">
+            <div class="equipment-review-alert">
+                <div class="equipment-review-icon">
+                    <i class="fas fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <p class="equipment-review-kicker">Revisión obligatoria antes de continuar</p>
+                    <h2 id="revisionEquiposTitle">Revise cuidadosamente el estado de los equipos</h2>
+                    <p>
+                        Antes de continuar, por favor revise cuidadosamente el estado de los equipos.
+                        Es muy importante verificar si algún equipo presenta daños, fallas, golpes,
+                        partes faltantes o cualquier novedad. Si existe alguna novedad, debe reportarla
+                        antes de finalizar el proceso.
+                    </p>
+                </div>
+            </div>
+            <div class="equipment-review-report" id="revisionEquiposReport" hidden></div>
+            <div class="equipment-review-actions">
+                <button type="button" class="btn-report-novelty" onclick="mostrarFormularioNovedadEquipos()">
+                    <i class="fas fa-bullhorn"></i> Reportar novedad
+                </button>
+                <button type="button" class="btn-keep-going" onclick="continuarSinNovedadEquipos()">
+                    Siguiente / Dejar así <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    `;
+
+    modal.querySelector('#revisionEquiposReport').appendChild(estadoCard);
+    document.body.appendChild(modal);
+    estadoSection.remove();
+    firmaSection.dataset.section = '2';
+
+    const estadoStep = document.querySelector('.progress-steps .step[data-step="2"]');
+    const firmaStep = document.querySelector('.progress-steps .step[data-step="3"]');
+
+    if (estadoStep) estadoStep.remove();
+    if (firmaStep) {
+        firmaStep.dataset.step = '2';
+        const label = firmaStep.querySelector('span');
+        const number = firmaStep.querySelector('.step-number');
+        if (label) label.textContent = 'Firma';
+        if (number) number.textContent = '2';
+    }
+
+    const reportCard = modal.querySelector('#revisionEquiposReport .section-card');
+    if (reportCard && !document.getElementById('btnConfirmarNovedadEquipos')) {
+        reportCard.insertAdjacentHTML('beforeend', `
+            <div class="equipment-review-confirm">
+                <button type="button" id="btnConfirmarNovedadEquipos" class="btn-confirm-novelty" onclick="confirmarRevisionEquiposConNovedad()">
+                    <i class="fas fa-check-circle"></i> Continuar con novedad reportada
+                </button>
+            </div>
+        `);
+    }
+}
+
+function abrirAlertaRevisionEquipos() {
+    const modal = document.getElementById('revisionEquiposModal');
+    if (!modal) return false;
+
+    const report = document.getElementById('revisionEquiposReport');
+    const novedad = document.getElementById('novedad');
+    if (report && !novedad?.checked) {
+        report.hidden = true;
+        modal.classList.remove('reporting');
+    }
+
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('equipment-review-open');
+    return true;
+}
+
+function cerrarAlertaRevisionEquipos() {
+    const modal = document.getElementById('revisionEquiposModal');
+    if (!modal) return;
+
+    modal.classList.remove('active', 'reporting');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('equipment-review-open');
+}
+
+function mostrarFormularioNovedadEquipos() {
+    const modal = document.getElementById('revisionEquiposModal');
+    const report = document.getElementById('revisionEquiposReport');
+    const novedad = document.getElementById('novedad');
+
+    if (!modal || !report) return;
+
+    modal.classList.add('reporting');
+    report.hidden = false;
+
+    if (novedad) {
+        novedad.checked = true;
+        toggleSection('novedadBox', true);
+    }
+
+    setTimeout(() => {
+        document.getElementById('descripcion')?.focus();
+    }, 100);
+}
+
+function continuarSinNovedadEquipos() {
+    const novedad = document.getElementById('novedad');
+    const descripcion = document.getElementById('descripcion');
+    const foto = document.getElementById('foto_dano');
+    const report = document.getElementById('revisionEquiposReport');
+
+    if (novedad) {
+        novedad.checked = false;
+        toggleSection('novedadBox', false);
+    }
+    if (descripcion) descripcion.value = '';
+    if (foto) foto.value = '';
+    if (report) report.hidden = true;
+
+    const fileName = document.getElementById('fileName1');
+    const preview = document.getElementById('preview1');
+    if (fileName) fileName.textContent = 'Ningún archivo seleccionado';
+    if (preview) {
+        preview.classList.remove('show');
+        preview.innerHTML = '';
+    }
+
+    confirmarRevisionEquiposYAvanzar();
+}
+
+function confirmarRevisionEquiposConNovedad() {
+    const descripcion = document.getElementById('descripcion');
+
+    if (!descripcion || !descripcion.value.trim()) {
+        showToast('Describe la novedad antes de continuar', 'error');
+        descripcion?.focus();
+        return;
+    }
+
+    const novedad = document.getElementById('novedad');
+    if (novedad) novedad.checked = true;
+
+    confirmarRevisionEquiposYAvanzar();
+}
+
+function confirmarRevisionEquiposYAvanzar() {
+    revisionEquiposConfirmada = true;
+    cerrarAlertaRevisionEquipos();
+    continuarFlujoDespuesRevisionEquipos();
+}
+
+function continuarFlujoDespuesRevisionEquipos() {
+    if (currentStep >= totalSteps) {
+        document.getElementById('form')?.requestSubmit();
+        return;
+    }
+
+    avanzarSeccionFormulario();
+}
+
 // ===== NAVEGACIÓN DEL FORMULARIO =====
 // REEMPLAZAR la función nextSection() existente con esta:
 
@@ -2024,22 +2201,28 @@ function nextSection() {
         }
     }
     
-    if (validateCurrentSection()) {
-        if (currentStep < totalSteps) {
-            document.querySelector(`.form-section[data-section="${currentStep}"]`).classList.remove('active');
-            currentStep++;
-            document.querySelector(`.form-section[data-section="${currentStep}"]`).classList.add('active');
-            updateProgressBar();
-            updateStepIndicators();
-            
-            if (currentStep === totalSteps) { // totalSteps = 3
-                setTimeout(() => {
-                    setupCanvasSize();
-                    if (!metodoFirmaRecepcion) {
-                        abrirModalMetodoFirma('recepcion');
-                    }
-                }, 100);
-            }
+    if (!validateCurrentSection()) {
+        return;
+    }
+
+    avanzarSeccionFormulario();
+}
+
+function avanzarSeccionFormulario() {
+    if (currentStep < totalSteps) {
+        document.querySelector(`.form-section[data-section="${currentStep}"]`)?.classList.remove('active');
+        currentStep++;
+        document.querySelector(`.form-section[data-section="${currentStep}"]`)?.classList.add('active');
+        updateProgressBar();
+        updateStepIndicators();
+        
+        if (currentStep === totalSteps) {
+            setTimeout(() => {
+                setupCanvasSize();
+                if (!metodoFirmaRecepcion) {
+                    abrirModalMetodoFirma('recepcion');
+                }
+            }, 100);
         }
     }
 }
@@ -2049,6 +2232,9 @@ function prevSection() {
         document.querySelector(`.form-section[data-section="${currentStep}"]`).classList.remove('active');
         currentStep--;
         document.querySelector(`.form-section[data-section="${currentStep}"]`).classList.add('active');
+        if (currentStep === 1) {
+            revisionEquiposConfirmada = false;
+        }
         updateProgressBar();
         updateStepIndicators();
     }
@@ -2113,6 +2299,11 @@ async function handleSubmit(e) {
         setTimeout(() => {
             autorizaCheckbox.style.borderColor = '';
         }, 3000);
+        return;
+    }
+
+    if (!revisionEquiposConfirmada) {
+        abrirAlertaRevisionEquipos();
         return;
     }
     
@@ -2258,14 +2449,8 @@ async function collectFormData() {
         data.rango_fin = '';
     }
 
-    const quiereAdicionales = Boolean(document.getElementById('equiposAdicionalesToggle')?.checked || equiposAdicionalesSeleccionados.length);
-    if (quiereAdicionales) {
-        if (!equiposAdicionalesSeleccionados.length) {
-            showToast('Selecciona al menos un equipo adicional de BODEGA TI', 'error');
-            abrirModalEquiposAdicionales();
-            return false;
-        }
-
+    const tieneAdicionalesSeleccionados = equiposAdicionalesSeleccionados.length > 0;
+    if (tieneAdicionalesSeleccionados) {
         const disponibles = equiposAdicionalesSeleccionados.every(eq => eq.disponible);
         const keys = equiposAdicionalesSeleccionados.map(getEquipoAdicionalKey);
         const sinDuplicados = new Set(keys).size === keys.length;
@@ -2292,6 +2477,11 @@ async function collectFormData() {
             .filter(Boolean)
             .join('\n');
     } else {
+        const toggleAdicionales = document.getElementById('equiposAdicionalesToggle');
+        const resumenAdicionales = document.getElementById('equiposAdicionalesResumen');
+        if (toggleAdicionales) toggleAdicionales.checked = false;
+        if (resumenAdicionales) resumenAdicionales.hidden = true;
+
         data.equipos_adicionales = 'No';
         data.serial_adicional = '';
         data.equipo_adicional = '';
@@ -2360,10 +2550,9 @@ function showSection(sectionId) {
 }
 
 function createRecordCard(record) {
-    const date = new Date(record.fecha).toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
+    const date = formatearFecha(record.fecha, {
+        dateOptions: { year: 'numeric', month: 'short', day: 'numeric' },
+        fallback: 'N/A'
     });
     
     return `
@@ -2425,7 +2614,7 @@ function showDetail(id) {
             </div>
             <div class="detail-item">
                 <div class="detail-label">Fecha</div>
-                <div class="detail-value">${new Date(currentRecord.fecha).toLocaleDateString('es-ES')}</div>
+                <div class="detail-value">${formatearFecha(currentRecord.fecha, { fallback: 'N/A' })}</div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">Curso</div>
@@ -2503,7 +2692,7 @@ function generatePDF(record) {
     doc.setFontSize(11);
     
     doc.text(`Nombre: ${record.nombre || 'No especificado'}`, 20, y);
-    doc.text(`Fecha: ${new Date(record.fecha).toLocaleDateString('es-ES')}`, 110, y);
+    doc.text(`Fecha: ${formatearFecha(record.fecha, { fallback: 'N/A' })}`, 110, y);
     y += 8;
     
     doc.text(`Cédula: ${record.cedula || 'N/A'}`, 20, y);
@@ -2570,7 +2759,7 @@ function generatePDF(record) {
     const fecha = record.fecha || new Date().toISOString().split('T')[0];
     
     doc.text(`Nombre: ${nombre}`, 20, y);
-    doc.text(`Fecha: ${new Date(fecha).toLocaleDateString('es-ES')}`, 110, y);
+    doc.text(`Fecha: ${formatearFecha(fecha, { fallback: 'N/A' })}`, 110, y);
     y += 8;
     
     doc.text(`Cédula: ${cedula}`, 20, y);
@@ -2719,11 +2908,7 @@ function generatePDF(record) {
     doc.setFontSize(10);
     doc.setTextColor(...colorTexto);
     
-    const fechaFormateada = new Date(fecha).toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
+    const fechaFormateada = formatearFecha(fecha, { fallback: 'N/A' });
     
     // IMPORTANTE: Usar comillas normales y concatenar para evitar problemas
     const textoLegal = "Yo, " + nombre + " identificado con cédula de ciudadanía No. " + cedula + " de Bogotá. En mi calidad de TRABAJADOR, autorizo expresamente a mi empleador, COLEGIOS COLOMBIANOS S.A.S., para que descuente de mi Salario, primas, cesantías, auxilios legales y extralegales, bonificaciones, indemnizaciones y liquidaciones, el valor de (los) elementos, equipos y/o herramientas de trabajo que me fueron entregados mediante acta suscrita en fecha " + fechaFormateada + " en caso de pérdida, hurto o daños por descuido, negligencia y/o impericia que por mi culpa o dolo se generen a los mismos.\n\n" +
@@ -2979,27 +3164,30 @@ function renderizarDevolucionesCerradas(data) {
       <td>${item.nombre || ""}</td>
       <td>${item.curso || ""}</td>
       <td>${item.equipo || ""}</td>
-      <td>${item.fecha_devolucion || ""}</td>
+      <td>${formatearFecha(item.fecha_devolucion)}</td>
       <td>${item.estado_final || ""}</td>
       <td></td>
       <td></td>
     `;
 
+    const urlDevolucion = item.pdf_resumen_url || item.pdf_devolucion_url || "";
+    const urlRecepcion = item.pdf_recepcion_url || item.acta || "";
+
     const btnResumen = document.createElement("button");
     btnResumen.type = "button";
     btnResumen.className = "btn-inline-pdf";
     btnResumen.innerHTML = '<i class="fas fa-file-pdf"></i> Ver devolución';
-    btnResumen.disabled = !item.pdf_resumen_url;
+    btnResumen.disabled = !urlDevolucion;
     btnResumen.title = btnResumen.disabled ? "El PDF final todavía no está registrado" : "Abrir PDF final de devolución";
-    btnResumen.addEventListener("click", () => abrirPdfDevolucion(item.pdf_resumen_url));
+    btnResumen.addEventListener("click", () => abrirPdfDevolucion(urlDevolucion));
 
     const btnRecepcion = document.createElement("button");
     btnRecepcion.type = "button";
     btnRecepcion.className = "btn-inline-pdf";
     btnRecepcion.innerHTML = '<i class="fas fa-file-pdf"></i> Ver recepción';
-    btnRecepcion.disabled = !(item.pdf_recepcion_url || item.acta);
+    btnRecepcion.disabled = !urlRecepcion;
     btnRecepcion.title = btnRecepcion.disabled ? "No hay acta original registrada" : "Abrir acta original";
-    btnRecepcion.addEventListener("click", () => abrirPdfRecepcion(item.pdf_recepcion_url || item.acta));
+    btnRecepcion.addEventListener("click", () => abrirPdfRecepcion(urlRecepcion));
 
     tr.children[5].appendChild(btnResumen);
     tr.children[6].appendChild(btnRecepcion);
@@ -3098,6 +3286,49 @@ function formatearHora(valor) {
     }
 
     return texto;
+}
+
+function formatearFecha(valor, opciones = {}) {
+    if (!valor) return opciones.fallback || "";
+
+    if (valor instanceof Date && !isNaN(valor.getTime())) {
+        return valor.toLocaleDateString('es-CO', opciones.dateOptions || {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+    }
+
+    const texto = String(valor).trim();
+    if (!texto) return opciones.fallback || "";
+
+    const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) {
+        return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    }
+
+    const fechaLarga = texto.match(/^[A-Za-z]{3}\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
+    if (fechaLarga) {
+        const meses = {
+            jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+            jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+        };
+        const mes = meses[fechaLarga[1].toLowerCase()];
+        if (mes) {
+            return `${String(fechaLarga[2]).padStart(2, '0')}/${mes}/${fechaLarga[3]}`;
+        }
+    }
+
+    const parsed = new Date(texto);
+    if (!isNaN(parsed.getTime())) {
+        return parsed.toLocaleDateString('es-CO', opciones.dateOptions || {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+    }
+
+    return texto.replace(/\s*GMT[+-]\d{4}.*$/i, '');
 }
 function abrirFormularioDevolucion(item) {
   solicitudDevolucionSeleccionada = item || null;

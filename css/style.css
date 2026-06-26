@@ -3020,6 +3020,168 @@ input.verified {
 }
 
 /* ============================================
+   ALERTA DE REVISION DE EQUIPOS
+   ============================================ */
+body.equipment-review-open {
+    overflow: hidden;
+}
+
+.equipment-review-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background: rgba(15, 23, 42, 0.78);
+}
+
+.equipment-review-modal.active {
+    display: flex;
+}
+
+.equipment-review-dialog {
+    width: min(820px, 100%);
+    max-height: min(92vh, 820px);
+    overflow: auto;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 30px 90px rgba(15, 23, 42, 0.36);
+}
+
+.equipment-review-alert {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 1rem;
+    padding: 1.5rem;
+    border: 2px solid #f97316;
+    border-bottom: 1px solid #fed7aa;
+    background: linear-gradient(135deg, #fff7ed 0%, #fef2f2 100%);
+}
+
+.equipment-review-icon {
+    width: 58px;
+    height: 58px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    background: linear-gradient(135deg, #dc2626, #f97316);
+    font-size: 1.55rem;
+    box-shadow: 0 14px 28px rgba(220, 38, 38, 0.24);
+}
+
+.equipment-review-kicker {
+    margin: 0 0 0.35rem;
+    color: #b91c1c;
+    font-size: 0.82rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.equipment-review-alert h2 {
+    margin: 0 0 0.55rem;
+    color: #7f1d1d;
+    font-size: 1.5rem;
+    line-height: 1.2;
+}
+
+.equipment-review-alert p {
+    margin: 0;
+    color: #431407;
+    font-weight: 650;
+    line-height: 1.55;
+}
+
+.equipment-review-report {
+    padding: 1.25rem;
+    background: #fff;
+}
+
+.equipment-review-report .section-card {
+    margin: 0;
+    box-shadow: none;
+    border: 1px solid #fed7aa;
+}
+
+.equipment-review-actions,
+.equipment-review-confirm {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.85rem;
+    padding: 1rem 1.5rem 1.5rem;
+    border-top: 1px solid #e2e8f0;
+    background: #fff;
+}
+
+.equipment-review-confirm {
+    padding: 1rem 0 0;
+    border-top: 0;
+}
+
+.btn-report-novelty,
+.btn-keep-going,
+.btn-confirm-novelty {
+    border: 0;
+    border-radius: 10px;
+    padding: 0.9rem 1.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    color: #fff;
+    font: inherit;
+    font-weight: 850;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-report-novelty {
+    background: linear-gradient(135deg, #dc2626, #ea580c);
+    box-shadow: 0 12px 26px rgba(220, 38, 38, 0.24);
+}
+
+.btn-keep-going,
+.btn-confirm-novelty {
+    background: linear-gradient(135deg, #16a34a, #2563eb);
+    box-shadow: 0 12px 26px rgba(37, 99, 235, 0.18);
+}
+
+.btn-report-novelty:hover,
+.btn-keep-going:hover,
+.btn-confirm-novelty:hover {
+    transform: translateY(-2px);
+}
+
+@media (max-width: 640px) {
+    .equipment-review-modal {
+        align-items: flex-start;
+        padding: 0.75rem;
+        overflow-y: auto;
+    }
+
+    .equipment-review-alert {
+        grid-template-columns: 1fr;
+        padding: 1.15rem;
+    }
+
+    .equipment-review-actions,
+    .equipment-review-confirm {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+    }
+
+    .btn-report-novelty,
+    .btn-keep-going,
+    .btn-confirm-novelty {
+        width: 100%;
+    }
+}
+
+/* ============================================
     OPTIMIZACIONES GENERALES MÓVIL
     ============================================ */
 @media (max-width: 768px) {

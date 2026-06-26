@@ -97,7 +97,7 @@ function doGet(e) {
           })
           .map(r => ({
             id_solicitud: r.id_solicitud || "",
-            fecha: r.fecha || "",
+            fecha: formatearFechaSheet(r.fecha),
             nombre: r.nombre || "",
             cedula: r.cedula || "",
             correo: r.correo || "",
@@ -144,25 +144,28 @@ function doGet(e) {
             const sedeOk = !sedeFiltro || sedeRegistro === sedeFiltro;
             return estadoOk && tieneDevolucion && sedeOk;
           })
-          .map((r, index) => ({
-            id: index + 1,
-            id_solicitud: r.id_solicitud || "",
-            fecha: r.fecha || "",
-            nombre: r.nombre || "",
-            cedula: r.cedula || "",
-            correo: r.correo || "",
-            curso: r.curso || "",
-            sede: r.sede || "",
-            equipo: r.equipo || "",
-            cantidad: r.cantidad || "",
-            fecha_devolucion: r.fecha_devolucion || "",
-            hora_devolucion_real: formatearHoraSheet(r.hora_devolucion_real),
-            estado_final: r.estado_final || "",
-            novedad_devolucion: r.novedad_devolucion || "",
-            acta: r.acta || "",
-            pdf_recepcion_url: r.acta || "",
-            pdf_resumen_url: r.pdf_resumen_url || ""
-          }))
+          .map((r, index) => {
+            const actaRecepcion = r.acta || buscarActaRecepcionRelacionada(r);
+            return {
+              id: index + 1,
+              id_solicitud: r.id_solicitud || "",
+              fecha: formatearFechaSheet(r.fecha),
+              nombre: r.nombre || "",
+              cedula: r.cedula || "",
+              correo: r.correo || "",
+              curso: r.curso || "",
+              sede: r.sede || "",
+              equipo: r.equipo || "",
+              cantidad: r.cantidad || "",
+              fecha_devolucion: formatearFechaSheet(r.fecha_devolucion),
+              hora_devolucion_real: formatearHoraSheet(r.hora_devolucion_real),
+              estado_final: r.estado_final || "",
+              novedad_devolucion: r.novedad_devolucion || "",
+              acta: actaRecepcion,
+              pdf_recepcion_url: actaRecepcion,
+              pdf_resumen_url: r.pdf_resumen_url || ""
+            };
+          })
           .sort((a, b) => new Date(b.fecha_devolucion || b.fecha || 0) - new Date(a.fecha_devolucion || a.fecha || 0));
 
         return jsonResponse(cerradas);
@@ -373,36 +376,39 @@ function doGet(e) {
 
         const registros = rows
           .map(row => getRowDataObject(row, colMap))
-          .map((r, index) => ({
-            id: index + 1,
-            id_solicitud: r.id_solicitud || "",
-            fecha: r.fecha || "",
-            nombre: r.nombre || "",
-            cedula: r.cedula || "",
-            correo: r.correo || "",
-            curso: r.curso || "",
-            sede: r.sede || "",
-            equipo: r.equipo || "",
-            cantidad: r.cantidad || "",
-            cargador: r.cargador || "",
-            novedad: r.novedad || "No",
-            descripcion: r.descripcion || "",
-            foto_dano: r.foto_dano || "",
-            hora_devolucion: formatearHoraSheet(r.hora_devolucion),
-            hora_entrega: formatearHoraSheet(r.hora_entrega),
-            estado: r.estado || "",
-            fecha_devolucion: r.fecha_devolucion || "",
-            hora_devolucion_real: formatearHoraSheet(r.hora_devolucion_real),
-            cantidad_devuelta: r.cantidad_devuelta || "",
-            estado_final: r.estado_final || "",
-            novedad_devolucion: r.novedad_devolucion || "",
-            descripcion_devolucion: r.descripcion_devolucion || "",
-            acta: r.acta || "",
-            pdf_recepcion_url: r.acta || "",
-            pdf_resumen_url: r.pdf_resumen_url || "",
-            equipo_adicional: r.equipo_adicional || "",
-            serial_adicional: r.serial_adicional || ""
-          }))
+          .map((r, index) => {
+            const actaRecepcion = r.acta || buscarActaRecepcionRelacionada(r);
+            return {
+              id: index + 1,
+              id_solicitud: r.id_solicitud || "",
+              fecha: formatearFechaSheet(r.fecha),
+              nombre: r.nombre || "",
+              cedula: r.cedula || "",
+              correo: r.correo || "",
+              curso: r.curso || "",
+              sede: r.sede || "",
+              equipo: r.equipo || "",
+              cantidad: r.cantidad || "",
+              cargador: r.cargador || "",
+              novedad: r.novedad || "No",
+              descripcion: r.descripcion || "",
+              foto_dano: r.foto_dano || "",
+              hora_devolucion: formatearHoraSheet(r.hora_devolucion),
+              hora_entrega: formatearHoraSheet(r.hora_entrega),
+              estado: r.estado || "",
+              fecha_devolucion: formatearFechaSheet(r.fecha_devolucion),
+              hora_devolucion_real: formatearHoraSheet(r.hora_devolucion_real),
+              cantidad_devuelta: r.cantidad_devuelta || "",
+              estado_final: r.estado_final || "",
+              novedad_devolucion: r.novedad_devolucion || "",
+              descripcion_devolucion: r.descripcion_devolucion || "",
+              acta: actaRecepcion,
+              pdf_recepcion_url: actaRecepcion,
+              pdf_resumen_url: r.pdf_resumen_url || "",
+              equipo_adicional: r.equipo_adicional || "",
+              serial_adicional: r.serial_adicional || ""
+            };
+          })
           .sort((a, b) => {
             const fechaA = new Date(a.fecha || 0);
             const fechaB = new Date(b.fecha || 0);
@@ -438,6 +444,14 @@ function doGet(e) {
           const rowId = String(r.id_solicitud || r.id || "").trim();
 
           if (rowId === targetId) {
+            r.fecha = formatearFechaSheet(r.fecha);
+            r.fecha_devolucion = formatearFechaSheet(r.fecha_devolucion);
+            r.hora_entrega = formatearHoraSheet(r.hora_entrega);
+            r.hora_devolucion = formatearHoraSheet(r.hora_devolucion);
+            r.hora_devolucion_real = formatearHoraSheet(r.hora_devolucion_real);
+            r.acta = r.acta || buscarActaRecepcionRelacionada(r);
+            r.pdf_recepcion_url = r.acta || "";
+            r.pdf_resumen_url = r.pdf_resumen_url || "";
             return jsonResponse(r);
           }
         }
@@ -510,8 +524,13 @@ function doGet(e) {
 
       const registros = data.map((row, index) => {
         const r = getRowDataObject(row, colMap);
+        const actaRecepcion = r.acta || buscarActaRecepcionRelacionada(r);
         return Object.assign({ id: index + 1 }, r, {
-          pdf_recepcion_url: r.acta || "",
+          fecha: formatearFechaSheet(r.fecha),
+          fecha_devolucion: formatearFechaSheet(r.fecha_devolucion),
+          acta: actaRecepcion,
+          pdf_recepcion_url: actaRecepcion,
+          pdf_resumen_url: r.pdf_resumen_url || "",
           es_otros_equipos: r.es_otros_equipos || "No",
           hora_devolucion: formatearHoraSheet(r.hora_devolucion) || "15:00",
           hora_entrega: formatearHoraSheet(r.hora_entrega),
@@ -1328,6 +1347,30 @@ function formatearHoraSheet(valor) {
   return texto;
 }
 
+function formatearFechaSheet(valor) {
+  if (!valor) return "";
+  const zona = Session.getScriptTimeZone();
+
+  if (valor instanceof Date) {
+    return Utilities.formatDate(valor, zona, "yyyy-MM-dd");
+  }
+
+  const texto = String(valor).trim();
+  if (!texto) return "";
+
+  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) {
+    return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  }
+
+  const fecha = new Date(texto.replace(/\s*\(.*?\)\s*$/, ""));
+  if (!isNaN(fecha.getTime())) {
+    return Utilities.formatDate(fecha, zona, "yyyy-MM-dd");
+  }
+
+  return texto.replace(/\s*GMT[+-]\d{4}.*$/i, "");
+}
+
 function enviarCodigoVerificacion(email, code) {
   try {
     const asunto = "Código de verificación - Sistema de Equipos";
@@ -1510,12 +1553,23 @@ function buscarCorreosSoportePorSede(sede) {
 }
 
 function enviarCorreoNovedad(data) {
-  const asunto = "Advertencia: docente reportó novedad en recepción de equipos";
+  const asunto = "Nueva novedad reportada en revisión de equipos - " + (data.sede || "Sede");
   const destinatarios = buscarCorreosSoportePorSede(data.sede);
+  const zonaHoraria = Session.getScriptTimeZone();
+  const fechaReporte = Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd HH:mm:ss");
 
   let cuerpo = `
-    <h2 style="color:#dc2626;">Novedad en Recepción de Equipos</h2>
-    <p>El docente <strong>${data.nombre || ""}</strong> reportó una novedad al recibir equipos.</p>
+    <h2 style="color:#dc2626;">Nueva novedad reportada en revisión de equipos</h2>
+    <p>Hola equipo de soporte,</p>
+    <p>
+      La persona <strong>${data.nombre || "No registrada"}</strong> ha reportado una novedad durante el proceso
+      de revisión del estado de los equipos en la sede <strong>${data.sede || "No registrada"}</strong>.
+    </p>
+    <p><strong>Fecha y hora del reporte:</strong> ${fechaReporte}</p>
+    <h3 style="color:#991b1b;">Mensaje reportado</h3>
+    <p style="padding:12px; background:#fef2f2; border-left:4px solid #dc2626;">${data.descripcion || "Sin mensaje registrado"}</p>
+    <p>Por favor revisar esta novedad lo antes posible.</p>
+    <h3>Datos del registro</h3>
     <table style="border-collapse:collapse; width:100%; font-family:Arial;">
       <tr style="background:#f3f4f6;">
         <td style="padding:8px; border:1px solid #ddd;"><strong>Nombre:</strong></td>
@@ -1538,6 +1592,10 @@ function enviarCorreoNovedad(data) {
         <td style="padding:8px; border:1px solid #ddd;">${data.equipo || ""}</td>
       </tr>
       <tr>
+        <td style="padding:8px; border:1px solid #ddd;"><strong>ID solicitud:</strong></td>
+        <td style="padding:8px; border:1px solid #ddd;">${data.id_solicitud || ""}</td>
+      </tr>
+      <tr>
         <td style="padding:8px; border:1px solid #ddd;"><strong>Cantidad:</strong></td>
         <td style="padding:8px; border:1px solid #ddd;">${data.cantidad || ""}</td>
       </tr>
@@ -1553,21 +1611,23 @@ function enviarCorreoNovedad(data) {
         <td style="padding:8px; border:1px solid #ddd;"><strong>Hora entrega:</strong></td>
         <td style="padding:8px; border:1px solid #ddd;">${data.hora_entrega || ""}</td>
       </tr>
-      <tr style="background:#fef2f2;">
-        <td style="padding:8px; border:1px solid #dc2626; color:#dc2626;"><strong>Descripción de la novedad:</strong></td>
-        <td style="padding:8px; border:1px solid #dc2626;">${data.descripcion || ""}</td>
+      <tr>
+        <td style="padding:8px; border:1px solid #ddd;"><strong>Detalle equipos:</strong></td>
+        <td style="padding:8px; border:1px solid #ddd; white-space:pre-line;">${data.detalle_equipos || data.serial_y_placa || ""}</td>
       </tr>
     </table>
   `;
 
   if (data.foto_dano) {
     cuerpo += `
-      <p><strong>Foto evidencia:</strong></p>
+      <h3>Evidencias adjuntas</h3>
       <p><a href="${data.foto_dano}" style="background:#dc2626; color:white; padding:10px 20px; text-decoration:none; border-radius:5px; display:inline-block; margin-top:10px;">VER FOTO DEL DAÑO</a></p>
     `;
+  } else {
+    cuerpo += `<h3>Evidencias adjuntas</h3><p>No se adjuntaron imágenes o archivos de evidencia.</p>`;
   }
 
-  cuerpo += `<hr><p style="font-size:12px; color:#666;">Generado automáticamente el ${new Date().toLocaleString()}</p>`;
+  cuerpo += `<hr><p style="font-size:12px; color:#666;">Generado automáticamente por el sistema de recepción de equipos.</p>`;
 
   GmailApp.sendEmail(destinatarios.join(","), asunto, "", {
     htmlBody: cuerpo,
@@ -1651,7 +1711,7 @@ function getColumnMap(sheet) {
   map.novedad_devolucion = buscarColumna("novedad_devolucion");
   map.descripcion_devolucion = buscarColumna("descripcion_devolucion");
   map.firma_devolucion = buscarColumna("firma_devolucion");
-  map.pdf_resumen_url = buscarColumna("pdf_resumen_url");
+  map.pdf_resumen_url = buscarColumna("pdf_resumen_url", "pdf_devolucion_url", "pdf devolucion", "pdf devolución", "acta_devolucion", "acta devolución");
   map.foto_devolucion = buscarColumna("foto_devolucion");
   map.equipo_adicional = buscarColumna("equipo_adicional");
 
