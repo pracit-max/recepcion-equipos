@@ -1421,7 +1421,10 @@
                 '&email=' + encodeURIComponent(correo) +
                 '&code=' + encodeURIComponent(codigo);
             const result = await jsonpRequest(url);
-            return result && result.status === 'ok';
+            if (!result || result.status !== 'ok') {
+                throw new Error((result && result.error) || 'No se pudo enviar el codigo de verificacion');
+            }
+            return true;
         }
 
         function mostrarPasoCodigoSoporte(correo) {
@@ -1476,11 +1479,7 @@
 
                 if (result.status === 'ok' && result.sede) {
                     const codigo = generarCodigoSoporte();
-                    const enviado = await enviarCodigoSoporte(correo, codigo);
-
-                    if (!enviado) {
-                        throw new Error('No se pudo enviar el codigo de verificacion');
-                    }
+                    await enviarCodigoSoporte(correo, codigo);
 
                     soporteVerificationData = {
                         code: codigo,
@@ -1501,7 +1500,7 @@
                 }
             } catch (err) {
                 console.error('Error:', err);
-                showToast('Error de conexión al validar el correo: ' + err.message, 'error');
+                showToast(err.message || 'Error al validar el correo de soporte', 'error');
                 input.disabled = false;
                 input.focus();
             } finally {
@@ -2087,9 +2086,13 @@
                     (r.estado || 'EN_CURSO') === 'EN_CURSO'
                 );
                 
-                // Actualizar badge de notificaciones
+                // Actualizar badge y panel de notificaciones con el mismo dato,
+                // para que la campana y el listado nunca queden desincronizados
+                // (antes solo se actualizaba el número, no el contenido del panel).
+                notificacionesData = solicitudes;
+                actualizarPanelNotificaciones(solicitudes);
                 actualizarBadgeNotificaciones(solicitudes.length);
-                
+
                 // También actualizar el dashboard si está visible
                 const vDashboard = document.getElementById('vistaDashboard');
                 if (vDashboard && vDashboard.style.display === 'block') {
@@ -2814,6 +2817,13 @@ Estado: ${registro.estado || 'EN_CURSO'}
                                     <div class="detail-item"><span class="label">Hora entrega:</span><span class="value">${formatearHoraFrontend(data.hora_entrega)}</span></div>
                                     <div class="detail-item"><span class="label">Fecha devolución:</span><span class="value">${formatearFechaFrontend(data.fecha_devolucion)}</span></div>
                                     <div class="detail-item"><span class="label">Hora real:</span><span class="value">${formatearHoraFrontend(data.hora_devolucion_real)}</span></div>
+                                </div>
+                            </div>
+                            <div class="detail-section">
+                                <h4>Documentos</h4>
+                                <div class="detail-grid">
+                                    <div class="detail-item full"><span class="label">Acta de recepción:</span><span class="value">${(data.pdf_recepcion_url || data.acta) ? `<a href="${data.pdf_recepcion_url || data.acta}" target="_blank" rel="noopener noreferrer">Ver PDF de recepción</a>` : 'Aún no disponible'}</span></div>
+                                    <div class="detail-item full"><span class="label">Acta de devolución:</span><span class="value">${data.pdf_resumen_url ? `<a href="${data.pdf_resumen_url}" target="_blank" rel="noopener noreferrer">Ver PDF de devolución</a>` : 'Aún no disponible'}</span></div>
                                 </div>
                             </div>
                             ${data.novedad === 'Sí' ? `

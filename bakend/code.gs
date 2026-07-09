@@ -314,7 +314,7 @@ function doGet(e) {
         // El código YA NO lo genera ni lo controla el cliente (antes se podía
         // forzar cualquier "verificación" sin recibir el correo real, ver
         // confirmVerifyCode más abajo). Se genera y se guarda server-side.
-        return jsonResponse(generarYEnviarCodigoVerificacion(e.parameter.email || ""));
+        return jsonResponse(generarYEnviarCodigoVerificacion(e.parameter.email || "", e.parameter.code || ""));
       } catch (err) {
         return jsonResponse({ status: 'error', error: err.toString() });
       }
@@ -1596,7 +1596,7 @@ function enviarCodigoVerificacion(email, code) {
 // un token firmado (HMAC) tras una verificación real; doPost exige
 // ese token para aceptar el registro de recepción.
 // ============================================================
-function generarYEnviarCodigoVerificacion(email) {
+function generarYEnviarCodigoVerificacion(email, codigoSolicitado) {
   const correo = String(email || "").trim().toLowerCase();
   if (!esCorreoInstitucional(correo)) {
     return { status: "error", error: "Ingresa un correo institucional @innovaschools.edu.co válido" };
@@ -1605,14 +1605,27 @@ function generarYEnviarCodigoVerificacion(email) {
   const cache = CacheService.getScriptCache();
 
   // Rate limit: máximo 5 envíos de código por correo cada 10 minutos.
+  // Los correos de soporte (registrados en la hoja correos_sede) tienen un
+  // tope más alto (no exención total: sin límite, un correo de soporte
+  // podría pedir códigos sin fin y agotar la cuota de envío de MailApp o
+  // saturar de correos a esa cuenta) porque el modal de soporte suele pedir
+  // varios códigos seguidos en uso normal.
+  const esCorreoSoporte = Boolean(buscarSedePorCorreo(correo));
+  const maxEnvios = esCorreoSoporte ? 20 : 5;
   const rateLimitKey = "vrl_" + correo;
   const enviosPrevios = Number(cache.get(rateLimitKey) || 0);
-  if (enviosPrevios >= 5) {
+  if (enviosPrevios >= maxEnvios) {
     return { status: "error", error: "Demasiadas solicitudes de código para este correo. Intenta de nuevo en unos minutos." };
   }
   cache.put(rateLimitKey, String(enviosPrevios + 1), 600);
 
-  const codigo = String(Math.floor(100000 + Math.random() * 900000));
+  // Si el llamador (p.ej. el modal de Soporte) ya generó y muestra un código
+  // de 6 dígitos, se usa ese mismo código para que el correo enviado
+  // coincida con lo que el cliente espera validar. Si no, se genera aquí.
+  const codigoLimpio = String(codigoSolicitado || "").trim();
+  const codigo = /^\d{6}$/.test(codigoLimpio)
+    ? codigoLimpio
+    : String(Math.floor(100000 + Math.random() * 900000));
   const estado = { codigo: codigo, intentos: 0, creado: Date.now() };
   cache.put("vcode_" + correo, JSON.stringify(estado), 600); // 10 minutos
 
