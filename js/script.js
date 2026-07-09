@@ -1868,19 +1868,28 @@ function initializeSignatureCanvas() {
 
 function setupCanvasSize() {
     if (!signatureCanvas || !ctx) return;
-    
+
     const container = signatureCanvas.parentElement;
     const rect = signatureCanvas.getBoundingClientRect();
-    
+
     // Si el canvas no tiene dimensiones, usar las del contenedor
-    if (rect.width === 0) {
-        signatureCanvas.width = container.clientWidth || 600;
-        signatureCanvas.height = 200;
-    } else {
-        signatureCanvas.width = rect.width;
-        signatureCanvas.height = rect.height;
+    const newWidth = Math.round(rect.width === 0 ? (container.clientWidth || 600) : rect.width);
+    const newHeight = Math.round(rect.width === 0 ? 200 : rect.height);
+
+    // Si el tamaño no cambió realmente, no tocar el canvas: en móviles el
+    // teclado virtual dispara "resize" y esto borraba la firma ya dibujada.
+    if (signatureCanvas.width === newWidth && signatureCanvas.height === newHeight) {
+        return;
     }
-    
+
+    // Guardar la firma actual para restaurarla después de redimensionar
+    const firmaPrevia = (signatureCanvas.width > 0 && signatureCanvas.height > 0)
+        ? signatureCanvas.toDataURL('image/png')
+        : null;
+
+    signatureCanvas.width = newWidth;
+    signatureCanvas.height = newHeight;
+
     // Restaurar configuración después del resize
     ctx.strokeStyle = '#1e293b';
     ctx.lineWidth = 2;
@@ -1888,7 +1897,15 @@ function setupCanvasSize() {
     ctx.lineJoin = 'round';
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, signatureCanvas.width, signatureCanvas.height);
-    
+
+    if (firmaPrevia) {
+        const img = new Image();
+        img.onload = () => {
+            ctx.drawImage(img, 0, 0, signatureCanvas.width, signatureCanvas.height);
+        };
+        img.src = firmaPrevia;
+    }
+
     console.log("Canvas redimensionado:", signatureCanvas.width, "x", signatureCanvas.height);
 }
 
