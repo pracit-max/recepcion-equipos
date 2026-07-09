@@ -57,6 +57,14 @@ function doGet(e) {
       return getSedesSoporteHandler();
     }
 
+    if (action === "buscarDatosPorCedula") {
+      try {
+        return jsonResponse(buscarDatosPorCedulaHandler(e.parameter.cedula || ""));
+      } catch (err) {
+        return jsonResponse({ status: "error", error: err.toString() });
+      }
+    }
+
     if (action === "procesarDocumentosPendientes") {
       procesarDocumentosPendientesAsync();
       return jsonResponse({ status: "ok", message: "Procesamiento de documentos ejecutado" });
@@ -67,6 +75,11 @@ function doGet(e) {
     // ==============================
     if (action === "enCurso") {
       try {
+        const permisoEnCurso = requireSoporteAutorizado_(e.parameter.correo || "", e.parameter.sede || "");
+        if (!permisoEnCurso.ok) {
+          return jsonResponse({ status: "error", error: permisoEnCurso.error });
+        }
+
         const sheet = getMainSheet();
         const colMap = getColumnMap(sheet);
         const lastRow = sheet.getLastRow();
@@ -104,6 +117,10 @@ function doGet(e) {
             curso: r.curso || "",
             sede: r.sede || "",
             equipo: r.equipo || "",
+            tipo_usuario: r.tipo_usuario || "Docente",
+            vehiculo_principal: r.vehiculo_principal || r.equipo || "",
+            vehiculos_adicionales: r.vehiculos_adicionales || "",
+            vehiculos_solicitados: r.vehiculos_solicitados || "",
             cantidad: r.cantidad || "",
             hora_entrega: formatearHoraSheet(r.hora_entrega),
             hora_devolucion: formatearHoraSheet(r.hora_devolucion),
@@ -111,7 +128,12 @@ function doGet(e) {
             acta: r.acta || "",
             pdf_recepcion_url: r.acta || "",
             equipo_adicional: r.equipo_adicional || "",
-            serial_adicional: r.serial_adicional || ""
+            serial_adicional: r.serial_adicional || "",
+            estado_devolucion_usuario: r.estado_devolucion_usuario || "",
+            fecha_notificacion_devolucion: formatearFechaSheet(r.fecha_notificacion_devolucion),
+            hora_notificacion_devolucion: formatearHoraSheet(r.hora_notificacion_devolucion),
+            observaciones_devolucion_usuario: r.observaciones_devolucion_usuario || "",
+            fotos_devolucion_usuario: r.fotos_devolucion_usuario || ""
           }));
 
         return jsonResponse(enCurso);
@@ -123,6 +145,11 @@ function doGet(e) {
 
     if (action === "devolucionesCerradas") {
       try {
+        const permisoCerradas = requireSoporteAutorizado_(e.parameter.correo || "", e.parameter.sede || "");
+        if (!permisoCerradas.ok) {
+          return jsonResponse({ status: "error", error: permisoCerradas.error });
+        }
+
         const sheet = getMainSheet();
         const colMap = getColumnMap(sheet);
         const lastRow = sheet.getLastRow();
@@ -156,6 +183,10 @@ function doGet(e) {
               curso: r.curso || "",
               sede: r.sede || "",
               equipo: r.equipo || "",
+              tipo_usuario: r.tipo_usuario || "Docente",
+              vehiculo_principal: r.vehiculo_principal || r.equipo || "",
+              vehiculos_adicionales: r.vehiculos_adicionales || "",
+              vehiculos_solicitados: r.vehiculos_solicitados || "",
               cantidad: r.cantidad || "",
               fecha_devolucion: formatearFechaSheet(r.fecha_devolucion),
               hora_devolucion_real: formatearHoraSheet(r.hora_devolucion_real),
@@ -280,20 +311,18 @@ function doGet(e) {
     // ==============================
     if (action === 'sendVerifyCode') {
       try {
-        const email = e.parameter.email;
-        const code = e.parameter.code;
+        // El código YA NO lo genera ni lo controla el cliente (antes se podía
+        // forzar cualquier "verificación" sin recibir el correo real, ver
+        // confirmVerifyCode más abajo). Se genera y se guarda server-side.
+        return jsonResponse(generarYEnviarCodigoVerificacion(e.parameter.email || ""));
+      } catch (err) {
+        return jsonResponse({ status: 'error', error: err.toString() });
+      }
+    }
 
-        if (!email || !code) {
-          return jsonResponse({ status: 'error', error: 'Faltan parámetros' });
-        }
-
-        const enviado = enviarCodigoVerificacion(email, code);
-
-        return jsonResponse({
-          status: enviado ? 'ok' : 'error',
-          message: enviado ? 'Código enviado' : 'Error al enviar'
-        });
-
+    if (action === 'confirmVerifyCode') {
+      try {
+        return jsonResponse(confirmarCodigoVerificacion(e.parameter.email || "", e.parameter.code || ""));
       } catch (err) {
         return jsonResponse({ status: 'error', error: err.toString() });
       }
@@ -363,6 +392,12 @@ function doGet(e) {
     // ==============================
     if (action === 'getAllRecords') {
       try {
+        const permisoAllRecords = requireSoporteAutorizado_(e.parameter.correo || "", e.parameter.sede || "");
+        if (!permisoAllRecords.ok) {
+          return jsonResponse({ status: "error", error: permisoAllRecords.error });
+        }
+        const sedeAutorizadaAllRecords = normalizarTexto(permisoAllRecords.acceso.sede);
+
         const sheet = getMainSheet();
         const colMap = getColumnMap(sheet);
         const lastRow = sheet.getLastRow();
@@ -376,6 +411,7 @@ function doGet(e) {
 
         const registros = rows
           .map(row => getRowDataObject(row, colMap))
+          .filter(r => normalizarTexto(r.sede || "") === sedeAutorizadaAllRecords)
           .map((r, index) => {
             const actaRecepcion = r.acta || buscarActaRecepcionRelacionada(r);
             return {
@@ -388,6 +424,10 @@ function doGet(e) {
               curso: r.curso || "",
               sede: r.sede || "",
               equipo: r.equipo || "",
+              tipo_usuario: r.tipo_usuario || "Docente",
+              vehiculo_principal: r.vehiculo_principal || r.equipo || "",
+              vehiculos_adicionales: r.vehiculos_adicionales || "",
+              vehiculos_solicitados: r.vehiculos_solicitados || "",
               cantidad: r.cantidad || "",
               cargador: r.cargador || "",
               novedad: r.novedad || "No",
@@ -406,7 +446,11 @@ function doGet(e) {
               pdf_recepcion_url: actaRecepcion,
               pdf_resumen_url: r.pdf_resumen_url || "",
               equipo_adicional: r.equipo_adicional || "",
-              serial_adicional: r.serial_adicional || ""
+              serial_adicional: r.serial_adicional || "",
+              estado_devolucion_usuario: r.estado_devolucion_usuario || "",
+              fecha_notificacion_devolucion: formatearFechaSheet(r.fecha_notificacion_devolucion),
+              hora_notificacion_devolucion: formatearHoraSheet(r.hora_notificacion_devolucion),
+              observaciones_devolucion_usuario: r.observaciones_devolucion_usuario || ""
             };
           })
           .sort((a, b) => {
@@ -427,6 +471,12 @@ function doGet(e) {
     // ==============================
     if (action === 'getRegistroDetalle' && e.parameter.id) {
       try {
+        const permisoDetalle = requireSoporteAutorizado_(e.parameter.correo || "", e.parameter.sede || "");
+        if (!permisoDetalle.ok) {
+          return jsonResponse({ error: permisoDetalle.error });
+        }
+        const sedeAutorizadaDetalle = normalizarTexto(permisoDetalle.acceso.sede);
+
         const sheet = getMainSheet();
         const colMap = getColumnMap(sheet);
         const lastRow = sheet.getLastRow();
@@ -444,6 +494,9 @@ function doGet(e) {
           const rowId = String(r.id_solicitud || r.id || "").trim();
 
           if (rowId === targetId) {
+            if (normalizarTexto(r.sede || "") !== sedeAutorizadaDetalle) {
+              return jsonResponse({ error: "No autorizado para ver este registro" });
+            }
             r.fecha = formatearFechaSheet(r.fecha);
             r.fecha_devolucion = formatearFechaSheet(r.fecha_devolucion);
             r.hora_entrega = formatearHoraSheet(r.hora_entrega);
@@ -468,6 +521,17 @@ function doGet(e) {
     // ==============================
     if (action === 'updateStatus' && e.parameter.id && e.parameter.estado) {
       try {
+        const permisoUpdateStatus = requireSoporteAutorizado_(e.parameter.correo || "", e.parameter.sede || "");
+        if (!permisoUpdateStatus.ok) {
+          return jsonResponse({ status: "error", error: permisoUpdateStatus.error });
+        }
+        const sedeAutorizadaUpdate = normalizarTexto(permisoUpdateStatus.acceso.sede);
+
+        const nuevoEstado = String(e.parameter.estado).trim().toUpperCase();
+        if (["EN_CURSO", "CERRADO"].indexOf(nuevoEstado) === -1) {
+          return jsonResponse({ status: "error", error: "Estado no válido" });
+        }
+
         const sheet = getMainSheet();
         const colMap = getColumnMap(sheet);
         const lastRow = sheet.getLastRow();
@@ -478,10 +542,10 @@ function doGet(e) {
         }
 
         const targetId = String(e.parameter.id).trim();
-        const nuevoEstado = String(e.parameter.estado).trim();
         const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
         let targetRowNumber = -1;
+        let targetRowObj = null;
 
         for (let i = 0; i < rows.length; i++) {
           const r = getRowDataObject(rows[i], colMap);
@@ -489,6 +553,7 @@ function doGet(e) {
 
           if (rowId === targetId) {
             targetRowNumber = i + 2;
+            targetRowObj = r;
             break;
           }
         }
@@ -497,10 +562,15 @@ function doGet(e) {
           return jsonResponse({ status: "error", error: "No se encontró la solicitud" });
         }
 
+        if (normalizarTexto(targetRowObj.sede || "") !== sedeAutorizadaUpdate) {
+          return jsonResponse({ status: "error", error: "No autorizado para modificar este registro" });
+        }
+
         if (colMap.estado) {
           sheet.getRange(targetRowNumber, colMap.estado).setValue(nuevoEstado);
         }
 
+        Logger.log("Estado actualizado por " + e.parameter.correo + " — id: " + targetId + " -> " + nuevoEstado);
         return jsonResponse({ status: "ok", message: "Estado actualizado" });
 
       } catch (err) {
@@ -563,6 +633,58 @@ function jsonResponse(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function buscarDatosPorCedulaHandler(cedula) {
+  const cedulaBuscada = String(cedula || "").replace(/\D/g, "");
+  if (!cedulaBuscada || cedulaBuscada.length < 6) {
+    return { status: "error", error: "Cédula inválida" };
+  }
+
+  // Rate limit global: este endpoint no tiene sesión ni exige correo (es el
+  // autocompletado de datos), así que sin límite se podría usar para
+  // enumerar cédulas y sacar nombre/correo/sede de cualquier persona
+  // registrada. Se limita el total de búsquedas por minuto en todo el
+  // sistema — generoso para uso normal, impráctico para scraping masivo.
+  const cache = CacheService.getScriptCache();
+  const rlKey = "cedula_rl_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMddHHmm");
+  const conteo = Number(cache.get(rlKey) || 0);
+  if (conteo >= 60) {
+    return { status: "error", error: "Demasiadas búsquedas, intenta en un momento." };
+  }
+  cache.put(rlKey, String(conteo + 1), 70);
+
+  const sheet = getMainSheet();
+  const colMap = getColumnMap(sheet);
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+
+  if (lastRow <= 1 || !colMap.cedula) {
+    return { status: "not_found" };
+  }
+
+  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = getRowDataObject(rows[i], colMap);
+    const cedulaRegistro = String(r.cedula || "").replace(/\D/g, "");
+
+    if (cedulaRegistro === cedulaBuscada) {
+      return {
+        status: "ok",
+        data: {
+          cedula: cedulaBuscada,
+          nombre: r.nombre || "",
+          curso: r.curso || "",
+          correo: r.correo || "",
+          sede: r.sede || "",
+          tipo_usuario: r.tipo_usuario || ""
+        }
+      };
+    }
+  }
+
+  return { status: "not_found" };
 }
 
 // ============================================================
@@ -637,6 +759,10 @@ function doPost(e) {
       return cerrarSolicitud(data);
     }
 
+    if (data.action === "registrarDevolucionUsuario") {
+      return registrarDevolucionUsuario(data);
+    }
+
     // CRUD de equipos
     if (data.action === "addEquipo") {
       return agregarEquipo(data);
@@ -655,11 +781,23 @@ function doPost(e) {
       });
     }
 
+    if (!validarTokenVerificacion(data.verify_token, data.correo)) {
+      return jsonResponse({
+        status: "error",
+        error: "Tu correo no está verificado o la verificación expiró. Vuelve a verificar tu correo e intenta de nuevo."
+      });
+    }
+
     if (!String(data.curso || "").trim()) {
       return jsonResponse({
         status: "error",
         error: "Debe escribir el curso"
       });
+    }
+
+    const validacionVehiculosPrincipales = validarVehiculosPrincipalesDisponibles(data);
+    if (!validacionVehiculosPrincipales.ok) {
+      return jsonResponse({ status: "error", error: validacionVehiculosPrincipales.error, ocupado: true });
     }
 
     // === VALIDACIÓN DE DISPONIBILIDAD ===
@@ -745,6 +883,7 @@ function doPost(e) {
         const rows = sheetCheck.getRange(2, 1, lastRowCheck - 1, 26).getValues();
         const hoy = Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd");
         const normalizar = (txt) => String(txt || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const vehiculosSolicitados = obtenerVehiculosPrincipalesPayload(data).map(normalizar);
 
         for (let row of rows) {
           let fechaReg = row[0];
@@ -758,7 +897,7 @@ function doPost(e) {
           const eq = String(row[5] || "").trim();
           const sed = normalizar(row[4] || "");
 
-          if (fechaReg === hoy && eq === data.equipo && sed === normalizar(data.sede || "") && est === "EN_CURSO") {
+          if (fechaReg === hoy && vehiculosSolicitados.indexOf(normalizar(eq)) !== -1 && sed === normalizar(data.sede || "") && est === "EN_CURSO") {
             return jsonResponse({
               status: "error",
               error: "El equipo acaba de ser reservado por otro usuario. Recarga la página.",
@@ -814,7 +953,11 @@ function doPost(e) {
         hora_devolucion: data.hora_devolucion || "15:00",
         id_solicitud: idSolicitud,
         estado: estadoInicial,
-        hora_entrega: horaEntrega
+        hora_entrega: horaEntrega,
+        tipo_usuario: data.tipo_usuario || "Docente",
+        vehiculo_principal: data.vehiculo_principal || data.equipo || "",
+        vehiculos_adicionales: data.vehiculos_adicionales || "",
+        vehiculos_solicitados: data.vehiculos_solicitados || (data.equipo ? JSON.stringify([data.equipo]) : "")
       });
       const textoEquiposAdicionales = obtenerTextoEquiposAdicionales(data);
       const adicionalesPlano = formatearEquiposAdicionalesPlano(textoEquiposAdicionales);
@@ -840,7 +983,7 @@ function doPost(e) {
     agregarDocumentoPendiente_("RECEPCION", idSolicitud);
     programarProcesamientoDocumentosAsync();
 
-    Logger.log("=== FIN doPost OK ===");
+    Logger.log("=== FIN doPost OK === recepción registrada por " + (data.correo || "?") + " (cédula " + (data.cedula || "?") + ") — id: " + idSolicitud);
     return jsonResponse({
       status: "ok",
       id_solicitud: idSolicitud,
@@ -859,11 +1002,43 @@ function doPost(e) {
 // ============================================================
 // FUNCIONES AUXILIARES
 // ============================================================
+const MIME_IMAGEN_PERMITIDA = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/webp": "webp"
+};
+const MAX_BYTES_IMAGEN = 8 * 1024 * 1024; // 8 MB por imagen
+
 function guardarImagen(base64, nombre, folderId) {
-  const folder = DriveApp.getFolderById(folderId);
-  const base64Data = base64.includes(",") ? base64.split(",")[1] : base64;
+  const texto = String(base64 || "");
+  const match = texto.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/);
+
+  // Solo se aceptan imágenes con encabezado data: reconocible; evita subir
+  // archivos arbitrarios (HTML/JS/ejecutables) disfrazados de "foto" y
+  // limita el tamaño para no agotar la cuota de Drive con un solo envío.
+  let mimeType = "image/png";
+  let base64Data;
+  if (match && MIME_IMAGEN_PERMITIDA[match[1].toLowerCase()]) {
+    mimeType = match[1].toLowerCase();
+    base64Data = match[2];
+  } else if (!texto.includes(",") && /^[A-Za-z0-9+/=\s]+$/.test(texto)) {
+    // Compatibilidad con datos ya guardados que no traían el encabezado data:.
+    base64Data = texto;
+  } else {
+    throw new Error("Formato de imagen no permitido");
+  }
+
   const decoded = Utilities.base64Decode(base64Data);
-  const blob = Utilities.newBlob(decoded, "image/png", nombre + "_" + Date.now() + ".png");
+  if (decoded.length > MAX_BYTES_IMAGEN) {
+    throw new Error("La imagen supera el tamaño máximo permitido (8 MB)");
+  }
+
+  const extension = MIME_IMAGEN_PERMITIDA[mimeType] || "png";
+  const nombreSeguro = String(nombre || "imagen").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 80);
+
+  const folder = DriveApp.getFolderById(folderId);
+  const blob = Utilities.newBlob(decoded, mimeType, nombreSeguro + "_" + Date.now() + "." + extension);
   const file = folder.createFile(blob);
   return file.getUrl();
 }
@@ -1088,6 +1263,10 @@ function construirDatosPdfRecepcionDesdeFila_(r) {
     curso: r.curso || "",
     sede: r.sede || "",
     equipo: r.equipo || "",
+    tipo_usuario: r.tipo_usuario || "Docente",
+    vehiculo_principal: r.vehiculo_principal || r.equipo || "",
+    vehiculos_adicionales: r.vehiculos_adicionales || "",
+    vehiculos_solicitados: r.vehiculos_solicitados || "",
     cantidad: r.cantidad || "",
     cargador: r.cargador || "",
     novedad: r.novedad || "No",
@@ -1196,11 +1375,18 @@ function enviarPDFporCorreo(data) {
             <div class="info-item"><span class="label">Cédula:</span> <span class="value">${safe(data.cedula)}</span></div>
             <div class="info-item"><span class="label">Correo:</span> <span class="value">${safe(data.correo)}</span></div>
             <div class="info-item"><span class="label">Curso:</span> <span class="value">${safe(data.curso || "No registrado")}</span></div>
+            <div class="info-item"><span class="label">Tipo de usuario:</span> <span class="value">${safe(data.tipo_usuario || "Docente")}</span></div>
+            <div class="info-item"><span class="label">Sede:</span> <span class="value">${safe(data.sede || "")}</span></div>
             <div class="info-item"><span class="label">Cargador:</span> <span class="value">${safe(data.cargador)}</span></div>
           </div>
           <h2>Equipos recibidos</h2>
-          <p><strong>Equipo:</strong> ${safe(data.equipo)} (${safe(data.cantidad)} unidades)</p>
+          <p><strong>Vehículo principal:</strong> ${safe(data.vehiculo_principal || data.equipo)} (${safe(data.cantidad)} unidades)</p>
     `;
+
+    const vehiculosPdf = obtenerVehiculosPrincipalesRegistro(data);
+    if (vehiculosPdf.length > 1) {
+      htmlContent += `<p><strong>Todos los vehículos seleccionados:</strong> ${safe(vehiculosPdf.join(", "))}</p>`;
+    }
 
     htmlContent += construirTablaDetalleEquiposHtml(obtenerDetalleEquiposPrincipales(data), safe);
 
@@ -1269,7 +1455,7 @@ function enviarPDFporCorreo(data) {
     const tempFile = DriveApp.createFile('temp_' + Date.now() + '.html', htmlContent, 'text/html');
 
     Logger.log("Convirtiendo a PDF...");
-    const pdfBlob = tempFile.getAs('application/pdf').setName(`Acta_${safe(data.nombre)}_${safe(data.fecha)}.pdf`);
+    const pdfBlob = tempFile.getAs('application/pdf').setName(`Acta_${safe(data.nombre)}_${safe(data.cedula)}_${safe(data.fecha)}.pdf`);
 
     Logger.log("Guardando en Drive...");
     const folder = getCarpetaSede(FOLDER_PDF, data.sede);
@@ -1401,6 +1587,126 @@ function enviarCodigoVerificacion(email, code) {
   }
 }
 
+// ============================================================
+// VERIFICACIÓN DE CORREO — AHORA SERVER-AUTHORITATIVE
+// Antes el código lo generaba y lo comprobaba solo el navegador
+// (verify.js), así que cualquiera podía marcar "verified = true"
+// desde la consola sin haber recibido nunca el correo. Ahora el
+// código se genera, se guarda y se valida aquí, y solo se entrega
+// un token firmado (HMAC) tras una verificación real; doPost exige
+// ese token para aceptar el registro de recepción.
+// ============================================================
+function generarYEnviarCodigoVerificacion(email) {
+  const correo = String(email || "").trim().toLowerCase();
+  if (!esCorreoInstitucional(correo)) {
+    return { status: "error", error: "Ingresa un correo institucional @innovaschools.edu.co válido" };
+  }
+
+  const cache = CacheService.getScriptCache();
+
+  // Rate limit: máximo 5 envíos de código por correo cada 10 minutos.
+  const rateLimitKey = "vrl_" + correo;
+  const enviosPrevios = Number(cache.get(rateLimitKey) || 0);
+  if (enviosPrevios >= 5) {
+    return { status: "error", error: "Demasiadas solicitudes de código para este correo. Intenta de nuevo en unos minutos." };
+  }
+  cache.put(rateLimitKey, String(enviosPrevios + 1), 600);
+
+  const codigo = String(Math.floor(100000 + Math.random() * 900000));
+  const estado = { codigo: codigo, intentos: 0, creado: Date.now() };
+  cache.put("vcode_" + correo, JSON.stringify(estado), 600); // 10 minutos
+
+  const enviado = enviarCodigoVerificacion(correo, codigo);
+  if (!enviado) {
+    return { status: "error", error: "No se pudo enviar el código. Intenta nuevamente." };
+  }
+  return { status: "ok", message: "Código enviado" };
+}
+
+function confirmarCodigoVerificacion(email, code) {
+  const correo = String(email || "").trim().toLowerCase();
+  const codigoIngresado = String(code || "").trim();
+  const cache = CacheService.getScriptCache();
+  const key = "vcode_" + correo;
+  const raw = cache.get(key);
+
+  if (!raw) {
+    return { status: "error", error: "El código expiró o no se ha solicitado. Pide uno nuevo." };
+  }
+
+  let estado;
+  try {
+    estado = JSON.parse(raw);
+  } catch (err) {
+    cache.remove(key);
+    return { status: "error", error: "Código inválido, solicita uno nuevo." };
+  }
+
+  if (estado.intentos >= 3) {
+    cache.remove(key);
+    return { status: "error", error: "Demasiados intentos fallidos. Solicita un nuevo código." };
+  }
+
+  if (codigoIngresado !== estado.codigo) {
+    estado.intentos++;
+    cache.put(key, JSON.stringify(estado), 600);
+    Logger.log("Intento de código incorrecto para " + correo + " (" + estado.intentos + "/3)");
+    return {
+      status: "error",
+      error: "Código incorrecto.",
+      intentosRestantes: 3 - estado.intentos
+    };
+  }
+
+  cache.remove(key);
+  Logger.log("Correo verificado correctamente: " + correo);
+  return { status: "ok", token: generarTokenVerificacion(correo) };
+}
+
+function obtenerSecretoVerificacion_() {
+  const props = PropertiesService.getScriptProperties();
+  let secreto = props.getProperty("VERIFY_TOKEN_SECRET");
+  if (!secreto) {
+    secreto = Utilities.getUuid() + Utilities.getUuid();
+    props.setProperty("VERIFY_TOKEN_SECRET", secreto);
+  }
+  return secreto;
+}
+
+function generarTokenVerificacion(correo) {
+  const secreto = obtenerSecretoVerificacion_();
+  const expira = Date.now() + (45 * 60 * 1000); // 45 minutos para terminar y enviar el formulario
+  const payload = String(correo).toLowerCase() + "|" + expira;
+  const firma = Utilities.base64EncodeWebSafe(
+    Utilities.computeHmacSha256Signature(payload, secreto)
+  );
+  return Utilities.base64EncodeWebSafe(payload) + "." + firma;
+}
+
+function validarTokenVerificacion(token, correoEsperado) {
+  try {
+    const partes = String(token || "").split(".");
+    if (partes.length !== 2) return false;
+
+    const payload = Utilities.newBlob(Utilities.base64DecodeWebSafe(partes[0])).getDataAsString();
+    const separador = payload.lastIndexOf("|");
+    if (separador === -1) return false;
+
+    const correoToken = payload.substring(0, separador);
+    const expira = Number(payload.substring(separador + 1));
+    if (!expira || Date.now() > expira) return false;
+    if (correoToken !== String(correoEsperado || "").trim().toLowerCase()) return false;
+
+    const secreto = obtenerSecretoVerificacion_();
+    const firmaEsperada = Utilities.base64EncodeWebSafe(
+      Utilities.computeHmacSha256Signature(payload, secreto)
+    );
+    return firmaEsperada === partes[1];
+  } catch (err) {
+    return false;
+  }
+}
+
 function getDisponibilidadSedeHandler(sede, fecha) {
   const sedeNormalizada = normalizarTexto(sede || "");
   const fechaConsulta = String(fecha || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd")).trim();
@@ -1442,7 +1748,7 @@ function getDisponibilidadSedeHandler(sede, fecha) {
       fechaRegistro = String(fechaRegistro).split("T")[0].split(" ")[0];
     }
 
-    const equipo = String(r.equipo || "").trim();
+    const vehiculos = obtenerVehiculosPrincipalesRegistro(r);
     const estado = String(r.estado || "").trim().toUpperCase();
     const sedeRegistro = normalizarTexto(r.sede || "");
 
@@ -1450,13 +1756,16 @@ function getDisponibilidadSedeHandler(sede, fecha) {
       fechaRegistro === fechaConsulta &&
       sedeRegistro === sedeNormalizada &&
       estado === "EN_CURSO" &&
-      equipo
+      vehiculos.length
     ) {
-      result.ocupados[equipo] = {
-        usuario: r.nombre || "Usuario desconocido",
-        hora_devolucion: formatearHoraSheet(r.hora_devolucion) || "15:00",
-        id_solicitud: r.id_solicitud || ""
-      };
+      vehiculos.forEach(equipo => {
+        result.ocupados[equipo] = {
+          usuario: r.nombre || "Usuario desconocido",
+          hora_devolucion: formatearHoraSheet(r.hora_devolucion) || "15:00",
+          id_solicitud: r.id_solicitud || "",
+          tipo_usuario: r.tipo_usuario || "Docente"
+        };
+      });
     }
   });
 
@@ -1498,15 +1807,86 @@ function getCarrosDisponibles() {
       fechaRegistro = String(fechaRegistro).split("T")[0].split(" ")[0];
     }
 
-    const equipo = String(r.equipo || "").trim();
+    const vehiculos = obtenerVehiculosPrincipalesRegistro(r);
     const estado = String(r.estado || "").trim().toUpperCase();
 
-    if (fechaRegistro === fechaHoy && estado === "EN_CURSO" && equipo) {
-      ocupados.push(equipo);
+    if (fechaRegistro === fechaHoy && estado === "EN_CURSO" && vehiculos.length) {
+      vehiculos.forEach(equipo => ocupados.push(equipo));
     }
   });
 
   return [...new Set(ocupados)];
+}
+
+function parseListaVehiculos(valor) {
+  const texto = String(valor || "").trim();
+  if (!texto) return [];
+  try {
+    const parsed = JSON.parse(texto);
+    if (Array.isArray(parsed)) {
+      return parsed.map(v => String(v || "").trim()).filter(Boolean);
+    }
+  } catch (err) {
+    // Registros antiguos pueden venir como texto separado por comas o saltos.
+  }
+  return texto
+    .split(/[\n,;|]+/)
+    .map(v => String(v || "").replace(/^\d+\.\s*/, "").trim())
+    .filter(Boolean);
+}
+
+function obtenerVehiculosPrincipalesRegistro(r) {
+  const vehiculos = [];
+  parseListaVehiculos(r.vehiculos_solicitados).forEach(v => vehiculos.push(v));
+  if (!vehiculos.length && r.vehiculo_principal) vehiculos.push(String(r.vehiculo_principal).trim());
+  parseListaVehiculos(r.vehiculos_adicionales).forEach(v => vehiculos.push(v));
+  if (!vehiculos.length && r.equipo) vehiculos.push(String(r.equipo).trim());
+
+  const vistos = {};
+  return vehiculos.filter(v => {
+    const key = normalizarTexto(v);
+    if (!key || vistos[key]) return false;
+    vistos[key] = true;
+    return true;
+  });
+}
+
+function obtenerVehiculosPrincipalesPayload(data) {
+  const base = {
+    equipo: data.equipo || "",
+    vehiculo_principal: data.vehiculo_principal || data.equipo || "",
+    vehiculos_adicionales: data.vehiculos_adicionales || "",
+    vehiculos_solicitados: data.vehiculos_solicitados || ""
+  };
+  return obtenerVehiculosPrincipalesRegistro(base);
+}
+
+function validarVehiculosPrincipalesDisponibles(data) {
+  const vehiculos = obtenerVehiculosPrincipalesPayload(data);
+  if (!vehiculos.length || String(data.es_otros_equipos || "").toLowerCase() === "sí") {
+    return { ok: true };
+  }
+
+  const tipoUsuario = normalizarTexto(data.tipo_usuario || "Docente");
+  if (tipoUsuario === "comercial" && (vehiculos.length < 2 || vehiculos.length > 5)) {
+    return { ok: false, error: "Comercial debe solicitar entre 2 y 5 carros." };
+  }
+
+  const fecha = data.fecha || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  const disponibilidad = getDisponibilidadSedeHandler(data.sede || "", fecha);
+  const ocupados = disponibilidad.ocupados || {};
+
+  for (let i = 0; i < vehiculos.length; i++) {
+    const vehiculo = vehiculos[i];
+    if (ocupados[vehiculo]) {
+      return {
+        ok: false,
+        error: "El " + vehiculo + " no está disponible. Está reservado por " + (ocupados[vehiculo].usuario || "otro usuario") + "."
+      };
+    }
+  }
+
+  return { ok: true };
 }
 
 function normalizarSi(valor) {
@@ -1637,6 +2017,186 @@ function enviarCorreoNovedad(data) {
 
   Logger.log("Correo de novedad enviado a: " + destinatarios);
 }
+
+// ============================================================
+// DEVOLUCIÓN INFORMADA POR EL USUARIO (no libera el vehículo,
+// solo notifica a soporte para que valide físicamente)
+// ============================================================
+function registrarDevolucionUsuario(data) {
+  // doPost ya sostiene el LockService.getScriptLock() global antes de
+  // despachar aquí (mismo patrón que cerrarSolicitud), no se vuelve a bloquear.
+  try {
+    const nombre = String(data.nombre || "").trim();
+    const cedula = String(data.cedula || "").replace(/\D/g, "");
+    const tipoUsuario = String(data.tipo_usuario || "").trim();
+    const sede = String(data.sede || "").trim();
+    const vehiculosDevueltos = parseListaVehiculos(data.vehiculos_devueltos);
+    const observaciones = String(data.observaciones || "").trim();
+    const adicionalesDevueltos = String(data.adicionales_devueltos || "No").trim() === "Sí" ? "Sí" : "No";
+    const detalleAdicionales = String(data.detalle_adicionales || "").trim();
+    const observacionesConAdicionales = observaciones +
+      (observaciones ? "\n\n" : "") +
+      "Equipos adicionales BODEGA TI devueltos: " + adicionalesDevueltos +
+      (adicionalesDevueltos === "Sí" && detalleAdicionales ? " - " + detalleAdicionales : "");
+
+    if (!nombre || !cedula || !tipoUsuario || !sede || !vehiculosDevueltos.length) {
+      return jsonResponse({ status: "error", error: "Completa nombre, cédula, tipo de usuario, sede y al menos un vehículo." });
+    }
+
+    let fotosBase64 = [];
+    try {
+      const parsedFotos = JSON.parse(data.fotos_devolucion || "[]");
+      if (Array.isArray(parsedFotos)) fotosBase64 = parsedFotos;
+    } catch (err) {
+      fotosBase64 = [];
+    }
+    const fotosDevolucionUrls = [];
+    fotosBase64.slice(0, 5).forEach((foto, idx) => {
+      if (!String(foto || "").startsWith("data:image")) return;
+      try {
+        fotosDevolucionUrls.push(guardarImagen(foto, "devolucion_usuario_" + cedula + "_" + idx, FOLDER_FOTO_DEVOLUCION));
+      } catch (imgErr) {
+        Logger.log("Error guardando foto de devolución de usuario: " + imgErr);
+      }
+    });
+
+    const zonaHoraria = Session.getScriptTimeZone();
+    const ahora = new Date();
+    const fechaNotificacion = Utilities.formatDate(ahora, zonaHoraria, "yyyy-MM-dd");
+    const horaNotificacion = Utilities.formatDate(ahora, zonaHoraria, "HH:mm");
+
+    let filasNotificadas = 0;
+    try {
+      const sheet = getMainSheet();
+      const colMap = getColumnMap(sheet);
+      const lastRow = sheet.getLastRow();
+      const lastCol = sheet.getLastColumn();
+      const sedeBuscada = normalizarTexto(sede);
+      const vehiculosBuscados = vehiculosDevueltos.map(normalizarTexto);
+
+      if (lastRow > 1) {
+        const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+        for (let i = 0; i < rows.length; i++) {
+          const rowObj = getRowDataObject(rows[i], colMap);
+          if (String(rowObj.estado || "").trim().toUpperCase() !== "EN_CURSO") continue;
+          if (String(rowObj.cedula || "").replace(/\D/g, "") !== cedula) continue;
+          if (normalizarTexto(rowObj.sede || "") !== sedeBuscada) continue;
+
+          const vehiculosFila = obtenerVehiculosPrincipalesRegistro(rowObj).map(normalizarTexto);
+          const coincide = vehiculosFila.some(v => vehiculosBuscados.indexOf(v) !== -1);
+          if (!coincide) continue;
+
+          guardarCamposRecepcionPorEncabezado_(sheet, i + 2, colMap, {
+            estado_devolucion_usuario: "Notificado",
+            fecha_notificacion_devolucion: fechaNotificacion,
+            hora_notificacion_devolucion: horaNotificacion,
+            observaciones_devolucion_usuario: observacionesConAdicionales,
+            fotos_devolucion_usuario: fotosDevolucionUrls.length ? JSON.stringify(fotosDevolucionUrls) : ""
+          });
+          filasNotificadas++;
+        }
+        if (filasNotificadas) SpreadsheetApp.flush();
+      }
+    } catch (matchErr) {
+      // No bloquea la notificación a soporte si no se pudo emparejar la fila.
+      Logger.log("No se pudo marcar la solicitud para devolución de usuario: " + matchErr);
+    }
+
+    enviarCorreoDevolucionUsuario({
+      nombre: nombre,
+      cedula: cedula,
+      tipo_usuario: tipoUsuario,
+      sede: sede,
+      vehiculos: vehiculosDevueltos,
+      fecha: fechaNotificacion,
+      hora: horaNotificacion,
+      observaciones: observaciones,
+      adicionales_devueltos: adicionalesDevueltos,
+      detalle_adicionales: detalleAdicionales,
+      fotos: fotosDevolucionUrls
+    });
+
+    Logger.log("Devolución notificada por usuario — cédula: " + cedula + " sede: " + sede + " filas marcadas: " + filasNotificadas);
+    return jsonResponse({ status: "ok", filas_notificadas: filasNotificadas, fotos: fotosDevolucionUrls });
+  } catch (err) {
+    return jsonResponse({ status: "error", error: err.toString() });
+  }
+}
+
+function enviarCorreoDevolucionUsuario(info) {
+  const asunto = "Devolución pendiente de validar - " + (info.sede || "Sede") + " - " + (info.nombre || "Usuario");
+  const destinatarios = buscarCorreosSoportePorSede(info.sede);
+
+  const cuerpo = `
+    <h2 style="color:#dc2626;">Devolución informada por el usuario</h2>
+    <p>Hola equipo de soporte,</p>
+    <p>
+      <strong>${info.nombre || "No registrado"}</strong> informó que terminó de usar el/los vehículo(s)
+      indicados abajo en la sede <strong>${info.sede || "No registrada"}</strong>.
+    </p>
+    <p style="padding:12px; background:#fef2f2; border-left:4px solid #dc2626;">
+      Este aviso <strong>no libera automáticamente</strong> el vehículo. Soporte debe validar
+      físicamente la devolución y cerrar la solicitud desde el módulo de devoluciones.
+    </p>
+    <table style="border-collapse:collapse; width:100%; font-family:Arial;">
+      <tr style="background:#f3f4f6;">
+        <td style="padding:8px; border:1px solid #ddd;"><strong>Nombre:</strong></td>
+        <td style="padding:8px; border:1px solid #ddd;">${info.nombre || ""}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px; border:1px solid #ddd;"><strong>Cédula:</strong></td>
+        <td style="padding:8px; border:1px solid #ddd;">${info.cedula || ""}</td>
+      </tr>
+      <tr style="background:#f3f4f6;">
+        <td style="padding:8px; border:1px solid #ddd;"><strong>Tipo de usuario:</strong></td>
+        <td style="padding:8px; border:1px solid #ddd;">${info.tipo_usuario || ""}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px; border:1px solid #ddd;"><strong>Sede:</strong></td>
+        <td style="padding:8px; border:1px solid #ddd;">${info.sede || ""}</td>
+      </tr>
+      <tr style="background:#f3f4f6;">
+        <td style="padding:8px; border:1px solid #ddd;"><strong>Vehículo(s):</strong></td>
+        <td style="padding:8px; border:1px solid #ddd;">${(info.vehiculos || []).join(", ")}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px; border:1px solid #ddd;"><strong>Fecha:</strong></td>
+        <td style="padding:8px; border:1px solid #ddd;">${info.fecha || ""}</td>
+      </tr>
+      <tr style="background:#f3f4f6;">
+        <td style="padding:8px; border:1px solid #ddd;"><strong>Hora:</strong></td>
+        <td style="padding:8px; border:1px solid #ddd;">${info.hora || ""}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px; border:1px solid #ddd;"><strong>Equipos adicionales BODEGA TI:</strong></td>
+        <td style="padding:8px; border:1px solid #ddd;">${info.adicionales_devueltos || "No"}${info.detalle_adicionales ? " - " + info.detalle_adicionales : ""}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px; border:1px solid #ddd;"><strong>Observaciones:</strong></td>
+        <td style="padding:8px; border:1px solid #ddd; white-space:pre-line;">${info.observaciones || "Sin observaciones"}</td>
+      </tr>
+    </table>
+  `;
+
+  let cuerpoConFotos = cuerpo;
+  if (info.fotos && info.fotos.length) {
+    cuerpoConFotos += `<h3>Fotos adjuntadas por el usuario (${info.fotos.length})</h3><div>`;
+    info.fotos.forEach((url, idx) => {
+      cuerpoConFotos += `<p><a href="${url}" style="background:#dc2626; color:white; padding:8px 16px; text-decoration:none; border-radius:5px; display:inline-block; margin:4px 4px 4px 0;">Ver foto ${idx + 1}</a></p>`;
+    });
+    cuerpoConFotos += `</div>`;
+  }
+  cuerpoConFotos += `<hr><p style="font-size:12px; color:#666;">Generado automáticamente por el sistema de recepción de equipos.</p>`;
+
+  GmailApp.sendEmail(destinatarios.join(","), asunto, "", {
+    htmlBody: cuerpoConFotos,
+    name: "Devoluciones - Innova Schools",
+    replyTo: SUPPORT_EMAIL
+  });
+
+  Logger.log("Correo de devolución de usuario enviado a: " + destinatarios);
+}
+
 function getMainSheet() {
   const ss = SpreadsheetApp.openById(SHEET_ID);
   const sheets = ss.getSheets();
@@ -1714,6 +2274,15 @@ function getColumnMap(sheet) {
   map.pdf_resumen_url = buscarColumna("pdf_resumen_url", "pdf_devolucion_url", "pdf devolucion", "pdf devolución", "acta_devolucion", "acta devolución");
   map.foto_devolucion = buscarColumna("foto_devolucion");
   map.equipo_adicional = buscarColumna("equipo_adicional");
+  map.tipo_usuario = buscarColumna("tipo_usuario", "tipo de usuario", "tipo_usuario_solicitud");
+  map.vehiculo_principal = buscarColumna("vehiculo_principal", "vehículo principal", "vehiculo principal");
+  map.vehiculos_adicionales = buscarColumna("vehiculos_adicionales", "vehículos adicionales", "vehiculos adicionales");
+  map.vehiculos_solicitados = buscarColumna("vehiculos_solicitados", "vehículos solicitados", "vehiculos solicitados");
+  map.estado_devolucion_usuario = buscarColumna("estado_devolucion_usuario", "estado devolución usuario");
+  map.fecha_notificacion_devolucion = buscarColumna("fecha_notificacion_devolucion", "fecha notificacion devolucion");
+  map.hora_notificacion_devolucion = buscarColumna("hora_notificacion_devolucion", "hora notificacion devolucion");
+  map.observaciones_devolucion_usuario = buscarColumna("observaciones_devolucion_usuario", "observaciones devolucion usuario");
+  map.fotos_devolucion_usuario = buscarColumna("fotos_devolucion_usuario", "fotos devolucion usuario");
 
   Logger.log("MAP COLUMNAS: " + JSON.stringify(map));
   return map;
@@ -1766,7 +2335,16 @@ function guardarCamposRecepcionPorEncabezado_(sheet, rowNumber, colMap, valores)
     hora_devolucion: "hora_devolucion",
     id_solicitud: "id_solicitud",
     estado: "estado",
-    hora_entrega: "hora_entrega"
+    hora_entrega: "hora_entrega",
+    tipo_usuario: "tipo_usuario",
+    vehiculo_principal: "vehiculo_principal",
+    vehiculos_adicionales: "vehiculos_adicionales",
+    vehiculos_solicitados: "vehiculos_solicitados",
+    estado_devolucion_usuario: "estado_devolucion_usuario",
+    fecha_notificacion_devolucion: "fecha_notificacion_devolucion",
+    hora_notificacion_devolucion: "hora_notificacion_devolucion",
+    observaciones_devolucion_usuario: "observaciones_devolucion_usuario",
+    fotos_devolucion_usuario: "fotos_devolucion_usuario"
   };
 
   Object.keys(valores).forEach(key => {
@@ -1793,6 +2371,8 @@ function getRowDataObject(row, colMap) {
   obj.hora_devolucion = formatearHoraSheet(obj.hora_devolucion);
   obj.hora_entrega = formatearHoraSheet(obj.hora_entrega);
   obj.hora_devolucion_real = formatearHoraSheet(obj.hora_devolucion_real);
+  obj.fecha = formatearFechaSheet(obj.fecha);
+  obj.fecha_devolucion = formatearFechaSheet(obj.fecha_devolucion);
   return obj;
 }
 
@@ -2241,9 +2821,11 @@ function cerrarSolicitud(data) {
     }
 
     const correoSoporteEntrada = String(data.correo_soporte_devolucion || "").trim().toLowerCase();
-    const correoSoporteDevolucion = esCorreoInstitucional(correoSoporteEntrada)
-      ? correoSoporteEntrada
-      : buscarCorreoSoportePorSede(targetRow.sede || data.sede || "");
+    const permisoCierre = requireSoporteAutorizado_(correoSoporteEntrada, targetRow.sede || data.sede || "");
+    if (!permisoCierre.ok) {
+      return jsonResponse({ status: "error", error: "No autorizado para cerrar esta solicitud: " + permisoCierre.error });
+    }
+    const correoSoporteDevolucion = correoSoporteEntrada;
 
     const zonaHoraria = Session.getScriptTimeZone();
     const ahora = new Date();
@@ -2312,6 +2894,7 @@ function cerrarSolicitud(data) {
     agregarDocumentoPendiente_("DEVOLUCION", data.id_solicitud);
     programarProcesamientoDocumentosAsync();
 
+    Logger.log("Solicitud cerrada por " + correoSoporteDevolucion + " — id: " + data.id_solicitud);
     return jsonResponse({
       status: "ok",
       message: "Solicitud cerrada correctamente. El PDF final se procesará en segundo plano.",
@@ -2402,7 +2985,8 @@ function generarPdfResumenFinal(data) {
           <tr><th>Correo</th><td>${data.correo || ""}</td></tr>
           <tr><th>Curso</th><td>${data.curso || "No registrado"}</td></tr>
           <tr><th>Sede</th><td>${data.sede || ""}</td></tr>
-          <tr><th>Equipo</th><td>${data.equipo || ""}</td></tr>
+          <tr><th>Tipo de usuario</th><td>${data.tipo_usuario || "Docente"}</td></tr>
+          <tr><th>Vehículo principal</th><td>${data.vehiculo_principal || data.equipo || ""}</td></tr>
           <tr><th>Cantidad entregada</th><td>${data.cantidad || ""}</td></tr>
           <tr><th>Cantidad devuelta</th><td>${data.cantidad_devuelta || ""}</td></tr>
         </table>
@@ -2416,6 +3000,13 @@ function generarPdfResumenFinal(data) {
         </table>
 
         <h2>Equipos principales solicitados</h2>
+        ${(() => {
+          const vehiculosResumen = obtenerVehiculosPrincipalesRegistro(data);
+          return vehiculosResumen.length > 1
+            ? '<p><strong>Vehículos adicionales:</strong> ' + vehiculosResumen.slice(1).join(", ") + '</p>'
+              + '<p><strong>Todos los vehículos seleccionados:</strong> ' + vehiculosResumen.join(", ") + '</p>'
+            : '';
+        })()}
         ${construirTablaDetalleEquiposHtml(obtenerDetalleEquiposPrincipales(data))}
 
         ${construirTablaEquiposAdicionalesHtml(obtenerTextoEquiposAdicionales(data))}
@@ -2475,7 +3066,7 @@ function generarPdfResumenFinal(data) {
       </html>`;
 
     const tempFile = DriveApp.createFile('temp_resumen_' + data.id_solicitud + '.html', html, MimeType.HTML);
-    const pdfBlob = tempFile.getAs(MimeType.PDF).setName('Resumen_' + data.id_solicitud + '.pdf');
+    const pdfBlob = tempFile.getAs(MimeType.PDF).setName('Resumen_' + (data.nombre || 'Usuario') + '_' + (data.cedula || '') + '_' + data.id_solicitud + '.pdf');
     const pdfFile = folder.createFile(pdfBlob);
     const pdfUrl = pdfFile.getUrl();
     tempFile.setTrashed(true);
@@ -2499,7 +3090,8 @@ function generarPdfResumenFinal(data) {
           <p><strong>Nombre:</strong> ${data.nombre || ""}</p>
           <p><strong>Curso:</strong> ${data.curso || "No registrado"}</p>
           <p><strong>Sede:</strong> ${data.sede || ""}</p>
-          <p><strong>Equipo:</strong> ${data.equipo || ""}</p>
+          <p><strong>Tipo de usuario:</strong> ${data.tipo_usuario || "Docente"}</p>
+          <p><strong>Vehículo(s):</strong> ${obtenerVehiculosPrincipalesRegistro(data).join(", ") || data.equipo || ""}</p>
           <p><strong>Cantidad devuelta:</strong> ${data.cantidad_devuelta || ""}</p>
           <p><strong>Estado final:</strong> ${data.estado_final || ""}</p>
           <p><strong>Fecha devolución:</strong> ${fechaDev}</p>
@@ -2725,10 +3317,17 @@ function actualizarEquipo(data) {
   try {
     const sede = data.sede;
     const serialOriginal = data.serialOriginal;
-    
+
     // Validaciones básicas
     if (!sede || !serialOriginal) {
       return jsonResponse({ status: "error", error: "Faltan datos: sede o serial original" });
+    }
+
+    // Validar acceso (agregarEquipo/eliminarEquipo ya lo hacían; a esta le faltaba)
+    const permiso = validarAccesoSoporte(data.correo, sede);
+    if (!permiso.ok) {
+      Logger.log("❌ Error de acceso actualizarEquipo: " + permiso.error);
+      return jsonResponse({ status: "error", error: "Acceso denegado: " + permiso.error });
     }
 
     const sheet = getHojaEquipos(sede);
@@ -2945,6 +3544,23 @@ function validarAccesoSoporte(correo, sedeSolicitada) {
 
   return { ok: true, acceso: acceso };
 }
+
+// ============================================================
+// GUARDIA DE AUTORIZACIÓN PARA ENDPOINTS DE SOPORTE
+// Reutiliza validarAccesoSoporte (hoja correos_sede). Se usa en
+// todas las acciones que exponen datos sensibles (PII, firmas,
+// fotos) o permiten mutar registros/equipos, para que solo un
+// correo de soporte verificado y autorizado para esa sede pueda
+// usarlas. Antes estas acciones no validaban nada.
+// ============================================================
+function requireSoporteAutorizado_(correo, sede) {
+  const permiso = validarAccesoSoporte(correo, sede);
+  if (!permiso.ok) {
+    Logger.log("🚫 Acceso de soporte denegado — correo: " + correo + " sede: " + sede + " motivo: " + permiso.error);
+  }
+  return permiso;
+}
+
 function validarCorreoSoporteHandler(correo) {
   try {
     if (!correo) {

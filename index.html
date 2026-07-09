@@ -3,6 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <script>
+        // Anti-clickjacking: GitHub Pages no permite configurar la cabecera
+        // real X-Frame-Options/frame-ancestors, así que se saca del iframe por JS.
+        if (window.top !== window.self) { window.top.location = window.self.location; }
+    </script>
     <title>Selección de Colegio | Sistema de Recepción de Equipos</title>
     <link rel="icon" type="image/png" href="/img/Innova_Schools_escudo.png">
     <link rel="stylesheet" href="/css/index.css">
@@ -190,6 +197,17 @@
                     </div>
                     <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
                 </a>
+
+                <a href="/view/devolucion_usuario.html" class="sede-card user-return-card" data-region="otras">
+                    <div class="sede-icon"><i class="fas fa-rotate-left"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Usuarios</span>
+                        <h3 class="sede-name">Devoluciones</h3>
+                        <p class="sede-desc">Informa a soporte que terminaste de usar vehículos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente soporte</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
             </div>
 
             <div class="sedes-more">
@@ -311,6 +329,34 @@
                         <div class="metric-content">
                             <div class="metric-number" id="dashEquiposTotal">0</div>
                             <div class="metric-label">Total equipos</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-primary">
+                        <div class="metric-icon"><i class="fas fa-calendar-check"></i></div>
+                        <div class="metric-content">
+                            <div class="metric-number" id="dashEsteMes">0</div>
+                            <div class="metric-label">Préstamos este mes</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-info">
+                        <div class="metric-icon"><i class="fas fa-briefcase"></i></div>
+                        <div class="metric-content">
+                            <div class="metric-number" id="dashComercial">0</div>
+                            <div class="metric-label">Solicitudes Comercial</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-warning">
+                        <div class="metric-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                        <div class="metric-content">
+                            <div class="metric-number" id="dashNovedades">0</div>
+                            <div class="metric-label">Con novedad</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-danger">
+                        <div class="metric-icon"><i class="fas fa-rotate-left"></i></div>
+                        <div class="metric-content">
+                            <div class="metric-number" id="dashPorValidar">0</div>
+                            <div class="metric-label">Devoluciones por validar</div>
                         </div>
                     </div>
                 </div>
@@ -805,7 +851,8 @@
                 vd.style.display = 'none';
                 vs.style.display = 'none';
                 if (va) va.style.display = 'block';
-                
+                if (vDashboard) vDashboard.style.display = 'none';
+
                 // Activar tab Admin
                 const adminTab = document.getElementById('navAdmin');
                 if (adminTab) adminTab.classList.add('active');
@@ -904,6 +951,31 @@
             this.classList.toggle('active');
             document.getElementById('navTabs').classList.toggle('active');
         });
+
+        // -- Seguridad: escapar HTML antes de insertarlo con innerHTML --
+        function escapeHtml(valor) {
+            return String(valor === null || valor === undefined ? '' : valor)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // -- Seguridad: escapar un valor que se inserta como argumento de
+        // cadena dentro de un atributo onclick="funcion('...')" — necesita
+        // escape de JS (comillas/backslash) y luego de HTML (comillas dobles),
+        // en ese orden, porque el navegador decodifica el HTML antes de
+        // pasarle el texto al motor de JS. Con solo escapeHtml() no basta:
+        // el navegador des-escapa &#39; a ' antes de ejecutar el JS.
+        function escapeJsAttr(valor) {
+            return String(valor === null || valor === undefined ? '' : valor)
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
 
         // -- Toast --
         function showToast(msg, type = 'info') {
@@ -1696,45 +1768,48 @@
                 return numA - numB;
             }).forEach(carro => {
                 const equiposCarro = porCarro[carro];
-                const carroId = 'carro_' + carro.replace(/\s+/g, '_');
-                
+                const carroIdRaw = 'carro_' + carro.replace(/\s+/g, '_').replace(/[^\w-]/g, '');
+                const carroId = escapeJsAttr(carroIdRaw);
+
                 // Fila del carro (clickeable)
                 html += `
                     <tr class="carro-row" onclick="toggleCarro('${carroId}')" style="cursor: pointer; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
                         <td colspan="5" style="padding: 10px 12px;">
-                            <i class="fas fa-chevron-right" id="icon_${carroId}" style="margin-right: 10px; transition: transform 0.3s;"></i>
-                            <strong style="font-size: 1rem;">${carro}</strong>
+                            <i class="fas fa-chevron-right" id="icon_${escapeHtml(carroIdRaw)}" style="margin-right: 10px; transition: transform 0.3s;"></i>
+                            <strong style="font-size: 1rem;">${escapeHtml(carro)}</strong>
                             <span style="float: right; background: #0ea5e9; color: white; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem;">
                                 ${equiposCarro.length} equipo${equiposCarro.length !== 1 ? 's' : ''}
                             </span>
                         </td>
                     </tr>
                 `;
-                
+
                 // Fila de equipos (oculta inicialmente)
-                html += `<tr id="${carroId}" class="equipos-carro" style="display: none;">`;
+                html += `<tr id="${escapeHtml(carroIdRaw)}" class="equipos-carro" style="display: none;">`;
                 html += `<td colspan="5" style="padding: 0; background: #fafafa;"><table style="width: 100%; margin: 0;">`;
-                
+
                 equiposCarro.forEach((eq, idx) => {
+                    const serialAttr = escapeJsAttr(eq.serial || '');
+                    const placaAttr = escapeJsAttr(eq.placa || '');
                     const editBtn = currentRole === 'SOPORTE' ? `
-                        <button class="action-btn" onclick="editarEquipo('${eq.serial || ''}', '${eq.placa || ''}'); event.stopPropagation();" title="Editar">
+                        <button class="action-btn" onclick="editarEquipo('${serialAttr}', '${placaAttr}'); event.stopPropagation();" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
                     ` : '';
-                    
+
                     const deleteBtn = currentRole === 'SOPORTE' ? `
-                        <button class="action-btn danger" onclick="eliminarEquipo('${eq.serial || ''}', '${eq.placa || ''}'); event.stopPropagation();" title="Eliminar">
+                        <button class="action-btn danger" onclick="eliminarEquipo('${serialAttr}', '${placaAttr}'); event.stopPropagation();" title="Eliminar">
                             <i class="fas fa-trash-alt"></i>
                         </button>
                     ` : '';
-                    
+
                     html += `
                         <tr style="border-bottom: 1px solid #e5e7eb;">
-                            <td style="padding: 8px 12px 8px 40px; width: 20%;"><span style="background: #dbeafe; color: #1d4ed8; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">${eq.equipo || '-'}</span></td>
-                            <td style="padding: 8px; width: 25%;"><span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">${eq.placa || '-'}</span></td>
-                            <td style="padding: 8px; width: 30%;"><span style="font-family: monospace; font-size: 0.8rem; color: var(--text-secondary);">${eq.serial || '-'}</span></td>
+                            <td style="padding: 8px 12px 8px 40px; width: 20%;"><span style="background: #dbeafe; color: #1d4ed8; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">${escapeHtml(eq.equipo || '-')}</span></td>
+                            <td style="padding: 8px; width: 25%;"><span style="font-family: monospace; background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem;">${escapeHtml(eq.placa || '-')}</span></td>
+                            <td style="padding: 8px; width: 30%;"><span style="font-family: monospace; font-size: 0.8rem; color: var(--text-secondary);">${escapeHtml(eq.serial || '-')}</span></td>
                             <td style="padding: 8px; text-align: center; width: 25%;">
-                                <button class="action-btn" onclick="verDetalleEquipo('${eq.serial || ''}', '${eq.placa || ''}'); event.stopPropagation();" title="Ver">
+                                <button class="action-btn" onclick="verDetalleEquipo('${serialAttr}', '${placaAttr}'); event.stopPropagation();" title="Ver">
                                     <i class="fas fa-eye"></i>
                                 </button>
                                 ${editBtn}
@@ -1743,7 +1818,7 @@
                         </tr>
                     `;
                 });
-                
+
                 html += `</table></td></tr>`;
             });
 
@@ -1766,7 +1841,7 @@
             const eq = equiposSoporte.find(e => e.serial === serial);
             if (!eq) return;
 
-            showToast(`Equipo: ${placa} - Serial: ${serial}`, 'info');
+            showToast(`Equipo: ${escapeHtml(placa)} - Serial: ${escapeHtml(serial)}`, 'info');
         }
 
         // ==================== CRUD EQUIPOS ====================
@@ -1784,9 +1859,9 @@
                             <button class="close-btn" onclick="cerrarFormularioEquipo()"><i class="fas fa-times"></i></button>
                         </div>
                         <form id="formEquipo" onsubmit="guardarEquipo(event)">
-                            <input type="hidden" id="equipoSerialOriginal" value="${equipo ? equipo.serial : ''}">
-                            <input type="hidden" id="equipoSede" value="${currentSedeSoporte}">
-                            
+                            <input type="hidden" id="equipoSerialOriginal" value="${escapeHtml(equipo ? equipo.serial : '')}">
+                            <input type="hidden" id="equipoSede" value="${escapeHtml(currentSedeSoporte)}">
+
                             <div class="form-group-equipo">
                                 <label for="equipoTipo"><i class="fas fa-laptop"></i> Tipo de equipo:</label>
                                 <select id="equipoTipo" required>
@@ -1799,20 +1874,20 @@
                                     <option value="OTRO" ${equipo && equipo.equipo === 'OTRO' ? 'selected' : ''}>OTRO</option>
                                 </select>
                             </div>
-                            
+
                             <div class="form-group-equipo">
                                 <label for="equipoCarro"><i class="fas fa-truck"></i> Carro:</label>
-                                <input type="text" id="equipoCarro" required value="${equipo ? equipo.carro : ''}" placeholder="Ej: Carro 1">
+                                <input type="text" id="equipoCarro" required value="${escapeHtml(equipo ? equipo.carro : '')}" placeholder="Ej: Carro 1">
                             </div>
-                            
+
                             <div class="form-group-equipo">
                                 <label for="equipoPlaca"><i class="fas fa-tag"></i> Placa:</label>
-                                <input type="text" id="equipoPlaca" required value="${equipo ? equipo.placa : ''}" placeholder="Ej: ZIP-001">
+                                <input type="text" id="equipoPlaca" required value="${escapeHtml(equipo ? equipo.placa : '')}" placeholder="Ej: ZIP-001">
                             </div>
-                            
+
                             <div class="form-group-equipo">
                                 <label for="equipoSerial"><i class="fas fa-barcode"></i> Serial:</label>
-                                <input type="text" id="equipoSerial" required value="${equipo ? equipo.serial : ''}" placeholder="Número de serie">
+                                <input type="text" id="equipoSerial" required value="${escapeHtml(equipo ? equipo.serial : '')}" placeholder="Número de serie">
                             </div>
                             
                             <div class="form-actions-equipo">
@@ -2001,10 +2076,10 @@
             if (!tbody) return;
             
             try {
-                const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
-                
+                const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords&correo=' + encodeURIComponent(currentEmailSoporte) + '&sede=' + encodeURIComponent(sede));
+
                 if (!Array.isArray(data)) return;
-                
+
                 // Filtrar por colegio y estado EN_CURSO
                 const miSede = normalizarTexto(sede);
                 const solicitudes = data.filter(r => 
@@ -2035,17 +2110,44 @@
             let ultimoIdRecibido = localStorage.getItem('ultimoIdRecibido') || '';
             let intervaloNotificaciones = null;
             let notificacionesData = []; // Guardar datos para el panel
+            let idsDevolucionNotificados = new Set(
+                JSON.parse(localStorage.getItem('idsDevolucionNotificados') || '[]')
+            );
+
+            function esSolicitudComercial(sol) {
+                return String(sol.tipo_usuario || '').trim().toLowerCase() === 'comercial';
+            }
+
+            function obtenerVehiculosSolicitud(sol) {
+                let lista = [];
+                try {
+                    const parsed = JSON.parse(sol.vehiculos_solicitados || '[]');
+                    if (Array.isArray(parsed)) lista = parsed.filter(Boolean);
+                } catch (err) {
+                    // vehiculos_solicitados vacío o en formato antiguo.
+                }
+                if (!lista.length && sol.vehiculo_principal) lista = [sol.vehiculo_principal];
+                if (!lista.length && sol.equipo) lista = [sol.equipo];
+                return lista;
+            }
 
             function iniciarNotificaciones() {
                 if (intervaloNotificaciones) clearInterval(intervaloNotificaciones);
-                
+
+                // Mostrar la campana de inmediato, sin esperar la primera respuesta del servidor
+                const trigger = document.getElementById('notifTrigger');
+                if (trigger) {
+                    trigger.classList.add('visible');
+                    trigger.innerHTML = `<i class="fas fa-bell"></i> Sin novedades`;
+                }
+
                 // Revisar cada 15 segundos
                 intervaloNotificaciones = setInterval(() => {
                     if (currentRole === 'SOPORTE' && currentSedeSoporte) {
                         verificarNuevasSolicitudes();
                     }
                 }, 15000);
-                
+
                 // Verificar inmediatamente
                 verificarNuevasSolicitudes();
             }
@@ -2055,16 +2157,18 @@
                     clearInterval(intervaloNotificaciones);
                     intervaloNotificaciones = null;
                 }
+                const trigger = document.getElementById('notifTrigger');
+                if (trigger) trigger.classList.remove('visible');
             }
 
             async function verificarNuevasSolicitudes() {
                 if (currentRole !== 'SOPORTE' || !currentSedeSoporte) return;
                 
                 try {
-                    const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
-                    
+                    const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords&correo=' + encodeURIComponent(currentEmailSoporte) + '&sede=' + encodeURIComponent(currentSedeSoporte));
+
                     if (!Array.isArray(data) || data.length === 0) return;
-                    
+
                     const miSede = normalizarTexto(currentSedeSoporte);
                     const mias = data.filter(r => 
                         normalizarTexto(r.sede || '') === miSede && 
@@ -2082,24 +2186,33 @@
                     if (ordenadas.length > 0) {
                         const masReciente = ordenadas[0];
                         const idActual = masReciente.id_solicitud || masReciente.id || '';
-                        
+
                         const previo = localStorage.getItem('ultimoIdRecibido') || ultimoIdRecibido;
-                        
+
                         if (idActual && idActual !== previo) {
                             mostrarNotificacionNuevaSolicitud(masReciente);
                         }
-                        
+
                         if (idActual) {
                             ultimoIdRecibido = idActual;
                             localStorage.setItem('ultimoIdRecibido', idActual);
                         }
                     }
-                    
+
+                    mias.forEach(sol => {
+                        const idSol = sol.id_solicitud || sol.id || '';
+                        if (sol.estado_devolucion_usuario && idSol && !idsDevolucionNotificados.has(idSol)) {
+                            mostrarNotificacionDevolucionUsuario(sol);
+                            idsDevolucionNotificados.add(idSol);
+                            localStorage.setItem('idsDevolucionNotificados', JSON.stringify([...idsDevolucionNotificados]));
+                        }
+                    });
+
                     actualizarPanelNotificaciones(mias);
                     actualizarBadgeNotificaciones(mias.length);
                     
-                    const dashVisible = document.getElementById('dashboardView')?.style.display !== 'none';
-                    if (dashVisible) cargarDashboard();
+                    const dashVisible = document.getElementById('vistaDashboard')?.style.display !== 'none';
+                    if (dashVisible) cargarDashboard(true);
                     
                 } catch (err) {
                     console.error('Error verificando solicitudes:', err);
@@ -2122,25 +2235,30 @@
                 }
                 
                 lista.innerHTML = solicitudes.map(sol => {
-                    const nombre = sol.nombre || 'Docente';
-                    const equipo = sol.equipo || 'Equipo';
-                    const cantidad = sol.cantidad || '1';
-                    const carro = sol.carro || sol.equipo || 'Sin carro';
-                    const hora = sol.hora_entrega || '--:--';
+                    const nombre = escapeHtml(sol.nombre || 'Docente');
+                    const equipo = escapeHtml(sol.equipo || 'Equipo');
+                    const cantidad = escapeHtml(sol.cantidad || '1');
+                    const vehiculos = obtenerVehiculosSolicitud(sol);
+                    const carro = escapeHtml(vehiculos.length ? vehiculos.join(', ') : (sol.carro || sol.equipo || 'Sin carro'));
+                    const hora = escapeHtml(sol.hora_entrega || '--:--');
                     const fecha = sol.fecha ? formatearFechaFrontend(sol.fecha, { dateOptions: { day: 'numeric', month: 'short' } }) : 'Hoy';
-                    const horaDev = sol.hora_devolucion || '15:00';
-                    
+                    const horaDev = escapeHtml(sol.hora_devolucion || '15:00');
+                    const esComercial = esSolicitudComercial(sol);
+                    const idSolicitud = escapeHtml(sol.id_solicitud || sol.id || '');
+
                     // Determinar si es nueva (últimas 5 min)
                     const esNueva = sol.fecha && (new Date() - new Date(sol.fecha)) < 300000;
-                    
+
                     return `
-                        <div class="notif-item ${esNueva ? 'notif-item-nuevo' : ''}" onclick="verDetalleRegistro('${sol.id_solicitud || sol.id || ''}')">
+                        <div class="notif-item ${esNueva ? 'notif-item-nuevo' : ''}" onclick="verDetalleRegistro('${idSolicitud}')">
                             <div class="notif-item-titulo">
                                 <i class="fas fa-user-circle"></i>
                                 ${nombre}
+                                ${esComercial ? '<span style="background:#FEE2E2; color:#991B1B; padding:1px 7px; border-radius:999px; font-size:0.62rem; font-weight:800; text-transform:uppercase; margin-left:6px;">Comercial</span>' : ''}
+                                ${sol.estado_devolucion_usuario ? '<span style="background:#FEE2E2; color:#DC2626; padding:1px 7px; border-radius:999px; font-size:0.62rem; font-weight:800; text-transform:uppercase; margin-left:6px;">Devolución pendiente</span>' : ''}
                             </div>
                             <div class="notif-item-info">
-                                <strong>${cantidad}</strong> ${equipo} • Carro: <strong>${carro}</strong>
+                                <strong>${cantidad}</strong> ${equipo} • ${vehiculos.length > 1 ? 'Carros' : 'Carro'}: <strong>${carro}</strong>
                                 <div style="margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap;">
                                     <span style="background: #DBEAFE; color: #1D4ED8; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem;">
                                         <i class="fas fa-clock" style="margin-right: 2px;"></i>${hora}
@@ -2159,11 +2277,13 @@
             }
 
             function mostrarNotificacionNuevaSolicitud(solicitud) {
-                const nombre = solicitud.nombre || 'Docente';
-                const equipo = solicitud.equipo || 'Equipo';
-                const cantidad = solicitud.cantidad || '1';
-                const carro = solicitud.carro || solicitud.equipo || 'Sin carro';
-                
+                const nombre = escapeHtml(solicitud.nombre || 'Docente');
+                const equipo = escapeHtml(solicitud.equipo || 'Equipo');
+                const cantidad = escapeHtml(solicitud.cantidad || '1');
+                const vehiculos = obtenerVehiculosSolicitud(solicitud);
+                const carro = escapeHtml(vehiculos.length ? vehiculos.join(', ') : (solicitud.carro || solicitud.equipo || 'Sin carro'));
+                const esComercial = esSolicitudComercial(solicitud);
+
                 const c = document.getElementById('toastContainer');
                 const t = document.createElement('div');
                 t.className = 'toast notification-toast';
@@ -2172,17 +2292,43 @@
                         <i class="fas fa-bell"></i>
                     </div>
                     <div class="notif-content">
-                        <strong>?? NUEVA SOLICITUD</strong>
+                        <strong>?? NUEVA SOLICITUD${esComercial ? ' (Comercial)' : ''}</strong>
                         <span>${nombre} • ${cantidad} ${equipo}</span>
-                        <small>Carro: ${carro}</small>
+                        <small>${vehiculos.length > 1 ? 'Carros' : 'Carro'}: ${carro}</small>
                     </div>
                 `;
                 c.appendChild(t);
-                
-                setTimeout(() => { 
-                    t.classList.add('hide'); 
-                    setTimeout(() => t.remove(), 300); 
+
+                setTimeout(() => {
+                    t.classList.add('hide');
+                    setTimeout(() => t.remove(), 300);
                 }, 5000);
+            }
+
+            function mostrarNotificacionDevolucionUsuario(solicitud) {
+                const nombre = escapeHtml(solicitud.nombre || 'Usuario');
+                const vehiculos = obtenerVehiculosSolicitud(solicitud);
+                const carro = escapeHtml(vehiculos.length ? vehiculos.join(', ') : (solicitud.equipo || 'Vehículo'));
+
+                const c = document.getElementById('toastContainer');
+                const t = document.createElement('div');
+                t.className = 'toast notification-toast';
+                t.innerHTML = `
+                    <div class="notif-icon" style="background:#DC2626;">
+                        <i class="fas fa-rotate-left"></i>
+                    </div>
+                    <div class="notif-content">
+                        <strong>DEVOLUCIÓN PENDIENTE DE VALIDAR</strong>
+                        <span>${nombre} informó que devolvió: ${carro}</span>
+                        <small>Confírmalo físicamente antes de cerrar la solicitud</small>
+                    </div>
+                `;
+                c.appendChild(t);
+
+                setTimeout(() => {
+                    t.classList.add('hide');
+                    setTimeout(() => t.remove(), 300);
+                }, 6000);
             }
 
             function abrirNotificacionesPanel() {
@@ -2229,34 +2375,34 @@
                     badgeCount.style.display = cantidad > 0 ? 'inline-flex' : 'none';
                 }
                 
-                // Botón flotante
+                // Botón flotante — siempre visible en soporte, aunque no haya nada en curso
                 const trigger = document.getElementById('notifTrigger');
                 if (trigger) {
-                    if (cantidad > 0) {
-                        trigger.classList.add('visible');
-                        trigger.innerHTML = `<i class="fas fa-bell"></i> ${cantidad} en curso`;
-                    } else {
-                        trigger.classList.remove('visible');
-                    }
+                    trigger.classList.add('visible');
+                    trigger.innerHTML = cantidad > 0
+                        ? `<i class="fas fa-bell"></i> ${cantidad} en curso`
+                        : `<i class="fas fa-bell"></i> Sin novedades`;
                 }
             }
-            async function cargarDashboard() {
+            async function cargarDashboard(silencioso = false) {
                 const tbody = document.getElementById('dashTableBody');
                 if (!tbody) return;
-                
-                tbody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="dash-empty">
-                            <i class="fas fa-spinner fa-spin"></i>
-                            <span>Cargando datos del dashboard...</span>
-                        </td>
-                    </tr>
-                `;
-                
+
+                if (!silencioso) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="dash-empty">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <span>Cargando datos del dashboard...</span>
+                            </td>
+                        </tr>
+                    `;
+                }
+
                 try {
                     // Usamos jsonpRequest
-                    const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
-                    
+                    const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords&correo=' + encodeURIComponent(currentEmailSoporte) + '&sede=' + encodeURIComponent(currentSedeSoporte));
+
                     if (Array.isArray(data)) {
                         dashboardData = data;
                         
@@ -2297,12 +2443,29 @@
             const entregados = data.filter(r => r.estado === 'CERRADO').length;
             const pendientes = data.filter(r => r.estado === 'EN_CURSO').length;
             const totalEquipos = data.reduce((acc, r) => acc + (parseInt(r.cantidad) || 0), 0);
-            
+
+            const ahora = new Date();
+            const mesActual = ahora.getMonth();
+            const anioActual = ahora.getFullYear();
+            const esteMes = data.filter(r => {
+                if (!r.fecha) return false;
+                const f = new Date(r.fecha);
+                return !isNaN(f.getTime()) && f.getMonth() === mesActual && f.getFullYear() === anioActual;
+            }).length;
+
+            const comercial = data.filter(r => String(r.tipo_usuario || '').trim().toLowerCase() === 'comercial').length;
+            const novedades = data.filter(r => String(r.novedad || '').trim().toLowerCase() === 'sí' || String(r.novedad || '').trim().toLowerCase() === 'si').length;
+            const porValidar = data.filter(r => r.estado === 'EN_CURSO' && r.estado_devolucion_usuario).length;
+
             document.getElementById('dashTotalDocentes').textContent = totalDocentes.toLocaleString();
             document.getElementById('dashEntregados').textContent = entregados.toLocaleString();
             document.getElementById('dashPendientes').textContent = pendientes.toLocaleString();
             document.getElementById('dashEquiposTotal').textContent = totalEquipos.toLocaleString();
-            
+            document.getElementById('dashEsteMes').textContent = esteMes.toLocaleString();
+            document.getElementById('dashComercial').textContent = comercial.toLocaleString();
+            document.getElementById('dashNovedades').textContent = novedades.toLocaleString();
+            document.getElementById('dashPorValidar').textContent = porValidar.toLocaleString();
+
             generarGraficoSedes(data);
         }
 
@@ -2383,20 +2546,20 @@
                 const estadoTexto = estado === 'CERRADO' ? 'Cerrado' : 'En curso';
                 
                 return `
-                    <tr data-cedula="${r.cedula || ''}" data-sede="${r.sede || ''}" data-estado="${estado}">
+                    <tr data-cedula="${escapeHtml(r.cedula || '')}" data-sede="${escapeHtml(r.sede || '')}" data-estado="${escapeHtml(estado)}">
                         <td>
-                            <strong>${r.nombre || 'Sin nombre'}</strong>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);">${r.cedula || ''}</div>
+                            <strong>${escapeHtml(r.nombre || 'Sin nombre')}</strong>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);">${escapeHtml(r.cedula || '')}</div>
                         </td>
                         <td>
                             <span class="table-sede">
                                 <span class="table-sede-dot"></span>
-                                ${capitalizarSede(r.sede) || '-'}
+                                ${escapeHtml(capitalizarSede(r.sede) || '-')}
                             </span>
                         </td>
-                        <td>${r.equipo || '-'}</td>
-                        <td><strong>${r.cantidad || '0'}</strong></td>
-                        <td>${horaMax}</td>
+                        <td>${escapeHtml(r.equipo || '-')}</td>
+                        <td><strong>${escapeHtml(r.cantidad || '0')}</strong></td>
+                        <td>${escapeHtml(horaMax)}</td>
                         <td>
                             <span class="status-chip-dash ${estadoClass}">${estadoTexto}</span>
                         </td>
@@ -2480,8 +2643,8 @@ Estado: ${registro.estado || 'EN_CURSO'}
             tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Cargando registros...</td></tr>';
 
             try {
-                const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords');
-                
+                const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getAllRecords&correo=' + encodeURIComponent(currentEmailSoporte) + '&sede=' + encodeURIComponent(currentSedeSoporte));
+
                 if (Array.isArray(data)) {
                     todosLosRegistros = data;
                     renderAdminTable(data);
@@ -2601,8 +2764,9 @@ Estado: ${registro.estado || 'EN_CURSO'}
 
         async function verDetalleRegistro(id) {
             try {
-                const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getRegistroDetalle&id=' + encodeURIComponent(id));
-                
+                const data = await jsonpRequest(URL_GOOGLE_SCRIPT + '?action=getRegistroDetalle&id=' + encodeURIComponent(id) + '&correo=' + encodeURIComponent(currentEmailSoporte) + '&sede=' + encodeURIComponent(currentSedeSoporte));
+
+
                 if (data.error) {
                     showToast(data.error, 'error');
                     return;

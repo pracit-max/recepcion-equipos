@@ -1,4 +1,12 @@
-﻿// Configuración
+﻿// Seguridad: si esta página se carga dentro de un <iframe> de otro sitio
+// (clickjacking), se saca del frame. GitHub Pages no permite configurar la
+// cabecera real X-Frame-Options/CSP frame-ancestors, así que este JS es la
+// mitigación disponible sin cambiar de hosting.
+if (window.top !== window.self) {
+    window.top.location = window.self.location;
+}
+
+// Configuración
 const URL_GOOGLE_SCRIPT_DOMAIN = "https://script.google.com/macros/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
 const URL_GOOGLE_SCRIPT_PUBLIC = "https://script.google.com/macros/s/AKfycbw8vPL4YVR1m5tVTvcX0NmnBmakPy_EVz5zrCUKyXVVnKIB779kmqDSPljdkCUnHUPkDg/exec";
 const URL_GOOGLE_SCRIPT = URL_GOOGLE_SCRIPT_DOMAIN;
@@ -6,6 +14,19 @@ let currentRecord = null;
 let currentStep = 1;
 const totalSteps = 2;
 let revisionEquiposConfirmada = false;
+let cedulaAutofillTimer = null;
+let ultimaCedulaAutocompletada = "";
+let tipoUsuarioSolicitud = "";
+let carrosComercialSeleccionados = [];
+
+function escapeHtml(valor) {
+    return String(valor === null || valor === undefined ? '' : valor)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 function getAppsScriptFallbackUrl(url) {
     if (url.startsWith(URL_GOOGLE_SCRIPT_DOMAIN)) {
@@ -309,6 +330,7 @@ function renderizarCarrosSelect() {
     });
 
     aplicarDisponibilidadAlSelect();
+    renderizarSelectorCarrosComercial();
     return true;
 }
 
@@ -444,6 +466,309 @@ function esValorSi(valor) {
     return limpio.startsWith('si');
 }
 
+function inicializarSelectorTipoUsuario() {
+    const form = document.getElementById('form');
+    if (!form || document.getElementById('tipoUsuarioGate')) return;
+
+    const gate = document.createElement('div');
+    gate.id = 'tipoUsuarioGate';
+    gate.className = 'tipo-usuario-gate';
+    gate.innerHTML = `
+        <div class="tipo-usuario-card">
+            <div class="tipo-usuario-topbar"></div>
+            <div class="tipo-usuario-head">
+                <span class="tipo-usuario-icon"><i class="fas fa-user-check"></i></span>
+                <div>
+                    <p>Antes de iniciar</p>
+                    <h2>¿Quién realizará la solicitud?</h2>
+                </div>
+            </div>
+            <div class="tipo-usuario-actions">
+                <button type="button" class="tipo-usuario-btn docente" data-tipo="Docente" onclick="seleccionarTipoUsuarioSolicitud('Docente')">
+                    <span class="tipo-usuario-btn-icon"><i class="fas fa-chalkboard-user"></i></span>
+                    <span class="tipo-usuario-btn-text">
+                        <strong>Docente</strong>
+                        <small>Solicitar un vehículo para uso académico</small>
+                    </span>
+                </button>
+                <button type="button" class="tipo-usuario-btn comercial" data-tipo="Comercial" onclick="seleccionarTipoUsuarioSolicitud('Comercial')">
+                    <span class="tipo-usuario-btn-icon"><i class="fas fa-briefcase"></i></span>
+                    <span class="tipo-usuario-btn-text">
+                        <strong>Comercial</strong>
+                        <small>Solicitar hasta 5 vehículos para eventos</small>
+                    </span>
+                </button>
+            </div>
+            <p class="tipo-usuario-footnote"><i class="fas fa-circle-info"></i> Selecciona una opción para continuar</p>
+        </div>
+    `;
+
+    document.body.appendChild(gate);
+    asegurarEstilosTipoUsuario();
+    aplicarTipoUsuarioSolicitud(tipoUsuarioSolicitud || "");
+}
+
+function asegurarEstilosTipoUsuario() {
+    if (document.getElementById('tipoUsuarioStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'tipoUsuarioStyles';
+    style.textContent = `
+        .tipo-usuario-gate {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 1.25rem;
+            background: rgba(15, 23, 42, 0.62);
+            backdrop-filter: blur(4px);
+        }
+        .tipo-usuario-pending .tipo-usuario-gate { display: flex; }
+        .tipo-usuario-card {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            overflow: hidden;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            border-radius: var(--radius-xl, 24px);
+            background: var(--surface, #fff);
+            box-shadow: var(--shadow-2xl, 0 25px 50px -12px rgb(15 23 42 / 0.25));
+            padding: 2rem 1.75rem 1.5rem;
+            animation: tipoUsuarioPop 0.35s var(--ease-out-back, cubic-bezier(.34,1.56,.64,1));
+        }
+        .tipo-usuario-topbar {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 5px;
+            background: linear-gradient(90deg,
+                var(--green-500, #22C55E) 0%,
+                var(--green-400, #4ADE80) 20%,
+                var(--blue-500, #3B82F6) 50%,
+                var(--orange-400, #FB923C) 80%,
+                var(--orange-500, #F97316) 100%);
+            background-size: 200% 100%;
+            animation: shimmerLine 4s ease-in-out infinite;
+        }
+        @keyframes tipoUsuarioPop {
+            from { opacity: 0; transform: scale(0.92) translateY(14px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .tipo-usuario-head { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; }
+        .tipo-usuario-icon {
+            flex-shrink: 0;
+            width: 52px; height: 52px; border-radius: var(--radius-lg, 16px); display: inline-grid; place-items: center;
+            background: linear-gradient(135deg, var(--green-500, #22C55E), var(--blue-500, #3B82F6));
+            color: #fff; font-size: 1.35rem;
+            box-shadow: var(--shadow-glow-blue, 0 0 24px -4px rgba(59,130,246,0.35));
+        }
+        .tipo-usuario-head p {
+            margin: 0; color: var(--blue-600, #2563EB); font-weight: 800; font-size: 0.72rem;
+            text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .tipo-usuario-head h2 { margin: 0.2rem 0 0; color: #0f172a; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; }
+        .tipo-usuario-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; }
+        .tipo-usuario-btn {
+            min-height: 128px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: var(--radius-lg, 16px);
+            background: #f8fafc;
+            color: #0f172a;
+            cursor: pointer;
+            font-family: inherit;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.65rem;
+            padding: 1.1rem 0.85rem;
+            text-align: center;
+            transition: transform var(--transition-bounce, 300ms ease), box-shadow var(--transition-base, 250ms ease),
+                        border-color var(--transition-base, 250ms ease), background var(--transition-base, 250ms ease);
+        }
+        .tipo-usuario-btn:hover { transform: translateY(-4px); }
+        .tipo-usuario-btn-icon {
+            width: 46px; height: 46px; border-radius: 12px; display: inline-grid; place-items: center;
+            font-size: 1.3rem; color: #fff; transition: transform var(--transition-bounce, 300ms ease);
+        }
+        .tipo-usuario-btn:hover .tipo-usuario-btn-icon { transform: scale(1.08) rotate(-4deg); }
+        .tipo-usuario-btn.docente .tipo-usuario-btn-icon { background: linear-gradient(135deg, var(--blue-500, #3B82F6), var(--blue-600, #2563EB)); }
+        .tipo-usuario-btn.comercial .tipo-usuario-btn-icon { background: linear-gradient(135deg, var(--orange-500, #F97316), var(--orange-600, #EA580C)); }
+        .tipo-usuario-btn-text { display: flex; flex-direction: column; gap: 0.2rem; }
+        .tipo-usuario-btn-text strong { font-size: 1.02rem; font-weight: 800; color: #0f172a; }
+        .tipo-usuario-btn-text small { font-size: 0.74rem; font-weight: 600; color: #64748b; line-height: 1.3; }
+        .tipo-usuario-btn.docente:hover,
+        .tipo-usuario-btn.docente.active {
+            border-color: var(--blue-500, #3B82F6);
+            background: var(--blue-50, #EFF6FF);
+            box-shadow: var(--shadow-glow-blue, 0 0 24px -4px rgba(59,130,246,0.35));
+        }
+        .tipo-usuario-btn.comercial:hover,
+        .tipo-usuario-btn.comercial.active {
+            border-color: var(--orange-500, #F97316);
+            background: var(--orange-50, #FFF7ED);
+            box-shadow: var(--shadow-glow-orange, 0 0 24px -4px rgba(249,115,22,0.35));
+        }
+        .tipo-usuario-footnote {
+            margin: 1.25rem 0 0; text-align: center; color: #94a3b8; font-size: 0.78rem; font-weight: 600;
+        }
+        .tipo-usuario-footnote i { color: var(--green-500, #22C55E); margin-right: 0.3rem; }
+        .tipo-usuario-pending #form { display: none; }
+        body.tipo-usuario-pending { overflow: hidden; }
+        .commercial-panel { display: none; }
+        .commercial-active .commercial-panel { display: block; }
+        .commercial-active .docente-only-carro { display: none; }
+        .commercial-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.7rem; margin-top: 0.65rem; }
+        .commercial-car-card {
+            border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; padding: 0.8rem;
+            display: flex; gap: 0.65rem; align-items: flex-start; cursor: pointer;
+        }
+        .commercial-car-card input { width: 18px; height: 18px; margin-top: 0.15rem; accent-color: #dc2626; }
+        .commercial-car-card strong { color: #0f172a; }
+        .commercial-car-card small { display: block; margin-top: 0.2rem; color: #64748b; line-height: 1.35; }
+        .commercial-car-card.selected { border-color: #dc2626; background: #fef2f2; }
+        .commercial-car-card.disabled { opacity: 0.58; cursor: not-allowed; background: #f8fafc; }
+        .commercial-summary { margin-top: 0.75rem; color: #991b1b; font-weight: 800; }
+        .btn-user-return {
+            display: inline-flex; align-items: center; justify-content: center; gap: 0.45rem;
+            border: 0; border-radius: 8px; background: #dc2626; color: #fff; font-weight: 900;
+            padding: 0.75rem 1rem; text-decoration: none; box-shadow: 0 12px 28px rgba(220,38,38,0.20);
+        }
+        @media (max-width: 640px) {
+            .tipo-usuario-card { padding: 1.5rem 1.25rem 1.25rem; border-radius: var(--radius-lg, 16px); }
+            .tipo-usuario-actions { grid-template-columns: 1fr; }
+            .tipo-usuario-btn { min-height: 96px; flex-direction: row; text-align: left; justify-content: flex-start; }
+            .tipo-usuario-head h2 { font-size: 1.15rem; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function seleccionarTipoUsuarioSolicitud(tipo) {
+    tipoUsuarioSolicitud = tipo === 'Comercial' ? 'Comercial' : 'Docente';
+    aplicarTipoUsuarioSolicitud(tipoUsuarioSolicitud);
+}
+
+function aplicarTipoUsuarioSolicitud(tipo) {
+    const form = document.getElementById('form');
+    if (!form) return;
+
+    document.body.classList.toggle('tipo-usuario-pending', !tipo);
+    document.body.classList.toggle('commercial-active', tipo === 'Comercial');
+    form.dataset.tipoUsuario = tipo || "";
+
+    document.querySelectorAll('.tipo-usuario-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tipo === tipo);
+    });
+
+    const carroSelect = document.getElementById('carroSelect');
+    if (carroSelect) {
+        carroSelect.required = tipo !== 'Comercial';
+        carroSelect.closest('.input-group')?.classList.toggle('docente-only-carro', tipo === 'Comercial');
+        if (tipo === 'Comercial') {
+            carroSelect.value = "";
+            document.getElementById('disponibilidadMsg').innerHTML = '';
+        }
+    }
+
+    inicializarSelectorCarrosComercial();
+    renderizarSelectorCarrosComercial();
+}
+
+function inicializarBotonDevolucionesUsuario() {
+    if (document.getElementById('btnDevolucionesUsuarioForm')) return;
+
+    const nav = document.getElementById('navMenu');
+    if (nav) {
+        const sede = document.getElementById('sede')?.value || obtenerSedeActualNormalizada();
+        const a = document.createElement('a');
+        a.id = 'btnDevolucionesUsuarioForm';
+        a.className = 'btn-nav btn-user-return';
+        a.href = `/view/devolucion_usuario.html?sede=${encodeURIComponent(normalizarClave(sede))}`;
+        a.innerHTML = '<i class="fas fa-rotate-left"></i> Devoluciones';
+        nav.appendChild(a);
+    }
+}
+
+function inicializarSelectorCarrosComercial() {
+    if (!document.getElementById('form') || document.getElementById('commercialCarsPanel')) return;
+    const carroGroup = document.getElementById('carroSelect')?.closest('.input-group');
+    if (!carroGroup) return;
+    carroGroup.insertAdjacentHTML('afterend', `
+        <div class="input-group full-width commercial-panel" id="commercialCarsPanel">
+            <label><i class="fas fa-car-side"></i> Vehículos para Comercial *</label>
+            <p style="margin:0.25rem 0 0; color:#64748b; font-size:0.88rem;">Selecciona de 2 a 5 carros disponibles para el evento.</p>
+            <div class="commercial-grid" id="commercialCarsGrid"></div>
+            <div class="commercial-summary" id="commercialCarsSummary">0 vehículos seleccionados</div>
+        </div>
+    `);
+}
+
+function renderizarSelectorCarrosComercial() {
+    const grid = document.getElementById('commercialCarsGrid');
+    const panel = document.getElementById('commercialCarsPanel');
+    if (!grid || !panel) return;
+
+    if (tipoUsuarioSolicitud !== 'Comercial') {
+        panel.style.display = 'none';
+        return;
+    }
+
+    panel.style.display = 'block';
+    const sede = document.getElementById('sede')?.value || "";
+    grid.innerHTML = '';
+
+    carrosComercialSeleccionados = carrosComercialSeleccionados.filter(carro => carrosDisponibles.includes(carro));
+
+    carrosDisponibles.forEach(carro => {
+        const ocupado = obtenerDisponibilidadLocal(carro, sede) || disponibilidadCarrosCache.ocupados[carro];
+        const selected = carrosComercialSeleccionados.includes(carro);
+        const label = document.createElement('label');
+        label.className = `commercial-car-card ${selected ? 'selected' : ''} ${ocupado ? 'disabled' : ''}`;
+        label.innerHTML = `
+            <input type="checkbox" value="${escapeHtml(carro)}" ${selected ? 'checked' : ''} ${ocupado ? 'disabled' : ''}>
+            <span>
+                <strong>${escapeHtml(carro)}</strong>
+                <small>${ocupado ? 'No disponible: ' + escapeHtml(ocupado.usuario || 'reservado') : 'Disponible para solicitud comercial'}</small>
+            </span>
+        `;
+        label.querySelector('input').addEventListener('change', () => toggleCarroComercial(carro));
+        grid.appendChild(label);
+    });
+
+    actualizarResumenCarrosComercial();
+}
+
+function toggleCarroComercial(carro) {
+    const existe = carrosComercialSeleccionados.includes(carro);
+    if (existe) {
+        carrosComercialSeleccionados = carrosComercialSeleccionados.filter(item => item !== carro);
+    } else {
+        if (carrosComercialSeleccionados.length >= 5) {
+            showToast('Comercial puede seleccionar máximo 5 carros', 'warning');
+            return;
+        }
+        carrosComercialSeleccionados.push(carro);
+    }
+    renderizarSelectorCarrosComercial();
+    cargarEquiposCarro();
+}
+
+function actualizarResumenCarrosComercial() {
+    const summary = document.getElementById('commercialCarsSummary');
+    if (!summary) return;
+    const total = carrosComercialSeleccionados.length;
+    summary.textContent = total
+        ? `${total} vehículo${total === 1 ? '' : 's'} seleccionado${total === 1 ? '' : 's'}: ${carrosComercialSeleccionados.join(', ')}`
+        : '0 vehículos seleccionados';
+}
+
+function obtenerCarrosPrincipalesSolicitud() {
+    if (tipoUsuarioSolicitud === 'Comercial') return [...carrosComercialSeleccionados];
+    const carro = document.getElementById('carroSelect')?.value || '';
+    return carro ? [carro] : [];
+}
+
 // Cargar equipos al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
@@ -451,7 +776,25 @@ document.addEventListener('DOMContentLoaded', () => {
         aplicarCuentaInnovaGuardada();
     }
 
+    const hamburgerBtn = document.getElementById('hamburger');
+    const navMenu = document.getElementById('navMenu');
+    if (hamburgerBtn && navMenu) {
+        hamburgerBtn.addEventListener('click', () => {
+            const abierto = navMenu.classList.toggle('active');
+            hamburgerBtn.classList.toggle('active', abierto);
+            hamburgerBtn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+        });
+        navMenu.querySelectorAll('a, button').forEach(el => {
+            el.addEventListener('click', () => {
+                navMenu.classList.remove('active');
+                hamburgerBtn.classList.remove('active');
+                hamburgerBtn.setAttribute('aria-expanded', 'false');
+            });
+        });
+    }
+
     if (document.getElementById('form')) {
+        inicializarSelectorTipoUsuario();
         configurarFlujoRevisionEquipos();
         initializeEventListeners();
     }
@@ -480,9 +823,11 @@ document.addEventListener('DOMContentLoaded', () => {
         initSignatureDevolucion();
     }
 
+    inicializarFormularioDevolucionUsuario();
     asegurarSelectorMetodoFirma();
 
     inicializarEquiposAdicionales();
+    inicializarBotonDevolucionesUsuario();
     if (document.getElementById('carroSelect') && (document.getElementById('sede') || window.location.search.includes('sede='))) {
         cargarEquiposPorSede();
         setTimeout(() => {
@@ -1226,6 +1571,7 @@ function aplicarDisponibilidadAlSelect() {
         option.disabled = Boolean(info);
         option.textContent = info ? `${option.value} (Ocupado)` : option.value;
     });
+    renderizarSelectorCarrosComercial();
 }
 
 function pintarDisponibilidad(data) {
@@ -1240,8 +1586,8 @@ function pintarDisponibilidad(data) {
                     <i class="fas fa-ban"></i> CARRO NO DISPONIBLE
                 </span><br>
                 <span style="color: #7f1d1d; font-size: 0.9rem;">
-                    Este carro está ocupado hasta las <strong>${data.hora_devolucion || '15:00'}</strong><br>
-                    Por: ${data.usuario || 'Usuario no especificado'}
+                    Este carro está ocupado hasta las <strong>${escapeHtml(data.hora_devolucion || '15:00')}</strong><br>
+                    Por: ${escapeHtml(data.usuario || 'Usuario no especificado')}
                 </span>
             </div>
         `;
@@ -1359,24 +1705,25 @@ async function verificarDisponibilidad() {
 
 // Función para mostrar equipos del carro seleccionado
 function cargarEquiposCarro() {
-    const carroSeleccionado = document.getElementById('carroSelect').value;
+    const carroSeleccionado = document.getElementById('carroSelect')?.value || '';
+    const carrosSeleccionados = obtenerCarrosPrincipalesSolicitud();
     const container = document.getElementById('equiposContainer');
     const tbody = document.getElementById('equiposTableBody');
     const totalLabel = document.getElementById('totalEquipos');
     
-    if (!carroSeleccionado) {
+    if (!container || !tbody || !totalLabel || !carrosSeleccionados.length) {
         container.style.display = 'none';
         return;
     }
     
     // Filtrar equipos del carro seleccionado
-    const equiposCarro = equiposZipaquira.filter(e => e.carro === carroSeleccionado);
+    const equiposCarro = equiposZipaquira.filter(e => carrosSeleccionados.includes(e.carro));
     
     // Llenar tabla
     tbody.innerHTML = equiposCarro.map((equipo, index) => `
         <tr style="border-bottom: 1px solid #e2e8f0;">
             <td style="padding: 8px 10px;">${index + 1}</td>
-            <td style="padding: 8px 10px; font-weight: 600;">${equipo.placa}</td>
+            <td style="padding: 8px 10px; font-weight: 600;">${equipo.carro} - ${equipo.placa}</td>
             <td style="padding: 8px 10px; font-family: monospace; font-size: 0.85rem;">${equipo.serial}</td>
         </tr>
     `).join('');
@@ -1437,6 +1784,10 @@ function initializeEventListeners() {
     if (cedulaInput) {
         cedulaInput.addEventListener('input', function(e) {
             this.value = this.value.replace(/\D/g, ''); // Elimina todo lo que no sea dígito
+            programarAutocompletarPorCedula(this.value);
+        });
+        cedulaInput.addEventListener('blur', function() {
+            autocompletarDatosPorCedula(this.value, true);
         });
         
         // También prevenir pegado de texto no numérico (opcional, pero el input ya lo limpia)
@@ -2015,6 +2366,149 @@ function updateFileName(input, displayId, isSignature = false) {
     }
 }
 
+function obtenerCacheDatosCedula() {
+    try {
+        return JSON.parse(localStorage.getItem('recepcionDatosPorCedula') || '{}') || {};
+    } catch (err) {
+        console.warn('No se pudo leer caché de cédulas:', err);
+        return {};
+    }
+}
+
+function guardarDatosCedulaLocal(data) {
+    const cedula = String(data?.cedula || '').replace(/\D/g, '');
+    if (!cedula || !data?.nombre) return;
+
+    try {
+        const cache = obtenerCacheDatosCedula();
+        cache[cedula] = {
+            cedula,
+            nombre: String(data.nombre || '').trim(),
+            curso: String(data.curso || '').trim(),
+            correo: String(data.correo || '').trim().toLowerCase(),
+            sede: String(data.sede || '').trim(),
+            tipo_usuario: String(data.tipo_usuario || data.tipo || '').trim(),
+            updatedAt: Date.now()
+        };
+        localStorage.setItem('recepcionDatosPorCedula', JSON.stringify(cache));
+    } catch (err) {
+        console.warn('No se pudo guardar caché de cédula:', err);
+    }
+}
+
+function programarAutocompletarPorCedula(cedula) {
+    clearTimeout(cedulaAutofillTimer);
+    const limpia = String(cedula || '').replace(/\D/g, '');
+    if (limpia.length < 6) return;
+
+    cedulaAutofillTimer = setTimeout(() => {
+        autocompletarDatosPorCedula(limpia, false);
+    }, 450);
+}
+
+async function autocompletarDatosPorCedula(cedula, mostrarAviso = false) {
+    const limpia = String(cedula || '').replace(/\D/g, '');
+    if (limpia.length < 6 || limpia === ultimaCedulaAutocompletada) return;
+
+    const cache = obtenerCacheDatosCedula();
+    if (cache[limpia]) {
+        aplicarDatosAutocompletados(cache[limpia], mostrarAviso);
+        ultimaCedulaAutocompletada = limpia;
+        return;
+    }
+
+    try {
+        const result = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=buscarDatosPorCedula&cedula=${encodeURIComponent(limpia)}`, 8000, true);
+        if (result && result.status === 'ok' && result.data) {
+            guardarDatosCedulaLocal(result.data);
+            aplicarDatosAutocompletados(result.data, true);
+            ultimaCedulaAutocompletada = limpia;
+        }
+    } catch (err) {
+        console.warn('No se pudo autocompletar por cédula:', err);
+        if (mostrarAviso) {
+            showToast('No se encontraron datos previos para esa cédula', 'info');
+        }
+    }
+}
+
+function aplicarDatosAutocompletados(data, mostrarAviso = true) {
+    const nombreInput = document.getElementById('nombre');
+    const cursoInput = document.getElementById('curso');
+    const correoInput = document.getElementById('correo');
+    const sedeInput = document.getElementById('sede');
+
+    let cambios = 0;
+    if (nombreInput && data.nombre && !nombreInput.value.trim()) {
+        nombreInput.value = data.nombre;
+        cambios++;
+    }
+    if (cursoInput && data.curso && !cursoInput.value.trim()) {
+        cursoInput.value = data.curso;
+        cambios++;
+    }
+    if (correoInput && data.correo && !correoInput.value.trim()) {
+        correoInput.value = data.correo;
+        cambios++;
+    }
+    if (sedeInput && data.sede && !sedeInput.value.trim()) {
+        sedeInput.value = data.sede;
+        cambios++;
+    }
+
+    if (cambios) {
+        mostrarAvisoConfirmarCorreo();
+        if (mostrarAviso) {
+            showToast('Datos cargados automáticamente por cédula', 'success');
+        }
+    }
+}
+
+function mostrarAvisoConfirmarCorreo() {
+    const correoInput = document.getElementById('correo');
+    const grupo = correoInput ? correoInput.closest('.input-group') : null;
+    if (!correoInput || !grupo) return;
+
+    asegurarEstilosConfirmarCorreo();
+    correoInput.classList.add('correo-autocompletado');
+
+    if (!document.getElementById('avisoConfirmarCorreo')) {
+        const aviso = document.createElement('div');
+        aviso.id = 'avisoConfirmarCorreo';
+        aviso.className = 'aviso-confirmar-correo';
+        aviso.innerHTML = `<i class="fas fa-circle-info"></i> Encontramos tus datos guardados. <strong>Revisa y confirma tu correo</strong> antes de enviar la solicitud.`;
+        grupo.insertAdjacentElement('afterend', aviso);
+    }
+
+    correoInput.addEventListener('input', () => {
+        correoInput.classList.remove('correo-autocompletado');
+        document.getElementById('avisoConfirmarCorreo')?.remove();
+    }, { once: true });
+}
+
+function asegurarEstilosConfirmarCorreo() {
+    if (document.getElementById('estilosConfirmarCorreo')) return;
+    const style = document.createElement('style');
+    style.id = 'estilosConfirmarCorreo';
+    style.textContent = `
+        #correo.correo-autocompletado { border-color: var(--blue-400, #60A5FA) !important; background: var(--blue-50, #EFF6FF); }
+        .aviso-confirmar-correo {
+            grid-column: 1 / -1;
+            display: flex; align-items: center; gap: 0.5rem;
+            margin-top: -0.6rem;
+            padding: 0.65rem 0.9rem;
+            border-radius: var(--radius-md, 12px);
+            background: var(--blue-50, #EFF6FF);
+            border: 1px solid var(--blue-200, #BFDBFE);
+            color: var(--blue-700, #1D4ED8);
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+        .aviso-confirmar-correo i { color: var(--blue-500, #3B82F6); }
+    `;
+    document.head.appendChild(style);
+}
+
 function configurarFlujoRevisionEquipos() {
     const form = document.getElementById('form');
     const estadoSection = document.querySelector('.form-section[data-section="2"]');
@@ -2323,6 +2817,7 @@ async function handleSubmit(e) {
         const result = await postToAppsScript(formData);
 
         if (result.status === 'ok') {
+            guardarDatosCedulaLocal(formData);
             dispararProcesamientoDocumentosPendientes();
             showToast('¡Registro guardado exitosamente!<br>Recargando...', 'success');
 
@@ -2352,7 +2847,12 @@ async function loadRecords() {
 
     try {
         const data = await jsonpRequest(URL_GOOGLE_SCRIPT);
-        records = data.map((r, index) => ({ ...r, id: index + 1 }));
+        const sedeActual = document.getElementById('sede')?.value || obtenerSedeDesdeURL();
+        const sedeNormalizada = normalizarClave(sedeActual || '');
+        const dataFiltrada = sedeNormalizada
+            ? (Array.isArray(data) ? data.filter(r => normalizarClave(r.sede || '') === sedeNormalizada) : data)
+            : data;
+        records = dataFiltrada.map((r, index) => ({ ...r, id: index + 1 }));
     } catch (err) {
         console.log('Usando datos de demo');
         showToast('No se pudo cargar registros, mostrando demo', 'warning');
@@ -2390,8 +2890,10 @@ async function collectFormData() {
         nombre: document.getElementById('nombre').value.trim(),
         cedula: document.getElementById('cedula').value.trim(),
         correo: document.getElementById('correo').value.trim(),
+        verify_token: (window.verificationData && window.verificationData.token) || '',
         curso: document.getElementById('curso')?.value.trim() || '',
         sede: document.getElementById('sede').value,
+        tipo_usuario: tipoUsuarioSolicitud || 'Docente',
         hora_devolucion: horaDevolucion,
         cargador: document.getElementById('cargador').checked ? 'Sí' : 'No',
         novedad: document.getElementById('novedad').checked ? 'Sí' : 'No',
@@ -2431,20 +2933,27 @@ async function collectFormData() {
         data.rango_inicio = rangoInicio;
         data.rango_fin = rangoFin;
     } else {
-        // Lógica normal de carros
-        const carroSeleccionado = document.getElementById('carroSelect').value;
-        if (!carroSeleccionado) {
+        // Lógica normal de carros, ampliada para Comercial
+        const carrosSeleccionados = obtenerCarrosPrincipalesSolicitud();
+        if (data.tipo_usuario === 'Comercial' && (carrosSeleccionados.length < 2 || carrosSeleccionados.length > 5)) {
+            showToast('Comercial debe seleccionar entre 2 y 5 carros', 'error');
+            return false;
+        }
+        if (!carrosSeleccionados.length) {
             showToast('Debe seleccionar un carro', 'error');
             return false;
         }
         
-        const equiposCarro = equiposZipaquira.filter(e => e.carro === carroSeleccionado);
-        data.equipo = carroSeleccionado;
+        const equiposCarro = equiposZipaquira.filter(e => carrosSeleccionados.includes(e.carro));
+        data.equipo = carrosSeleccionados[0];
+        data.vehiculo_principal = carrosSeleccionados[0];
+        data.vehiculos_adicionales = JSON.stringify(carrosSeleccionados.slice(1));
+        data.vehiculos_solicitados = JSON.stringify(carrosSeleccionados);
         data.cantidad = equiposCarro.length;
         data.detalle_equipos = equiposCarro.map((e, i) => 
-            `${i + 1}. Placa: ${e.placa} - Serial: ${e.serial}`
+            `${i + 1}. Carro: ${e.carro} - Placa: ${e.placa} - Serial: ${e.serial}`
         ).join('\n');
-        data.serial_y_placa = equiposCarro.map(e => `Placa: ${e.placa || '-'} - Serial: ${e.serial || '-'}`).join('\n');
+        data.serial_y_placa = equiposCarro.map(e => `Carro: ${e.carro || '-'} - Placa: ${e.placa || '-'} - Serial: ${e.serial || '-'}`).join('\n');
         data.rango_inicio = '';
         data.rango_fin = '';
     }
@@ -2559,24 +3068,24 @@ function createRecordCard(record) {
         <div class="record-card" onclick="showDetail(${record.id})">
             <div class="record-header">
                 <div>
-                    <div class="record-title">${record.nombre}</div>
+                    <div class="record-title">${escapeHtml(record.nombre)}</div>
                     <div class="record-date">
-                        <i class="fas fa-calendar"></i> ${date}
+                        <i class="fas fa-calendar"></i> ${escapeHtml(date)}
                     </div>
                 </div>
                 <div class="icon-circle blue" style="width: 40px; height: 40px; font-size: 1rem;">
                     <i class="fas fa-user"></i>
                 </div>
             </div>
-            
+
             <div class="record-equipo">
-                <i class="fas fa-laptop"></i> ${record.cantidad || record.equipo}
+                <i class="fas fa-laptop"></i> ${escapeHtml(record.cantidad || record.equipo)}
             </div>
-            
+
             <div class="record-status">
-                <span class="status-badge info">Sede: ${record.sede || 'N/A'}</span>
-                <span class="status-badge success">Curso: ${record.curso || 'N/A'}</span>
-                <span class="status-badge warning">Hasta: ${record.hora_devolucion || 'N/A'}</span>
+                <span class="status-badge info">Sede: ${escapeHtml(record.sede || 'N/A')}</span>
+                <span class="status-badge success">Curso: ${escapeHtml(record.curso || 'N/A')}</span>
+                <span class="status-badge warning">Hasta: ${escapeHtml(record.hora_devolucion || 'N/A')}</span>
             </div>
             
             <div class="record-actions" onclick="event.stopPropagation()">
@@ -2610,27 +3119,27 @@ function showDetail(id) {
         <div class="detail-grid">
             <div class="detail-item">
                 <div class="detail-label">Nombre</div>
-                <div class="detail-value">${currentRecord.nombre}</div>
+                <div class="detail-value">${escapeHtml(currentRecord.nombre)}</div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">Fecha</div>
-                <div class="detail-value">${formatearFecha(currentRecord.fecha, { fallback: 'N/A' })}</div>
+                <div class="detail-value">${escapeHtml(formatearFecha(currentRecord.fecha, { fallback: 'N/A' }))}</div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">Curso</div>
-                <div class="detail-value">${currentRecord.curso || 'N/A'}</div>
+                <div class="detail-value">${escapeHtml(currentRecord.curso || 'N/A')}</div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">Equipo</div>
-                <div class="detail-value">${currentRecord.cantidad || currentRecord.equipo}</div>
+                <div class="detail-value">${escapeHtml(currentRecord.cantidad || currentRecord.equipo)}</div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">Sede</div>
-                <div class="detail-value">${currentRecord.sede || currentRecord.equipo}</div>
+                <div class="detail-value">${escapeHtml(currentRecord.sede || currentRecord.equipo)}</div>
             </div>
             <div class="detail-item">
                 <div class="detail-label">Hasta</div>
-                <div class="detail-value">${currentRecord.hora_devolucion || 'N/A'}</div>
+                <div class="detail-value">${escapeHtml(currentRecord.hora_devolucion || 'N/A')}</div>
             </div>
         </div>
     `;
@@ -3063,7 +3572,8 @@ async function cargarSolicitudesEnCurso() {
   tbody.innerHTML = `<tr><td colspan="8">Cargando...</td></tr>`;
 
   try {
-    const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=enCurso&sede=${encodeURIComponent(sede)}`);
+    const correoSoporte = localStorage.getItem('emailSoporte') || '';
+    const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=enCurso&sede=${encodeURIComponent(sede)}&correo=${encodeURIComponent(correoSoporte)}`);
     console.log("RESPUESTA enCurso:", data);
 
     if (!Array.isArray(data) || data.length === 0) {
@@ -3085,22 +3595,40 @@ async function cargarSolicitudesEnCurso() {
   }
 }
 
+function formatearVehiculosItem(item) {
+  let lista = [];
+  try {
+    const parsed = JSON.parse(item.vehiculos_solicitados || '[]');
+    if (Array.isArray(parsed)) lista = parsed.filter(Boolean);
+  } catch (err) {
+    // vehiculos_solicitados vacío o en formato antiguo, se usa el respaldo de abajo.
+  }
+  if (!lista.length && item.vehiculo_principal) lista = [item.vehiculo_principal];
+  if (!lista.length && item.equipo) lista = [item.equipo];
+  return escapeHtml(lista.join(', ') || (item.equipo || ''));
+}
+
 function renderizarSolicitudes(data) {
   const tbody = document.getElementById("enCursoTableBody");
   if (!tbody) return;
-  
+
   tbody.innerHTML = "";
 
   data.forEach(item => {
     const tr = document.createElement("tr");
+    const esComercial = String(item.tipo_usuario || '').trim().toLowerCase() === 'comercial';
+    const tipoBadge = `<span class="badge-tipo-usuario ${esComercial ? 'comercial' : 'docente'}">${escapeHtml(item.tipo_usuario || 'Docente')}</span>`;
+    const notificadoBadge = item.estado_devolucion_usuario
+      ? `<span class="badge-devolucion-notificada" title="El usuario notificó la devolución, falta validar físicamente">Notificado por usuario</span>`
+      : '';
 
     tr.innerHTML = `
-      <td>${item.nombre || ""}</td>
-      <td>${item.sede || ""}</td>
-      <td>${item.curso || ""}</td>
-      <td>${item.equipo || ""}</td>
-      <td>${item.cantidad || ""}</td>
-      <td>${formatearHora(item.hora_entrega)}</td>
+      <td>${escapeHtml(item.nombre || "")}${notificadoBadge}</td>
+      <td>${escapeHtml(item.sede || "")}</td>
+      <td>${escapeHtml(item.curso || "")}</td>
+      <td>${tipoBadge}<br>${formatearVehiculosItem(item)}</td>
+      <td>${escapeHtml(item.cantidad || "")}</td>
+      <td>${escapeHtml(formatearHora(item.hora_entrega))}</td>
       <td></td>
       <td></td>
     `;
@@ -3116,7 +3644,7 @@ function renderizarSolicitudes(data) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn-inline-return";
-    btn.textContent = "Devolver";
+    btn.textContent = "Pendiente";
     btn.addEventListener("click", () => abrirFormularioDevolucion(item));
 
     tr.children[6].appendChild(btnPdf);
@@ -3133,7 +3661,8 @@ async function cargarDevolucionesCerradas() {
   tbody.innerHTML = `<tr><td colspan="7">Cargando...</td></tr>`;
 
   try {
-    const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=devolucionesCerradas&sede=${encodeURIComponent(sede)}`);
+    const correoSoporte = localStorage.getItem('emailSoporte') || '';
+    const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=devolucionesCerradas&sede=${encodeURIComponent(sede)}&correo=${encodeURIComponent(correoSoporte)}`);
     console.log("RESPUESTA devolucionesCerradas:", data);
 
     if (!Array.isArray(data) || data.length === 0) {
@@ -3161,11 +3690,11 @@ function renderizarDevolucionesCerradas(data) {
   data.forEach(item => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${item.nombre || ""}</td>
-      <td>${item.curso || ""}</td>
-      <td>${item.equipo || ""}</td>
-      <td>${formatearFecha(item.fecha_devolucion)}</td>
-      <td>${item.estado_final || ""}</td>
+      <td>${escapeHtml(item.nombre || "")}</td>
+      <td>${escapeHtml(item.curso || "")}</td>
+      <td>${escapeHtml(item.equipo || "")}</td>
+      <td>${escapeHtml(formatearFecha(item.fecha_devolucion))}</td>
+      <td>${escapeHtml(item.estado_final || "")}</td>
       <td></td>
       <td></td>
     `;
@@ -3393,8 +3922,8 @@ function renderizarPanelDevolucionAdicionales(item) {
                 <div class="additional-return-item">
                     <i class="fas fa-check-circle" style="color:#16a34a; margin-top:0.15rem;"></i>
                     <div>
-                        <strong>${eq.equipo || 'Equipo adicional'}</strong>
-                        <span>Serial: ${eq.serial || '-'} | Placa: ${eq.placa || '-'} | Cantidad: ${eq.cantidad || 1}</span>
+                        <strong>${escapeHtml(eq.equipo || 'Equipo adicional')}</strong>
+                        <span>Serial: ${escapeHtml(eq.serial || '-')} | Placa: ${escapeHtml(eq.placa || '-')} | Cantidad: ${escapeHtml(eq.cantidad || 1)}</span>
                     </div>
                 </div>
             `).join('')}
@@ -3670,6 +4199,187 @@ async function cerrarSolicitudFrontend() {
         }
     }
 }
+
+let fotosDevolucionUsuario = [];
+const MAX_FOTOS_DEVOLUCION_USUARIO = 5;
+
+function inicializarFormularioDevolucionUsuario() {
+    const form = document.getElementById('devolucionUsuarioForm');
+    if (!form) return;
+
+    const sede = obtenerSedeDesdeURL();
+    const sedeInput = document.getElementById('usuarioDevolucionSede');
+    if (sedeInput && sede) sedeInput.value = capitalizarSedeFormulario(sede);
+
+    form.addEventListener('submit', registrarDevolucionUsuario);
+    seleccionarAdicionalesUsuario('No');
+
+    if (sede) {
+        cargarVehiculosDevolucionUsuario(sede);
+    } else {
+        const container = document.getElementById('vehiculosDevueltosContainer');
+        if (container) container.innerHTML = '<p class="vehicle-checks-loading">Selecciona la sede para cargar sus vehículos.</p>';
+        if (sedeInput) {
+            sedeInput.addEventListener('change', () => {
+                const valor = normalizarClave(sedeInput.value.trim());
+                if (valor) cargarVehiculosDevolucionUsuario(valor);
+            });
+        }
+    }
+
+    const fotosInput = document.getElementById('usuarioDevolucionFotos');
+    if (fotosInput) {
+        fotosInput.addEventListener('change', async () => {
+            const nuevos = Array.from(fotosInput.files || []);
+            fotosInput.value = '';
+            if (!nuevos.length) return;
+
+            const disponibles = MAX_FOTOS_DEVOLUCION_USUARIO - fotosDevolucionUsuario.length;
+            if (disponibles <= 0) {
+                showToast(`Máximo ${MAX_FOTOS_DEVOLUCION_USUARIO} fotos`, 'warning');
+                return;
+            }
+            if (nuevos.length > disponibles) {
+                showToast(`Solo se agregaron ${disponibles} foto(s), el máximo es ${MAX_FOTOS_DEVOLUCION_USUARIO}`, 'warning');
+            }
+
+            for (const file of nuevos.slice(0, disponibles)) {
+                try {
+                    const base64 = await toBase64(file);
+                    fotosDevolucionUsuario.push(base64);
+                } catch (err) {
+                    console.warn('No se pudo leer una foto:', err);
+                }
+            }
+            renderizarFotosDevolucionUsuario();
+        });
+    }
+}
+
+async function cargarVehiculosDevolucionUsuario(sede) {
+    const container = document.getElementById('vehiculosDevueltosContainer');
+    if (!container) return;
+
+    const sedeUrl = sede || obtenerSedeDesdeURL();
+    if (!sedeUrl) {
+        container.innerHTML = '<p class="vehicle-checks-loading">Escribe la sede para cargar sus vehículos.</p>';
+        return;
+    }
+
+    container.innerHTML = '<p class="vehicle-checks-loading">Cargando vehículos de la sede...</p>';
+    try {
+        const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeUrl)}`);
+        const carros = prepararCarrosDesdeEquipos(data);
+        if (!carros.length) {
+            container.innerHTML = '<p class="vehicle-checks-loading">No hay vehículos registrados para esta sede. Usa el campo "Otro vehículo".</p>';
+            return;
+        }
+        container.innerHTML = carros.map(carro => `
+            <label><input type="checkbox" name="vehiculos_devueltos" value="${carro}"> ${carro}</label>
+        `).join('');
+    } catch (err) {
+        console.warn('No se pudieron cargar los vehículos de la sede:', err);
+        container.innerHTML = '<p class="vehicle-checks-loading">No se pudieron cargar los vehículos. Usa el campo "Otro vehículo".</p>';
+    }
+}
+
+let adicionalesDevolucionUsuarioValor = 'No';
+
+function seleccionarAdicionalesUsuario(valor) {
+    adicionalesDevolucionUsuarioValor = valor === 'Sí' ? 'Sí' : 'No';
+    document.querySelectorAll('#adicionalesToggle .si-no-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.valor === adicionalesDevolucionUsuarioValor);
+    });
+    const detalle = document.getElementById('usuarioDevolucionDetalleAdicionales');
+    if (detalle) detalle.style.display = adicionalesDevolucionUsuarioValor === 'Sí' ? 'block' : 'none';
+}
+
+function renderizarFotosDevolucionUsuario() {
+    const preview = document.getElementById('usuarioDevolucionFotosPreview');
+    if (!preview) return;
+    preview.innerHTML = fotosDevolucionUsuario.map((foto, idx) => `
+        <div class="foto-devolucion-thumb">
+            <img src="${foto}" alt="Foto ${idx + 1}">
+            <button type="button" onclick="quitarFotoDevolucionUsuario(${idx})" title="Quitar foto">✕</button>
+        </div>
+    `).join('');
+}
+
+function quitarFotoDevolucionUsuario(idx) {
+    fotosDevolucionUsuario.splice(idx, 1);
+    renderizarFotosDevolucionUsuario();
+}
+
+function capitalizarSedeFormulario(sede) {
+    const nombres = {
+        zipaquira: 'Zipaquirá',
+        niza: 'Niza',
+        usaquen: 'Usaquén',
+        cota: 'Cota',
+        mosquera: 'Mosquera',
+        tunja: 'Tunja',
+        barranquilla: 'Barranquilla'
+    };
+    const normalizada = normalizarClave(sede);
+    return nombres[normalizada] || sede || '';
+}
+
+async function registrarDevolucionUsuario(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnEnviarDevolucionUsuario');
+    const original = btn ? btn.innerHTML : '';
+    const vehiculos = Array.from(document.querySelectorAll('input[name="vehiculos_devueltos"]:checked'))
+        .map(input => input.value)
+        .concat(String(document.getElementById('usuarioDevolucionOtros')?.value || '')
+            .split(',')
+            .map(v => v.trim())
+            .filter(Boolean));
+
+    const payload = {
+        action: 'registrarDevolucionUsuario',
+        nombre: document.getElementById('usuarioDevolucionNombre')?.value.trim() || '',
+        cedula: document.getElementById('usuarioDevolucionCedula')?.value.trim() || '',
+        tipo_usuario: document.getElementById('usuarioDevolucionTipo')?.value || '',
+        sede: document.getElementById('usuarioDevolucionSede')?.value.trim() || '',
+        vehiculos_devueltos: JSON.stringify([...new Set(vehiculos)]),
+        observaciones: document.getElementById('usuarioDevolucionObservaciones')?.value.trim() || '',
+        fotos_devolucion: JSON.stringify(fotosDevolucionUsuario),
+        adicionales_devueltos: adicionalesDevolucionUsuarioValor,
+        detalle_adicionales: document.getElementById('usuarioDevolucionDetalleAdicionales')?.value.trim() || ''
+    };
+
+    if (!payload.nombre || !payload.cedula || !payload.tipo_usuario || !payload.sede || !vehiculos.length) {
+        showToast('Completa nombre, cédula, tipo, sede y al menos un vehículo', 'error');
+        return;
+    }
+
+    try {
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+        }
+        const result = await postToAppsScript(payload);
+        if (!result || result.status !== 'ok') {
+            throw new Error(result?.error || 'No se pudo registrar la devolución');
+        }
+        showToast('Devolución informada a soporte. Queda pendiente de validación física.', 'success', 5000);
+        e.target.reset();
+        fotosDevolucionUsuario = [];
+        renderizarFotosDevolucionUsuario();
+        seleccionarAdicionalesUsuario('No');
+        const sedeUrl = obtenerSedeDesdeURL();
+        if (sedeUrl) document.getElementById('usuarioDevolucionSede').value = capitalizarSedeFormulario(sedeUrl);
+    } catch (err) {
+        console.error(err);
+        showToast('Error registrando devolución: ' + err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = original;
+        }
+    }
+}
+
 function obtenerSedeDesdeURL() {
     const params = new URLSearchParams(window.location.search);
     return params.get("sede") || "";

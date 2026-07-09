@@ -1,0 +1,1142 @@
+DOCUMENTACION GENERAL DEL PROYECTO
+Sistema de Recepcion y Devolucion de Equipos - Innova Schools
+
+============================================================
+INTRODUCCION
+============================================================
+
+Este documento explica de forma general y paso a paso el desarrollo del
+proyecto "Sistema de Recepcion y Devolucion de Equipos". La documentacion
+esta escrita como una historia del proceso: desde la idea inicial, el primer
+dia de construccion, las primeras pantallas, las mejoras realizadas, los
+cambios importantes, lo que se elimino y las razones de cada decision.
+
+El proyecto nacio como una necesidad de controlar mejor el prestamo de
+equipos tecnologicos en las sedes de Innova Schools. Antes, este proceso
+podia depender de registros manuales, mensajes, hojas separadas o controles
+menos centralizados. Por eso se desarrollo una herramienta web que permitiera
+registrar la entrega, controlar la disponibilidad, guardar evidencias y cerrar
+la devolucion de cada solicitud.
+
+============================================================
+OBJETIVO GENERAL
+============================================================
+
+Crear un sistema web que permita registrar, consultar y cerrar prestamos de
+equipos tecnologicos por sede, guardando la informacion en Google Sheets y
+generando evidencia documental mediante PDFs.
+
+El sistema busca responder estas preguntas:
+
+- Quien recibio el equipo.
+- Que equipo o carro recibio.
+- En que sede se hizo el prestamo.
+- A que hora debe devolverlo.
+- Si el equipo tenia alguna novedad.
+- Si el equipo fue devuelto correctamente.
+- Que solicitudes siguen abiertas.
+- Que solicitudes ya fueron cerradas.
+- Donde esta el acta o PDF de soporte.
+
+============================================================
+PRIMER DIA: NACIMIENTO DEL PROYECTO
+============================================================
+
+El primer dia se definio la necesidad principal: crear una plataforma sencilla
+para registrar la recepcion de equipos tecnologicos. En esta etapa el sistema
+todavia no era una herramienta completa de gestion, sino un formulario para
+capturar informacion basica.
+
+Lo primero que se hizo fue organizar la estructura inicial del proyecto:
+
+- Una pagina principal.
+- Una carpeta para vistas o formularios.
+- Una carpeta para estilos CSS.
+- Una carpeta para JavaScript.
+- Una carpeta para imagenes.
+- Una carpeta para el backend de Google Apps Script.
+
+La primera version se enfoco en que el usuario pudiera ingresar datos como
+nombre, cedula, correo, equipo recibido, fecha, hora y firma. El objetivo era
+pasar de un registro manual a un formulario digital.
+
+Desde el comienzo se tomo la decision de usar HTML, CSS y JavaScript porque
+el sistema debia poder abrirse facilmente en un navegador, sin necesidad de
+instalar programas complejos. Tambien se eligio Google Apps Script porque
+permitia conectar el formulario con Google Sheets, Google Drive y Gmail.
+
+Logro del primer dia:
+
+- Se definio la idea del sistema.
+- Se creo la estructura base del proyecto.
+- Se empezo a construir el formulario principal.
+- Se definio que Google Sheets seria la base de datos.
+- Se empezo a pensar en una solucion sencilla, accesible y facil de mantener.
+
+============================================================
+SEGUNDA ETAPA: PAGINA PRINCIPAL Y SELECCION DE SEDES
+============================================================
+
+Despues de tener clara la idea inicial, se desarrollo la pagina principal
+index.html. Esta pagina funciona como entrada al sistema.
+
+En esta etapa se agregaron tarjetas para seleccionar sedes. La razon de esto
+fue que el sistema no debia funcionar para una sola ubicacion, sino para varios
+colegios de Innova Schools.
+
+Sedes incluidas:
+
+- Zipaquira.
+- Niza.
+- Usaquen.
+- Cota.
+- Mosquera.
+- Tunja.
+- Barranquilla.
+
+Cada sede dirige al usuario a un formulario especifico. Esto se hizo para que
+cada colegio pudiera tener su propio contexto y para que el registro quedara
+marcado con la sede correcta.
+
+Mejora lograda:
+
+El sistema dejo de ser un formulario unico y paso a organizarse por sedes.
+Esto facilito el control y permitio filtrar informacion por colegio.
+
+============================================================
+TERCERA ETAPA: FORMULARIOS DE RECEPCION POR SEDE
+============================================================
+
+Luego se crearon formularios separados dentro de la carpeta view. Cada archivo
+HTML corresponde a una sede. Aunque los formularios tienen una estructura
+similar, cada uno contiene un campo oculto con el nombre de su sede.
+
+Archivos creados:
+
+- view/Fzipa.html
+- view/Fniza.html
+- view/Fusa.html
+- view/Fcota.html
+- view/Fmosquera.html
+- view/Ftunja.html
+- view/Fbarranquilla.html
+
+Cada formulario incluye:
+
+- Datos personales del usuario.
+- Correo institucional.
+- Cedula.
+- Seleccion del carro o equipo.
+- Hora maxima de devolucion.
+- Revision del estado del equipo.
+- Registro de novedades.
+- Firma digital.
+
+Por que se hizo asi:
+
+Se agrego un formulario por sede para facilitar la navegacion y evitar que el
+usuario tenga que seleccionar manualmente el colegio dentro del formulario.
+El sistema ya sabe de que sede viene el registro.
+
+Mejora lograda:
+
+Se redujo el riesgo de errores al registrar la sede y se hizo mas claro el
+flujo para los usuarios.
+
+============================================================
+CUARTA ETAPA: DISENO VISUAL Y EXPERIENCIA DE USUARIO
+============================================================
+
+Despues de crear las pantallas base, se trabajo en los estilos del proyecto.
+Se usaron archivos CSS para mejorar la presentacion y hacer que el sistema
+se viera profesional.
+
+Archivos principales:
+
+- css/index.css
+- css/style.css
+- css/devolucion.css
+
+Se agregaron:
+
+- Tarjetas de sede.
+- Botones con iconos.
+- Formularios modernos.
+- Barra de progreso.
+- Modales.
+- Notificaciones tipo toast.
+- Tablas de consulta.
+- Diseno responsive para celulares.
+- Estilos para firma digital.
+- Estilos para el modulo de devoluciones.
+
+Por que se hizo:
+
+Un sistema institucional no solo debe funcionar, tambien debe ser claro y
+facil de usar. Por eso se mejoro la interfaz para que los docentes y soporte
+puedan completar los procesos sin confusion.
+
+Mejora lograda:
+
+El proyecto paso de verse como un formulario basico a una aplicacion web mas
+ordenada, visual y facil de manejar.
+
+============================================================
+QUINTA ETAPA: LOGICA PRINCIPAL EN JAVASCRIPT
+============================================================
+
+La logica principal se concentro en js/script.js. Este archivo se encarga de
+gran parte del funcionamiento del sistema en el navegador.
+
+Funciones importantes implementadas:
+
+- Avanzar entre pasos del formulario.
+- Validar campos obligatorios.
+- Cargar equipos segun la sede.
+- Verificar disponibilidad.
+- Mostrar equipos del carro seleccionado.
+- Capturar firma digital.
+- Enviar datos al backend.
+- Mostrar registros.
+- Consultar solicitudes en curso.
+- Cerrar solicitudes.
+- Mostrar devoluciones cerradas.
+- Filtrar tablas y registros.
+- Mostrar mensajes al usuario.
+
+Por que se hizo:
+
+HTML y CSS permiten construir la pantalla, pero JavaScript permite que el
+sistema reaccione a lo que hace el usuario. Sin JavaScript, el formulario no
+podria validar, consultar equipos, verificar disponibilidad o enviar datos
+de forma dinamica.
+
+Mejora lograda:
+
+El sistema dejo de ser una pagina estatica y se convirtio en una aplicacion
+interactiva.
+
+============================================================
+SEXTA ETAPA: CONEXION CON GOOGLE APPS SCRIPT
+============================================================
+
+Una parte muy importante fue conectar el frontend con Google Apps Script.
+El archivo principal del backend es:
+
+- bakend/code.gs
+
+Este backend recibe las solicitudes del frontend y se conecta con servicios
+de Google.
+
+Funciones generales del backend:
+
+- Recibir registros nuevos.
+- Consultar equipos disponibles.
+- Consultar disponibilidad por sede.
+- Guardar datos en Google Sheets.
+- Generar PDFs.
+- Guardar PDFs en Google Drive.
+- Enviar correos por Gmail.
+- Validar correos de soporte.
+- Cerrar solicitudes.
+- Administrar equipos.
+
+Por que se uso Google Apps Script:
+
+Se eligio porque se integra facilmente con Google Sheets, Drive y Gmail. Esto
+permitio crear un backend sin montar un servidor tradicional. Para una
+institucion que ya trabaja con herramientas de Google, esta opcion fue practica.
+
+Mejora lograda:
+
+El sistema pudo guardar datos reales, generar documentos y enviar correos
+automaticamente.
+
+============================================================
+SEPTIMA ETAPA: GOOGLE SHEETS COMO BASE DE DATOS
+============================================================
+
+Google Sheets se uso como base de datos del sistema. Alli se guardan los
+registros de recepcion y devolucion.
+
+Datos que se guardan:
+
+- Nombre.
+- Cedula.
+- Correo.
+- Sede.
+- Equipo o carro.
+- Cantidad.
+- Fecha.
+- Hora de entrega.
+- Hora maxima de devolucion.
+- Estado.
+- Novedades.
+- Firma.
+- ID de solicitud.
+- Estado de la solicitud.
+- Datos de devolucion.
+- Enlaces a PDFs.
+
+Por que se hizo:
+
+Google Sheets permite consultar y organizar datos sin necesidad de instalar
+una base de datos externa. Tambien permite que el equipo administrativo pueda
+revisar informacion directamente si lo necesita.
+
+Mejora lograda:
+
+La informacion quedo centralizada y disponible para seguimiento.
+
+============================================================
+OCTAVA ETAPA: VERIFICACION DE CORREO INSTITUCIONAL
+============================================================
+
+Se agrego el archivo:
+
+- js/verify.js
+
+Este archivo implementa la verificacion del correo institucional. El sistema
+solo acepta correos con dominio:
+
+@innovaschools.edu.co
+
+Proceso:
+
+1. El usuario escribe su correo.
+2. El sistema valida que sea institucional.
+3. Se genera un codigo de 6 digitos.
+4. El codigo se envia por correo.
+5. El usuario ingresa el codigo.
+6. Si el codigo coincide, el correo queda verificado.
+
+Se agregaron tambien:
+
+- Tiempo de expiracion del codigo.
+- Limite de intentos.
+- Opcion de reenviar codigo.
+- Modal para ingresar el codigo.
+
+Por que se hizo:
+
+Esto mejora la seguridad y evita que cualquier persona registre solicitudes
+con correos falsos o externos.
+
+Mejora lograda:
+
+El sistema empezo a validar identidad basica mediante correo institucional.
+
+============================================================
+NOVENA ETAPA: FIRMA DIGITAL
+============================================================
+
+Se implemento un canvas para que el usuario pueda firmar digitalmente.
+
+La firma funciona con:
+
+- Mouse.
+- Pantalla tactil.
+- Celular.
+- Tablet.
+
+La firma se convierte en imagen Base64 y se envia al backend para guardarla
+o incluirla en el PDF.
+
+Por que se hizo:
+
+La firma sirve como evidencia de que el usuario recibio o devolvio los equipos.
+Esto reemplaza la firma en papel y permite tener documentos digitales.
+
+Mejora lograda:
+
+El sistema obtuvo soporte de evidencia digital dentro del mismo formulario.
+
+============================================================
+DECIMA ETAPA: CONTROL DE DISPONIBILIDAD
+============================================================
+
+Una mejora importante fue validar si un carro o equipo ya estaba ocupado.
+
+El sistema consulta la disponibilidad por:
+
+- Sede.
+- Fecha.
+- Carro o equipo.
+- Estado de solicitud.
+
+Si un equipo ya esta en uso, el sistema puede mostrar que no esta disponible.
+
+Por que se hizo:
+
+Sin esta validacion, dos usuarios podrian registrar el mismo carro al mismo
+tiempo. Esto generaria conflictos y perdida de control.
+
+Mejora lograda:
+
+Se redujo el riesgo de prestamos duplicados y se mejoro la confiabilidad del
+inventario.
+
+============================================================
+DECIMA PRIMERA ETAPA: GENERACION DE PDF DE RECEPCION
+============================================================
+
+El backend genera un PDF cuando se registra una recepcion. Ese PDF funciona
+como acta de entrega.
+
+El PDF puede incluir:
+
+- Datos del usuario.
+- Datos de la sede.
+- Equipo recibido.
+- Fecha y hora.
+- Estado del equipo.
+- Novedades.
+- Firma.
+- Logo institucional.
+
+El PDF se guarda en Google Drive y tambien puede enviarse por correo.
+
+Por que se hizo:
+
+El PDF reemplaza el documento fisico de entrega y deja una evidencia formal
+del prestamo.
+
+Mejora lograda:
+
+Cada recepcion puede tener su acta digital.
+
+============================================================
+DECIMA SEGUNDA ETAPA: SOLICITUDES EN CURSO
+============================================================
+
+Inicialmente el sistema registraba entregas, pero no tenia un ciclo completo.
+Luego se agrego el concepto de solicitud en curso.
+
+Esto significa que cuando se entrega un equipo, la solicitud queda abierta
+hasta que soporte registre la devolucion.
+
+Se agregaron campos como:
+
+- id_solicitud.
+- estado.
+- hora_entrega.
+
+Estados principales:
+
+- EN_CURSO.
+- CERRADO.
+
+Por que se hizo:
+
+Era necesario saber que equipos seguian prestados y cuales ya habian sido
+devueltos.
+
+Mejora lograda:
+
+El sistema paso de registrar eventos aislados a controlar solicitudes con
+estado.
+
+============================================================
+DECIMA TERCERA ETAPA: MODULO DE DEVOLUCIONES
+============================================================
+
+Se creo el archivo:
+
+- view/devolucion.html
+
+Este modulo permite al personal de soporte:
+
+- Ver solicitudes en curso.
+- Buscar solicitudes por nombre, curso, equipo o sede.
+- Abrir una solicitud.
+- Registrar cantidad devuelta.
+- Registrar estado final.
+- Indicar si hubo novedad.
+- Adjuntar foto si hay novedad.
+- Firmar la devolucion.
+- Cerrar la solicitud.
+- Ver devoluciones realizadas.
+
+Por que se hizo:
+
+El sistema necesitaba cerrar el ciclo del prestamo. No bastaba con registrar
+la entrega; tambien era necesario confirmar la devolucion.
+
+Mejora lograda:
+
+El sistema paso a controlar el ciclo completo:
+
+ENTREGA -> USO -> DEVOLUCION -> CIERRE
+
+============================================================
+DECIMA CUARTA ETAPA: CIERRE DE SOLICITUDES
+============================================================
+
+Se implemento la funcion de cierre de solicitud en frontend y backend.
+
+En frontend:
+
+- cerrarSolicitudFrontend()
+
+En backend:
+
+- cerrarSolicitud(data)
+
+Proceso:
+
+1. Soporte selecciona una solicitud en curso.
+2. El sistema carga sus datos.
+3. Soporte registra la devolucion.
+4. Se valida cantidad devuelta y estado final.
+5. Si hay novedad, se exige descripcion y foto.
+6. Se captura firma de devolucion.
+7. Se envia la informacion al backend.
+8. El backend busca la fila por id_solicitud.
+9. Se actualiza la misma fila.
+10. El estado cambia a CERRADO.
+
+Por que se hizo asi:
+
+Se decidio actualizar la misma fila y no crear una nueva porque asi toda la
+historia de una solicitud queda en un unico registro. Esto facilita auditoria,
+consulta y generacion de reportes.
+
+Mejora lograda:
+
+La informacion de entrega y devolucion queda unificada.
+
+============================================================
+DECIMA QUINTA ETAPA: PDF FINAL DE DEVOLUCION
+============================================================
+
+Al cerrar una solicitud, el backend puede generar un PDF final de devolucion.
+
+Este PDF resume:
+
+- Informacion del usuario.
+- Datos de entrega.
+- Datos de devolucion.
+- Hora maxima de devolucion.
+- Hora real de devolucion.
+- Tiempo de uso.
+- Estado final.
+- Novedades.
+- Foto si aplica.
+- Firma de recepcion.
+- Firma de devolucion.
+- Conclusion automatica.
+
+Ejemplos de conclusion:
+
+- Equipos devueltos correctamente.
+- Se presentaron novedades en la devolucion.
+- Devolucion incompleta o con diferencias.
+
+Por que se hizo:
+
+El PDF final permite dejar evidencia completa del ciclo de vida de la
+solicitud, no solo de la entrega.
+
+Mejora lograda:
+
+El sistema genera documentacion formal tanto al prestar como al devolver.
+
+============================================================
+DECIMA SEXTA ETAPA: SOPORTE Y ROLES
+============================================================
+
+Se agrego logica para diferenciar usuarios normales y personal de soporte.
+
+El soporte puede:
+
+- Validar correo institucional.
+- Acceder a modulo de devoluciones.
+- Ver solicitudes de su sede.
+- Administrar equipos.
+- Cerrar solicitudes.
+
+Se guardan datos en localStorage como:
+
+- role.
+- emailSoporte.
+- sedeSoporte.
+
+Por que se hizo:
+
+No todos los usuarios deben tener las mismas opciones. Un docente puede crear
+una solicitud, pero soporte debe tener herramientas para administrar equipos
+y cerrar devoluciones.
+
+Mejora lograda:
+
+Se agrego control basico por rol y por sede.
+
+============================================================
+DECIMA SEPTIMA ETAPA: ADMINISTRACION DE EQUIPOS
+============================================================
+
+En la pagina principal tambien se agregaron funciones para que soporte pueda
+gestionar equipos por sede.
+
+Acciones incluidas:
+
+- Ver equipos.
+- Agregar equipo.
+- Editar equipo.
+- Eliminar equipo.
+- Agrupar por carro.
+- Validar permisos por sede.
+
+Por que se hizo:
+
+El inventario cambia con el tiempo. Se pueden agregar nuevos equipos, cambiar
+seriales o retirar equipos. Por eso se necesitaba una forma de administrarlos.
+
+Mejora lograda:
+
+El sistema empezo a funcionar tambien como apoyo de inventario.
+
+============================================================
+DECIMA OCTAVA ETAPA: CACHE Y RENDIMIENTO
+============================================================
+
+Se agrego cache local para mejorar la carga de equipos.
+
+Esto permite:
+
+- Evitar consultas repetidas a Google Apps Script.
+- Cargar mas rapido los carros disponibles.
+- Guardar temporalmente informacion del dia.
+- Reducir tiempos de espera.
+
+Por que se hizo:
+
+Las consultas a Google Apps Script pueden tardar. Usar cache mejora la
+experiencia del usuario, especialmente cuando hay internet lento.
+
+Mejora lograda:
+
+El sistema se volvio mas rapido y estable.
+
+============================================================
+COSAS QUE SE QUITARON O SIMPLIFICARON
+============================================================
+
+1. Campos innecesarios en la vista de registros
+
+Se quitaron campos como:
+
+- Firma digital visible en algunas vistas.
+- Cargador.
+- Autorizacion.
+- Novedad en lugares donde no era necesaria.
+- Boton de PDF en ciertos modales.
+
+Por que se quito:
+
+La vista de registros tenia demasiada informacion y podia confundir al usuario.
+Se simplifico para mostrar solo lo mas importante.
+
+Resultado:
+
+La consulta quedo mas limpia y facil de leer.
+
+------------------------------------------------------------
+
+2. Boton de descargar PDF en modal de detalle
+
+Se elimino el boton de descargar PDF del modal de detalle en algunas vistas.
+
+Por que se quito:
+
+No siempre era necesario descargar desde ahi y podia duplicar acciones. Se
+priorizo una vista mas simple y enfocada.
+
+Resultado:
+
+La interfaz quedo menos cargada.
+
+------------------------------------------------------------
+
+3. Mensajes con emojis
+
+Se quitaron emojis de algunos mensajes, especialmente en avisos de carro no
+disponible.
+
+Por que se quito:
+
+Para mantener un tono mas institucional y profesional.
+
+Resultado:
+
+Los mensajes quedaron mas serios y claros.
+
+------------------------------------------------------------
+
+4. Creacion de nueva fila al cerrar solicitud
+
+Se evito crear una nueva fila cuando se cierra una solicitud.
+
+Por que se quito esa idea:
+
+Crear otra fila separaria la entrega de la devolucion y complicaria la
+trazabilidad.
+
+Resultado:
+
+Ahora se actualiza la misma fila usando id_solicitud.
+
+------------------------------------------------------------
+
+5. Vista demasiado cargada de registros
+
+Se redujo informacion secundaria en algunas tarjetas y modales.
+
+Por que se hizo:
+
+El usuario necesita consultar rapido nombre, sede, equipo, hora y estado. Si
+se muestran demasiados datos al mismo tiempo, la consulta se vuelve lenta.
+
+Resultado:
+
+La visualizacion quedo mas enfocada en lo importante.
+
+============================================================
+MEJORAS IMPORTANTES REALIZADAS
+============================================================
+
+1. Campo oculto de sede
+
+Se agrego un campo oculto en cada formulario para registrar automaticamente
+la sede.
+
+Impacto:
+
+Evita errores y permite filtrar registros por colegio.
+
+------------------------------------------------------------
+
+2. Verificacion de correo institucional
+
+Se agrego validacion con codigo enviado al correo.
+
+Impacto:
+
+Mejora seguridad y evita registros de usuarios externos.
+
+------------------------------------------------------------
+
+3. Control de disponibilidad
+
+Se agrego consulta de carros ocupados.
+
+Impacto:
+
+Evita prestamos duplicados.
+
+------------------------------------------------------------
+
+4. Firma digital
+
+Se agrego firma en canvas para recepcion y devolucion.
+
+Impacto:
+
+Genera evidencia digital sin papel.
+
+------------------------------------------------------------
+
+5. Modulo de devoluciones
+
+Se agrego una pagina completa para cerrar solicitudes.
+
+Impacto:
+
+El sistema controla todo el ciclo del prestamo.
+
+------------------------------------------------------------
+
+6. PDF de recepcion y PDF final
+
+Se agrego generacion de documentos en Google Drive.
+
+Impacto:
+
+Cada proceso queda respaldado con actas.
+
+------------------------------------------------------------
+
+7. Busqueda y filtros
+
+Se agregaron filtros para registros, solicitudes y devoluciones.
+
+Impacto:
+
+Soporte puede encontrar informacion mas rapido.
+
+------------------------------------------------------------
+
+8. Control por rol de soporte
+
+Se agrego validacion para que soporte trabaje segun su sede.
+
+Impacto:
+
+Mejora organizacion y seguridad.
+
+------------------------------------------------------------
+
+9. Administracion de equipos
+
+Se agregaron opciones para manejar equipos desde el sistema.
+
+Impacto:
+
+El inventario puede actualizarse sin editar manualmente todo.
+
+------------------------------------------------------------
+
+10. Mejoras responsive
+
+Se ajusto el diseno para celulares y tablets.
+
+Impacto:
+
+El sistema puede usarse desde distintos dispositivos.
+
+============================================================
+DOCUMENTACION DE ARCHIVOS PRINCIPALES
+============================================================
+
+index.html
+
+Es la entrada principal del sistema. Contiene seleccion de sedes, navegacion,
+roles, panel de soporte, administracion de equipos, dashboard y funciones
+generales de consulta.
+
+Se logro:
+
+- Centralizar el acceso al sistema.
+- Mostrar sedes disponibles.
+- Permitir cambio de rol.
+- Acceder a devoluciones y administracion.
+
+------------------------------------------------------------
+
+view/F*.html
+
+Son formularios de recepcion por sede. Cada sede tiene su archivo para que el
+usuario entre directamente al colegio correspondiente.
+
+Se logro:
+
+- Capturar datos del usuario.
+- Registrar equipos.
+- Validar correo.
+- Capturar firma.
+- Enviar informacion al backend.
+
+------------------------------------------------------------
+
+view/devolucion.html
+
+Es el modulo de devolucion. Permite consultar solicitudes abiertas y cerrar
+prestamos.
+
+Se logro:
+
+- Ver solicitudes en curso.
+- Buscar registros.
+- Registrar devolucion.
+- Adjuntar foto si hay novedad.
+- Firmar devolucion.
+- Ver devoluciones realizadas.
+
+------------------------------------------------------------
+
+js/script.js
+
+Es el archivo JavaScript principal del proyecto. Controla la mayoria de la
+logica del frontend.
+
+Se logro:
+
+- Carga dinamica de equipos.
+- Validaciones.
+- Firma digital.
+- Envio de datos.
+- Control de solicitudes.
+- Cierre de devoluciones.
+- Filtros y busquedas.
+
+------------------------------------------------------------
+
+js/verify.js
+
+Controla la verificacion del correo institucional.
+
+Se logro:
+
+- Generar codigo.
+- Enviar codigo.
+- Validar intentos.
+- Validar expiracion.
+- Marcar correo como verificado.
+
+------------------------------------------------------------
+
+js/innova-account.js
+
+Permite guardar una cuenta institucional para reutilizarla.
+
+Se logro:
+
+- Guardar correo en localStorage.
+- Autocompletar correo.
+- Abrir modal de cuenta Innova.
+- Facilitar el proceso al usuario.
+
+------------------------------------------------------------
+
+bakend/code.gs
+
+Es el backend del proyecto.
+
+Se logro:
+
+- Guardar recepciones.
+- Consultar equipos.
+- Consultar disponibilidad.
+- Validar soporte.
+- Generar PDFs.
+- Enviar correos.
+- Cerrar solicitudes.
+- Administrar equipos.
+
+------------------------------------------------------------
+
+css/index.css
+
+Estilos de pagina principal, tarjetas de sede, dashboard y paneles.
+
+------------------------------------------------------------
+
+css/style.css
+
+Estilos de formularios de recepcion, modales, firmas, registros y barra de
+progreso.
+
+------------------------------------------------------------
+
+css/devolucion.css
+
+Estilos especificos del modulo de devoluciones.
+
+============================================================
+LOGROS DEL PROYECTO
+============================================================
+
+- Se creo una aplicacion web funcional.
+- Se digitalizo el proceso de recepcion de equipos.
+- Se agrego control por sedes.
+- Se conecto el sistema con Google Sheets.
+- Se implemento envio de datos con Google Apps Script.
+- Se agrego verificacion de correo institucional.
+- Se agrego firma digital.
+- Se agrego disponibilidad de equipos.
+- Se agrego generacion de PDF.
+- Se agrego modulo de devolucion.
+- Se agrego cierre de solicitudes.
+- Se agrego PDF final de devolucion.
+- Se agrego soporte para fotos de novedades.
+- Se agregaron filtros y busquedas.
+- Se mejoro el diseno responsive.
+- Se agrego administracion de equipos.
+- Se creo base para roles y permisos.
+
+============================================================
+QUE CAMBIO EN LA IDEA ORIGINAL
+============================================================
+
+La idea original era hacer un formulario para registrar la entrega de equipos.
+Con el avance del proyecto, esa idea crecio.
+
+Antes:
+
+Formulario de recepcion.
+
+Despues:
+
+Sistema completo de gestion de prestamos.
+
+El sistema ahora incluye:
+
+- Recepcion.
+- Validacion.
+- Disponibilidad.
+- Evidencia.
+- Seguimiento.
+- Devolucion.
+- Cierre.
+- Actas PDF.
+- Control por sede.
+- Gestion de equipos.
+
+Este cambio fue importante porque un prestamo no termina cuando se entrega el
+equipo. Termina cuando el equipo vuelve y se confirma su estado.
+
+============================================================
+POR QUE ALGUNAS DECISIONES FUERON IMPORTANTES
+============================================================
+
+Usar Google Sheets:
+
+Porque permite guardar informacion de forma sencilla, visible y facil de
+consultar.
+
+Usar Google Apps Script:
+
+Porque conecta directamente con Sheets, Drive y Gmail sin crear un servidor
+externo.
+
+Crear formularios por sede:
+
+Porque reduce errores y facilita el uso por colegio.
+
+Agregar id_solicitud:
+
+Porque permite identificar cada prestamo como un caso unico.
+
+Actualizar la misma fila:
+
+Porque mantiene entrega y devolucion en un solo registro.
+
+Agregar firma digital:
+
+Porque reemplaza evidencia fisica.
+
+Agregar PDF final:
+
+Porque documenta todo el ciclo del prestamo.
+
+Quitar elementos innecesarios:
+
+Porque una interfaz mas limpia permite trabajar mas rapido y con menos errores.
+
+============================================================
+ESTADO ACTUAL DEL SISTEMA
+============================================================
+
+Actualmente el sistema permite:
+
+- Seleccionar sede.
+- Registrar recepcion de equipos.
+- Validar correo institucional.
+- Cargar equipos desde Google Sheets.
+- Validar disponibilidad.
+- Registrar novedades.
+- Firmar digitalmente.
+- Guardar registros.
+- Generar acta PDF de recepcion.
+- Consultar solicitudes en curso.
+- Registrar devolucion.
+- Adjuntar foto de novedad.
+- Firmar devolucion.
+- Cerrar solicitudes.
+- Generar PDF final.
+- Consultar devoluciones cerradas.
+- Administrar equipos por sede.
+
+============================================================
+PENDIENTES O MEJORAS FUTURAS
+============================================================
+
+1. Dashboard mas completo
+
+Agregar graficas de uso por sede, equipos mas prestados, prestamos por fecha,
+devoluciones pendientes y novedades.
+
+2. Reportes exportables
+
+Permitir exportar datos filtrados a Excel o PDF.
+
+3. Historial por usuario
+
+Consultar todos los prestamos asociados a una cedula o correo.
+
+4. Alertas automaticas
+
+Enviar correos cuando un equipo no se devuelva a tiempo.
+
+5. Modo offline
+
+Permitir guardar registros sin conexion y sincronizar despues.
+
+6. Inventario mas detallado
+
+Agregar marca, modelo, estado historico y mantenimiento por equipo.
+
+7. QR o codigo de barras
+
+Escanear equipos para agilizar prestamos y devoluciones.
+
+8. Roles avanzados
+
+Separar permisos de administrador, soporte y docente.
+
+9. Backups automaticos
+
+Crear copias de seguridad periodicas.
+
+10. Mejoras de seguridad
+
+Reforzar validaciones del backend y controlar sesiones de forma mas estricta.
+
+============================================================
+CONCLUSION GENERAL
+============================================================
+
+El proyecto empezo como un formulario de recepcion de equipos y evoluciono
+hasta convertirse en un sistema completo para gestionar prestamos tecnologicos.
+
+Durante el desarrollo se construyeron paginas por sede, se agrego diseno
+responsive, se implemento logica en JavaScript, se conecto con Google Apps
+Script, se guardo informacion en Google Sheets y se generaron documentos PDF
+en Google Drive.
+
+Una de las mejoras mas importantes fue agregar el modulo de devoluciones,
+porque permitio cerrar el ciclo completo del prestamo. Tambien fue clave
+agregar el id_solicitud, ya que permite unir entrega y devolucion en un mismo
+registro.
+
+Se quitaron elementos innecesarios de algunas vistas para mejorar claridad,
+se eliminaron mensajes poco institucionales y se simplificaron modales para
+que el sistema fuera mas facil de usar.
+
+El resultado final es una herramienta funcional, organizada y escalable, que
+ayuda al equipo de soporte a controlar equipos, registrar evidencias y reducir
+errores en el proceso de prestamo y devolucion.
+
+============================================================
+RESUMEN PARA PRESENTACION
+============================================================
+
+El proyecto consiste en un sistema web para la recepcion y devolucion de
+equipos tecnologicos por sede. Se desarrollo con HTML, CSS, JavaScript y
+Google Apps Script. Al inicio era un formulario de registro, pero se mejoro
+hasta convertirse en un sistema completo con seleccion de sede, verificacion
+de correo institucional, control de disponibilidad, firma digital, generacion
+de PDFs, modulo de devolucion, cierre de solicitudes y administracion de
+equipos.
+
+Durante el proceso se agregaron mejoras visuales, validaciones, filtros,
+busquedas, control por rol de soporte, cache local y documentos finales de
+evidencia. Tambien se quitaron campos y botones innecesarios para dejar una
+interfaz mas clara y profesional.
+
+El principal logro fue pasar de un registro basico a un flujo completo:
+
+ENTREGA -> USO -> DEVOLUCION -> CIERRE
+
+Esto permite mayor trazabilidad, mejor control por sede y evidencia digital
+de cada prestamo realizado.

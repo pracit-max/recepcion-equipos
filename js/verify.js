@@ -34,26 +34,26 @@ async function iniciarVerificacion() {
     showLoading(true);
     
     try {
-        // Generar código
-        const codigo = generarCodigo();
-        
-        // Guardar datos
+        // El código lo genera y lo guarda el servidor (Apps Script), no el
+        // navegador: así nadie puede "auto-verificarse" editando variables
+        // de JS. Aquí solo pedimos que lo envíe y esperamos a confirmarlo.
         verificationData = {
-            code: codigo,
+            code: null,
             email: email,
             verified: false,
+            token: null,
             attempts: 0,
             timestamp: Date.now()
         };
         window.verificationData = verificationData;
-        
-        // Enviar código por correo (via Google Apps Script)
-        const enviado = await enviarCodigoPorCorreo(email, codigo);
-        
+
+        // Enviar código por correo (vía Google Apps Script)
+        const enviado = await enviarCodigoPorCorreo(email);
+
         if (!enviado) {
             throw new Error('No se pudo enviar el correo');
         }
-        
+
         // Mostrar modal de verificación
         mostrarModalVerificacion(email);
         showToast(`Código enviado a ${email}`, 'success');
@@ -74,64 +74,82 @@ async function iniciarVerificacion() {
 }
 
 /**
- * Valida el código ingresado
+ * Valida el código ingresado contra el servidor (Apps Script).
+ * El servidor es quien realmente sabe el código y controla los intentos;
+ * las comprobaciones locales de aquí son solo para una respuesta rápida
+ * en la UI, no reemplazan la validación del backend.
  */
-function validarCodigoIngresado() {
+async function validarCodigoIngresado() {
     const inputCodigo = document.getElementById('codigoVerificacion');
     const codigoIngresado = inputCodigo.value.trim();
-    
-    // Verificar expiración
+
+    // Verificar expiración (chequeo local rápido, el servidor también lo exige)
     if (haExpirado()) {
         showToast('El código ha expirado. Solicite uno nuevo.', 'error');
         cerrarModalVerificacion();
         return false;
     }
-    
-    // Verificar intentos
+
+    // Verificar intentos (chequeo local rápido, el servidor también lo exige)
     if (verificationData.attempts >= VERIFY_CONFIG.maxAttempts) {
         showToast('Demasiados intentos. Solicite un nuevo código.', 'error');
         cerrarModalVerificacion();
         return false;
     }
-    
-    // Validar código
+
     verificationData.attempts++;
-    
-    if (codigoIngresado === verificationData.code) {
-        // ÉXITO
-        verificationData.verified = true;
-        window.verificationData = verificationData;
-        localStorage.setItem('innovaAccountEmail', verificationData.email);
-        marcarCorreoVerificado();
-        cerrarModalVerificacion();
-        showToast('✅ Correo verificado correctamente', 'success');
-        
-        // Habilitar el botón siguiente del formulario principal
-        habilitarBotonSiguiente();
 
-        if (typeof cargarEquiposPorSede === 'function') {
-            cargarEquiposPorSede();
+    const btnVerify = document.querySelector('.btn-verify-submit');
+    if (btnVerify) btnVerify.disabled = true;
+
+    try {
+        const result = await jsonpRequest(
+            `${URL_GOOGLE_SCRIPT}?action=confirmVerifyCode&email=${encodeURIComponent(verificationData.email)}&code=${encodeURIComponent(codigoIngresado)}`
+        );
+
+        if (result && result.status === 'ok' && result.token) {
+            // ÉXITO
+            verificationData.verified = true;
+            verificationData.token = result.token;
+            window.verificationData = verificationData;
+            localStorage.setItem('innovaAccountEmail', verificationData.email);
+            marcarCorreoVerificado();
+            cerrarModalVerificacion();
+            showToast('✅ Correo verificado correctamente', 'success');
+
+            // Habilitar el botón siguiente del formulario principal
+            habilitarBotonSiguiente();
+
+            if (typeof cargarEquiposPorSede === 'function') {
+                cargarEquiposPorSede();
+            }
+
+            if (typeof cargarEquiposAdicionalesBodega === 'function') {
+                cargarEquiposAdicionalesBodega(true);
+            }
+
+            return true;
         }
 
-        if (typeof cargarEquiposAdicionalesBodega === 'function') {
-            cargarEquiposAdicionalesBodega(true);
-        }
-        
-        return true;
-    } else {
         // FALLÓ
-        const restantes = VERIFY_CONFIG.maxAttempts - verificationData.attempts;
-        showToast(`Código incorrecto. ${restantes} intentos restantes.`, 'warning');
+        const mensaje = (result && result.error) || 'Código incorrecto.';
+        showToast(mensaje, 'warning');
         inputCodigo.value = '';
         inputCodigo.focus();
-        
+
         // Animación de error
         inputCodigo.style.animation = 'shake 0.5s';
         setTimeout(() => {
             inputCodigo.style.animation = '';
         }, 500);
-        
+
         return false;
+    } catch (err) {
+        console.error('Error confirmando código:', err);
+        showToast('No se pudo verificar el código. Intenta de nuevo.', 'error');
+        return false;
+    } finally {
+        if (btnVerify) btnVerify.disabled = false;
     }
 }
 
@@ -155,12 +173,10 @@ async function reenviarCodigo() {
     showLoading(true);
     
     try {
-        const nuevoCodigo = generarCodigo();
-        verificationData.code = nuevoCodigo;
         verificationData.attempts = 0;
         verificationData.timestamp = Date.now();
-        
-        await enviarCodigoPorCorreo(verificationData.email, nuevoCodigo);
+
+        await enviarCodigoPorCorreo(verificationData.email);
         showToast('Nuevo código enviado', 'success');
         
         // Resetear inputs
@@ -231,15 +247,16 @@ function habilitarBotonSiguiente() {
 
 // ============ COMUNICACIÓN CON GOOGLE APPS SCRIPT ============
 
-async function enviarCodigoPorCorreo(email, codigo) {
+async function enviarCodigoPorCorreo(email) {
     try {
-        const result = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=sendVerifyCode&email=${encodeURIComponent(email)}&code=${codigo}`);
+        const result = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=sendVerifyCode&email=${encodeURIComponent(email)}`);
+        if (result.status !== 'ok' && result.error) {
+            showToast(result.error, 'error');
+        }
         return result.status === 'ok';
     } catch (error) {
         console.error('Error enviando código:', error);
-        // Fallback: simular éxito en desarrollo
-        console.log(`[MODO DEMO] Código para ${email}: ${codigo}`);
-        return true;
+        return false;
     }
 }
 

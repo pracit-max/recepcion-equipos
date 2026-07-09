@@ -697,6 +697,45 @@ body {
   color: var(--c-ink) !important;
 }
 
+.badge-tipo-usuario {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--r-full);
+  padding: 0.2rem 0.6rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-tipo-usuario.docente {
+  color: var(--c-brand-deep);
+  background: rgba(2,132,199,0.10);
+  border: 1px solid rgba(2,132,199,0.18);
+}
+
+.badge-tipo-usuario.comercial {
+  color: var(--c-danger-deep);
+  background: rgba(220,38,38,0.10);
+  border: 1px solid rgba(220,38,38,0.22);
+}
+
+.badge-devolucion-notificada {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.4rem;
+  border-radius: var(--r-full);
+  padding: 0.2rem 0.6rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--c-danger-deep);
+  background: rgba(220,38,38,0.12);
+  border: 1px solid rgba(220,38,38,0.25);
+  animation: statusPulseRed 2s ease-in-out infinite;
+}
+
 .table-sede {
   display: inline-flex;
   align-items: center;
@@ -1821,4 +1860,56 @@ textarea:focus-visible {
 ::-moz-selection {
   background: rgba(14,165,233,0.25);
   color: var(--c-ink);
+}
+
+/* ============================================================
+   REDISEÑO V2 — "Cuaderno escolar" (mismos colores, look nuevo)
+   Mismo lenguaje que css/style.css y css/index.css: tarjetas
+   sticker con sombra sólida "peel", pop-in de entrada. Aditivo.
+   ============================================================ */
+
+@keyframes popIn {
+  0% { opacity: 0; transform: translateY(14px) scale(0.96); }
+  60% { opacity: 1; transform: translateY(-2px) scale(1.01); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.stat-card,
+.section-card {
+  border-radius: 16px !important;
+  border: 2.5px solid rgba(15, 23, 42, 0.85) !important;
+  box-shadow: 5px 5px 0 var(--c-success) !important;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.stat-card:hover,
+.section-card:hover {
+  transform: translate(-3px, -3px) !important;
+  box-shadow: 8px 8px 0 var(--c-accent) !important;
+}
+
+.btn-inline-return,
+.btn-inline-pdf {
+  border-radius: 10px !important;
+  border: 2px solid rgba(15, 23, 42, 0.85) !important;
+  box-shadow: 3px 3px 0 var(--c-brand) !important;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease !important;
+}
+
+.btn-inline-return:hover,
+.btn-inline-pdf:hover {
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 6px 6px 0 var(--c-accent) !important;
+}
+
+.custom-table {
+  border-radius: 16px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-card, .section-card, .btn-inline-return, .btn-inline-pdf {
+    animation: none !important;
+    transition: none !important;
+  }
 }

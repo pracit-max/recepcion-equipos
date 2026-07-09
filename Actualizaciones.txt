@@ -281,3 +281,5 @@ FASE ACTUAL (EN DESARROLLO):
 [ ] Crear formulario devolución
 [ ] Generar PDF final
 ----------------------------------
+fecha en que se requiere el equipo 
+comercial, lo de la parte de no recibido que no diga devolver si no recepcion ti 

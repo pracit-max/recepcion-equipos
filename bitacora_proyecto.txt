@@ -1,0 +1,485 @@
+BITACORA DEL PROYECTO
+Sistema de Recepcion y Devolucion de Equipos - Innova Schools
+
+============================================================
+1. DESCRIPCION GENERAL DEL PROYECTO
+============================================================
+
+El proyecto es un sistema web para controlar la recepcion, prestamo,
+seguimiento y devolucion de equipos tecnologicos en diferentes sedes de
+Innova Schools Colombia.
+
+La idea principal es que un docente o colaborador pueda registrar cuando
+recibe un carro de computadores, tablets u otros equipos, dejando evidencia
+de sus datos, correo institucional, sede, hora maxima de devolucion, estado
+del equipo, novedades y firma digital.
+
+Ademas, el sistema permite que el personal de soporte consulte solicitudes
+en curso, cierre una solicitud cuando los equipos son devueltos, registre
+el estado final, adjunte evidencia si hay novedades y genere un PDF final
+de devolucion.
+
+El sistema trabaja con archivos HTML, CSS y JavaScript en el frontend, y
+usa Google Apps Script como backend para conectarse con Google Sheets,
+Google Drive y Gmail.
+
+============================================================
+2. OBJETIVO DEL SISTEMA
+============================================================
+
+El objetivo del proyecto es digitalizar el proceso de entrega y devolucion
+de equipos tecnologicos, evitando registros manuales en papel y permitiendo
+tener control sobre:
+
+- Que usuario recibio un equipo.
+- En que sede se hizo la solicitud.
+- Que carro o equipos fueron prestados.
+- Cual fue la hora maxima de devolucion.
+- Si hubo novedades, danos o cambios.
+- Que solicitudes siguen abiertas.
+- Que solicitudes ya fueron cerradas.
+- Donde queda guardada la evidencia en PDF.
+
+Con esto se mejora la trazabilidad, se reduce la perdida de informacion y
+se facilita el trabajo del equipo de soporte.
+
+============================================================
+3. TECNOLOGIAS UTILIZADAS
+============================================================
+
+HTML5:
+Se utilizo para construir la estructura de las paginas, formularios,
+tablas, modales, botones y secciones principales.
+
+CSS3:
+Se utilizo para crear el diseno visual del sistema, estilos responsive,
+tarjetas, formularios, barra de progreso, tablas, botones, modales,
+notificaciones y adaptacion a celulares.
+
+JavaScript:
+Se utilizo para manejar la logica del sistema en el navegador: validaciones,
+cambio de pasos del formulario, carga de equipos, verificacion de correo,
+firma digital, envio de datos al backend, filtros, busquedas y cierre de
+solicitudes.
+
+Google Apps Script:
+Funciona como backend del sistema. Recibe peticiones desde JavaScript,
+guarda informacion en Google Sheets, genera PDFs, envia correos y controla
+la disponibilidad de equipos.
+
+Google Sheets:
+Actua como base de datos principal. Alli se guardan los registros de
+recepcion, devolucion, estado, sede, usuario, firma, enlaces a PDF y datos
+relacionados.
+
+Google Drive:
+Se usa para guardar los archivos PDF generados, imagenes de novedades y
+documentos relacionados con cada solicitud.
+
+Gmail:
+Se utiliza para enviar codigos de verificacion, actas de recepcion,
+actas finales de devolucion y alertas de novedades.
+
+============================================================
+4. ESTRUCTURA DEL PROYECTO
+============================================================
+
+index.html
+Es la pagina principal. Desde aqui se selecciona la sede, se manejan roles
+como docente o soporte, se accede a formularios, devoluciones, administracion
+de equipos y paneles de consulta.
+
+view/
+Contiene las paginas HTML de cada sede y el modulo de devoluciones.
+
+Archivos principales dentro de view:
+
+- Fzipa.html: formulario de recepcion para Zipaquira.
+- Fniza.html: formulario de recepcion para Niza.
+- Fusa.html: formulario de recepcion para Usaquen.
+- Fcota.html: formulario de recepcion para Cota.
+- Fmosquera.html: formulario de recepcion para Mosquera.
+- Ftunja.html: formulario de recepcion para Tunja.
+- Fbarranquilla.html: formulario de recepcion para Barranquilla.
+- devolucion.html: modulo para consultar solicitudes en curso y cerrar
+  devoluciones.
+- temrinos.html: pagina de terminos o informacion legal del sistema.
+
+css/
+Contiene los estilos visuales del proyecto.
+
+- index.css: estilos de la pagina principal, seleccion de sedes, roles,
+  dashboard y vistas generales.
+- style.css: estilos de los formularios de recepcion, pasos, firma,
+  registros y modales.
+- devolucion.css: estilos del modulo de devoluciones, tablas, estadisticas,
+  formulario de cierre y firma de devolucion.
+
+js/
+Contiene la logica del frontend.
+
+- script.js: archivo principal. Maneja carga de equipos, formularios,
+  disponibilidad, firmas, registros, solicitudes en curso, devoluciones,
+  cierre de solicitudes, filtros y comunicacion con Google Apps Script.
+- verify.js: maneja la verificacion del correo institucional mediante
+  codigo de 6 digitos.
+- innova-account.js: permite guardar y reutilizar el correo institucional
+  del usuario en el navegador.
+
+bakend/
+Contiene el codigo de Google Apps Script.
+
+- code.gs: backend principal. Maneja doGet, doPost, consultas a Sheets,
+  generacion de PDFs, envio de correos, cierre de solicitudes, validacion
+  de soporte, gestion de equipos y disponibilidad.
+- appscript.txt: archivo de apoyo o respaldo relacionado con Apps Script.
+
+img/
+Contiene imagenes del proyecto, como el escudo o logo de Innova Schools.
+
+README.md
+Documento general del proyecto con descripcion, tecnologias y pasos de uso.
+
+requerimientos.txt
+Lista de requerimientos implementados, pendientes e ideas de mejora.
+
+Actualizaciones.txt
+Archivo con analisis de mejoras adicionales y evolucion del sistema.
+
+============================================================
+5. FLUJO PRINCIPAL DEL SISTEMA
+============================================================
+
+Paso 1: Seleccion de sede
+El usuario entra a la pagina principal y selecciona la sede correspondiente.
+Cada sede tiene su propio formulario de recepcion.
+
+Paso 2: Registro de datos del usuario
+El formulario pide datos como nombre, cedula, correo institucional y sede.
+El correo debe pertenecer al dominio @innovaschools.edu.co.
+
+Paso 3: Verificacion del correo
+El sistema genera un codigo de 6 digitos y lo envia al correo institucional.
+El usuario debe escribir el codigo para poder continuar. Esto ayuda a
+confirmar que el registro lo hace una persona autorizada.
+
+Paso 4: Seleccion del carro o equipo
+El sistema carga los carros disponibles desde Google Sheets segun la sede.
+Tambien valida disponibilidad para evitar que el mismo carro se preste dos
+veces en el mismo horario o fecha.
+
+Paso 5: Revision del estado del equipo
+El usuario registra si el equipo esta completo, si tiene novedades, si hay
+danos o si requiere cambio. Tambien se pueden manejar equipos adicionales
+de bodega TI.
+
+Paso 6: Firma digital
+El usuario firma en un canvas usando mouse o pantalla tactil. Tambien existe
+la opcion de autorizacion digital segun el flujo configurado.
+
+Paso 7: Envio del formulario
+JavaScript organiza los datos y los envia al backend de Google Apps Script.
+El backend guarda la informacion en Google Sheets y programa la generacion
+del PDF de recepcion.
+
+Paso 8: Consulta de solicitudes
+El personal autorizado puede consultar registros, filtrar por sede, revisar
+solicitudes en curso y ver informacion importante de cada prestamo.
+
+Paso 9: Devolucion de equipos
+Desde el modulo de devoluciones se selecciona una solicitud en curso y se
+registra la cantidad devuelta, estado final, novedades, foto si aplica y
+firma de devolucion.
+
+Paso 10: Cierre de solicitud
+El backend actualiza la misma fila en Google Sheets, cambia el estado a
+CERRADO, guarda la informacion de devolucion y genera el PDF final.
+
+============================================================
+6. COMO SE HIZO EL PROYECTO PASO A PASO
+============================================================
+
+1. Se creo la estructura base del proyecto con carpetas separadas para
+   HTML, CSS, JavaScript, imagenes y backend.
+
+2. Se desarrollo la pagina principal index.html para presentar las sedes y
+   permitir la navegacion hacia los formularios.
+
+3. Se crearon formularios HTML para cada sede. Cada formulario incluye un
+   campo oculto con el nombre de la sede para que el sistema sepa donde se
+   esta realizando el registro.
+
+4. Se diseno la interfaz con CSS usando tarjetas, colores institucionales,
+   botones, formularios modernos, barra de progreso, modales y diseno
+   responsive para celulares.
+
+5. Se implemento la logica principal en JavaScript para avanzar entre pasos,
+   validar campos obligatorios, cargar equipos, verificar disponibilidad y
+   enviar datos.
+
+6. Se agrego el sistema de verificacion de correo institucional con codigo
+   de 6 digitos, tiempo de expiracion y limite de intentos.
+
+7. Se conecto el frontend con Google Apps Script usando peticiones JSONP y
+   formularios ocultos para evitar problemas de CORS al enviar datos.
+
+8. Se creo el backend en Google Apps Script para recibir registros, consultar
+   equipos, guardar datos en Google Sheets, generar PDFs y enviar correos.
+
+9. Se agrego el manejo de disponibilidad para identificar carros ocupados y
+   evitar prestamos duplicados.
+
+10. Se implemento la firma digital usando canvas, compatible con mouse y
+    pantallas tactiles.
+
+11. Se agrego el modulo de devoluciones para consultar solicitudes abiertas,
+    cerrar solicitudes, registrar estado final y guardar evidencias.
+
+12. Se mejoro el sistema para generar dos tipos de documentos: PDF de
+    recepcion y PDF final de devolucion.
+
+13. Se agregaron filtros, busquedas, tablas y estadisticas para facilitar
+    la consulta por parte del personal de soporte.
+
+14. Se incorporaron validaciones de acceso para soporte, de manera que cada
+    usuario autorizado trabaje con su sede correspondiente.
+
+============================================================
+7. FUNCIONES IMPORTANTES DEL FRONTEND
+============================================================
+
+cargarEquiposPorSede()
+Carga los equipos disponibles segun la sede seleccionada. Tambien utiliza
+cache local para mejorar el rendimiento y evitar consultas innecesarias.
+
+verificarDisponibilidad()
+Revisa si el carro seleccionado esta disponible para la fecha y hora
+indicada.
+
+iniciarVerificacion()
+Genera e inicia el proceso de verificacion del correo institucional.
+
+validarCodigoIngresado()
+Comprueba si el codigo escrito por el usuario coincide con el codigo enviado.
+
+postToAppsScript()
+Envia datos al backend de Google Apps Script mediante un formulario oculto
+y un iframe. Esto ayuda a evitar bloqueos por CORS.
+
+cargarSolicitudesEnCurso()
+Consulta las solicitudes que aun no han sido cerradas.
+
+abrirFormularioDevolucion()
+Abre el formulario para cerrar una solicitud y registrar la devolucion.
+
+cerrarSolicitudFrontend()
+Valida los datos de devolucion y envia la informacion al backend para cerrar
+la solicitud.
+
+initSignatureDevolucion()
+Inicializa el canvas de firma para la devolucion.
+
+showToast()
+Muestra mensajes de exito, error, advertencia o informacion al usuario.
+
+============================================================
+8. FUNCIONES IMPORTANTES DEL BACKEND
+============================================================
+
+doGet(e)
+Recibe consultas desde el frontend. Segun la accion solicitada puede devolver
+equipos, disponibilidad, solicitudes en curso, devoluciones cerradas o validar
+correos de soporte.
+
+doPost(e)
+Recibe datos enviados por formularios. Puede guardar una nueva recepcion o
+cerrar una solicitud existente.
+
+getEquiposHandler(sede, correo)
+Obtiene los equipos de una sede desde Google Sheets y valida que el correo
+tenga permiso cuando aplica.
+
+getDisponibilidadSedeHandler(sede, fecha)
+Consulta que carros estan ocupados para una sede y fecha especifica.
+
+cerrarSolicitud(data)
+Busca la solicitud por id, actualiza la fila existente, registra la
+devolucion y cambia el estado de la solicitud.
+
+enviarPDFporCorreo(data)
+Genera el PDF de recepcion, lo guarda en Drive y lo envia por correo.
+
+generarPdfResumenFinal(data)
+Genera el PDF final de devolucion con la informacion de entrega, devolucion,
+tiempo de uso, novedades y conclusion automatica.
+
+enviarCodigoVerificacion(email, code)
+Envia al correo institucional el codigo de verificacion.
+
+enviarCorreoNovedad(data)
+Envia alerta cuando se registra una novedad en equipos.
+
+getColumnMap(sheet)
+Detecta columnas por encabezado para que el sistema sea mas flexible si la
+hoja cambia de orden.
+
+LockService
+Se usa para evitar conflictos cuando varias personas envian formularios al
+mismo tiempo.
+
+============================================================
+9. MEJORAS IMPLEMENTADAS
+============================================================
+
+- Se agrego el campo sede en cada formulario para identificar el colegio
+  donde se hace el prestamo.
+
+- Se ajusto la hora maxima de devolucion para controlar mejor los tiempos
+  de prestamo.
+
+- Se implemento verificacion de correo institucional @innovaschools.edu.co.
+
+- Se agrego carga dinamica de carros y equipos desde Google Sheets.
+
+- Se implemento control de disponibilidad para evitar duplicidad en los
+  prestamos.
+
+- Se agrego firma digital para recepcion y devolucion.
+
+- Se agrego generacion de PDF de recepcion.
+
+- Se agrego modulo de devoluciones con solicitudes en curso y solicitudes
+  cerradas.
+
+- Se agrego cierre de solicitud actualizando la misma fila, no creando un
+  registro nuevo.
+
+- Se agrego PDF final de devolucion con resumen del proceso completo.
+
+- Se agrego soporte para fotos de novedades en devolucion.
+
+- Se agregaron filtros y buscadores en tablas.
+
+- Se mejoro el diseno responsive para celulares.
+
+- Se agrego cache local para mejorar velocidad al cargar equipos.
+
+- Se agrego control por rol de soporte para limitar acceso por sede.
+
+- Se agrego administracion de equipos desde la vista principal para soporte.
+
+============================================================
+10. PROBLEMAS QUE RESUELVE
+============================================================
+
+- Evita registros manuales en papel.
+- Reduce errores al escribir informacion.
+- Permite consultar quien tiene un equipo.
+- Ayuda a saber que equipos siguen pendientes de devolucion.
+- Guarda evidencia de recepcion y devolucion.
+- Permite enviar actas automaticamente por correo.
+- Facilita el control por sede.
+- Mejora la trazabilidad frente a novedades, danos o faltantes.
+
+============================================================
+11. ESTADO ACTUAL DEL PROYECTO
+============================================================
+
+El proyecto actualmente cuenta con:
+
+- Pagina principal de seleccion de sede.
+- Formularios de recepcion por sede.
+- Verificacion de correo institucional.
+- Carga de equipos desde Google Sheets.
+- Control de disponibilidad.
+- Registro de firma digital.
+- Guardado de registros en Google Sheets.
+- Generacion de acta PDF de recepcion.
+- Modulo de devoluciones.
+- Consulta de solicitudes en curso.
+- Cierre de solicitudes.
+- Registro de devoluciones con novedad y foto.
+- Generacion de PDF final de devolucion.
+- Paneles de soporte, filtros y administracion basica de equipos.
+
+Por lo tanto, el sistema ya no es solo un formulario: ahora funciona como
+un sistema completo de gestion del ciclo de vida del prestamo:
+
+ENTREGA -> USO -> DEVOLUCION -> CIERRE
+
+============================================================
+12. MEJORAS FUTURAS PROPUESTAS
+============================================================
+
+1. Dashboard con graficas
+Crear estadisticas visuales por sede, cantidad de prestamos, equipos mas
+usados, solicitudes pendientes y devoluciones con novedades.
+
+2. Historial por usuario
+Permitir buscar por cedula o correo para ver todos los prestamos realizados
+por un docente o colaborador.
+
+3. Exportacion masiva
+Agregar opcion para descargar registros filtrados en Excel o PDF.
+
+4. Notificaciones automaticas
+Enviar alertas cuando un equipo no se devuelve antes de la hora maxima.
+
+5. Control de inventario mas detallado
+Registrar cada equipo con serial, placa, marca, modelo, estado actual y
+historial de mantenimiento.
+
+6. Modo offline
+Permitir llenar formularios sin internet y sincronizarlos cuando vuelva la
+conexion.
+
+7. Escaneo QR o codigo de barras
+Usar codigos QR para identificar equipos rapidamente desde celular.
+
+8. Roles mas completos
+Crear roles como administrador, soporte y docente, con permisos diferentes.
+
+9. Backups automaticos
+Programar copias de seguridad de Google Sheets y Drive.
+
+10. Mejoras en seguridad
+Reforzar validaciones del backend, control de sesiones y permisos por sede.
+
+============================================================
+13. CONCLUSION
+============================================================
+
+Este proyecto permite modernizar el proceso de recepcion y devolucion de
+equipos tecnologicos en Innova Schools. La solucion centraliza la informacion,
+usa herramientas de Google para guardar datos y generar documentos, y mejora
+la organizacion del area de soporte.
+
+El sistema fue construido por partes: primero la estructura visual, luego los
+formularios, despues la conexion con Google Sheets, luego la verificacion de
+correo, la firma digital, el control de disponibilidad y finalmente el modulo
+de devoluciones.
+
+La mejora mas importante es que el sistema paso de ser un formulario de
+registro a una herramienta completa de gestion, capaz de controlar todo el
+ciclo de prestamo de equipos: entrega, uso, devolucion y cierre.
+
+============================================================
+14. RESUMEN CORTO PARA BITACORA
+============================================================
+
+Durante el desarrollo del proyecto se creo un sistema web para registrar y
+controlar la recepcion y devolucion de equipos tecnologicos por sede. Se
+implementaron formularios en HTML, estilos responsive en CSS y logica en
+JavaScript para validar datos, verificar correos institucionales, cargar
+equipos desde Google Sheets, capturar firmas digitales y enviar la informacion
+al backend.
+
+El backend fue desarrollado con Google Apps Script, permitiendo guardar datos
+en Google Sheets, generar PDFs, almacenar archivos en Google Drive y enviar
+correos automaticos. Posteriormente se agrego un modulo de devoluciones para
+cerrar solicitudes, registrar novedades, adjuntar fotos y generar un PDF final.
+
+Como mejoras se incorporaron control de disponibilidad, filtros, busqueda,
+roles de soporte, cache local, validaciones por sede y mejor diseno responsive.
+El sistema quedo preparado para seguir creciendo con dashboard, reportes,
+historial por usuario y notificaciones automaticas.

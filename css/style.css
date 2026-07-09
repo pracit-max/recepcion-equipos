@@ -4033,3 +4033,220 @@ body.equipment-review-open {
         bottom: auto !important;
     }
 }
+
+/* ============================================================
+   REDISEÑO V2 — "Cuaderno escolar" (mismos colores, look nuevo)
+   Tarjetas tipo sticker con borde grueso + sombra sólida "peel",
+   contornos punteados tipo cuaderno, iconos que hacen wiggle,
+   entradas con pop-in. Todo aditivo, no toca estructura ni JS.
+   ============================================================ */
+
+@keyframes popIn {
+    0% { opacity: 0; transform: translateY(14px) scale(0.96); }
+    60% { opacity: 1; transform: translateY(-2px) scale(1.01); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-8deg); }
+    75% { transform: rotate(8deg); }
+}
+
+@keyframes confettiDrift {
+    0% { background-position: 0 0, 40px 60px, 90px 20px; }
+    100% { background-position: 400px 400px, 440px 460px, 490px 420px; }
+}
+
+@keyframes floatY {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+
+body {
+    background-color: #FBFBF7 !important;
+    background-image:
+        radial-gradient(circle, rgba(34, 197, 94, 0.16) 2.5px, transparent 2.5px),
+        radial-gradient(circle, rgba(59, 130, 246, 0.14) 2.5px, transparent 2.5px),
+        radial-gradient(circle, rgba(249, 115, 22, 0.14) 2.5px, transparent 2.5px) !important;
+    background-size: 90px 90px, 90px 90px, 90px 90px !important;
+    background-position: 0 0, 30px 45px, 60px 15px !important;
+    animation: confettiDrift 60s linear infinite;
+}
+
+body::before { display: none; }
+
+.nav-brand i {
+    transition: transform 0.3s var(--ease-out-back);
+}
+
+.nav-brand:hover i {
+    animation: wiggle 0.5s ease;
+}
+
+.form-header,
+.return-hero,
+.section-card,
+.stat-card {
+    animation: popIn 0.5s var(--ease-out-back);
+}
+
+/* Botones — sticker con sombra sólida "peel" en vez de blur */
+.btn-nav,
+.btn-submit,
+.btn-primary,
+.btn-next,
+.btn-prev {
+    border-radius: var(--radius-lg) !important;
+    border: 2.5px solid rgba(15, 23, 42, 0.85) !important;
+    box-shadow: 4px 4px 0 var(--green-600) !important;
+    transition: transform 0.18s var(--ease-out-back), box-shadow 0.18s var(--ease-out-back), background var(--transition-base) !important;
+}
+
+.btn-nav:hover,
+.btn-submit:hover,
+.btn-primary:hover,
+.btn-next:hover,
+.btn-prev:hover {
+    transform: translate(-3px, -3px) !important;
+    box-shadow: 7px 7px 0 var(--orange-500) !important;
+}
+
+.btn-nav:active,
+.btn-submit:active,
+.btn-primary:active,
+.btn-next:active,
+.btn-prev:active {
+    transform: translate(2px, 2px) !important;
+    box-shadow: 1px 1px 0 var(--blue-600) !important;
+}
+
+.btn-nav.secondary {
+    box-shadow: 4px 4px 0 var(--blue-400) !important;
+}
+
+.btn-nav.secondary:hover {
+    box-shadow: 7px 7px 0 var(--green-400) !important;
+}
+
+/* Campos — contorno punteado tipo cuaderno al enfocar */
+input, select, textarea {
+    border-radius: var(--radius-lg) !important;
+    border: 2px solid var(--gray-200) !important;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--blue-500) !important;
+    outline: 3px dashed var(--orange-400) !important;
+    outline-offset: 3px !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+.input-group label i {
+    display: inline-block;
+}
+
+.input-group:focus-within label i {
+    animation: wiggle 0.4s ease;
+}
+
+/* Tarjetas de vehículo/opciones tipo sticker (si existen en esta página) */
+.commercial-car-card,
+.vehicle-checks label {
+    border-radius: var(--radius-lg) !important;
+    border: 2px solid #e2e8f0 !important;
+    box-shadow: 3px 3px 0 rgba(15, 23, 42, 0.08) !important;
+    transition: transform 0.18s var(--ease-out-back), box-shadow 0.18s var(--ease-out-back) !important;
+}
+
+.commercial-car-card:hover,
+.vehicle-checks label:hover {
+    transform: translate(-2px, -2px) !important;
+    box-shadow: 5px 5px 0 rgba(15, 23, 42, 0.10) !important;
+}
+
+.commercial-car-card.selected,
+.vehicle-checks label:has(input:checked) {
+    border-color: var(--blue-500) !important;
+    box-shadow: 3px 3px 0 var(--blue-300) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body, .form-header, .return-hero, .section-card, .stat-card,
+    .btn-nav, .btn-submit, .btn-primary, .btn-next, .btn-prev,
+    .nav-brand i, .input-group label i {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* ============================================================
+   MENÚ HAMBURGUESA MÓVIL (navbar de los formularios por sede)
+   El botón #hamburger y el contenedor #navMenu existían en el
+   HTML pero no tenían ni estilo ni comportamiento — se agregan
+   aquí, sin tocar el marcado ni el resto del layout.
+   ============================================================ */
+.hamburger { display: none; }
+
+@media (max-width: 768px) {
+    .hamburger {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 5px;
+        width: 44px;
+        height: 44px;
+        border: 2px solid rgba(15, 23, 42, 0.85);
+        border-radius: 10px;
+        background: #fff;
+        cursor: pointer;
+        z-index: 110;
+        flex-shrink: 0;
+    }
+
+    .hamburger-line {
+        display: block;
+        width: 22px;
+        height: 2.5px;
+        border-radius: 2px;
+        background: var(--text-primary);
+        transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+
+    .hamburger.active .hamburger-line:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+    .hamburger.active .hamburger-line:nth-child(2) { opacity: 0; }
+    .hamburger.active .hamburger-line:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+    .nav-actions {
+        position: absolute;
+        top: 100%;
+        left: 0.75rem;
+        right: 0.75rem;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.6rem;
+        margin-top: 0.5rem;
+        padding: 0.85rem;
+        background: #fff;
+        border: 2px solid rgba(15, 23, 42, 0.85);
+        border-radius: 14px;
+        box-shadow: 5px 5px 0 var(--blue-500);
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-8px);
+        transition: opacity 0.22s ease, transform 0.22s ease, visibility 0.22s ease;
+    }
+
+    .nav-actions.active {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    .nav-actions .btn-nav {
+        width: 100%;
+        justify-content: center;
+    }
+}

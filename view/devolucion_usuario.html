@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>Devoluciones de Usuario | Sistema de Equipos</title>
+    <link rel="icon" type="image/png" href="/img/Innova_Schools_escudo.webp">
+    <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* El fondo tipo "cuaderno escolar" (puntos verde/azul/naranja) ya lo
+           aplica /css/style.css a nivel global; aquí solo se ajusta el layout
+           y las tarjetas propias de esta página al mismo lenguaje visual. */
+        .return-shell { position: relative; z-index: 1; max-width: 980px; margin: 0 auto; padding: 1.25rem; }
+
+        .return-hero {
+            position: relative;
+            overflow: visible;
+            margin: 1.25rem 0 1.75rem;
+            padding: 1.75rem 1.5rem;
+            border-radius: 20px;
+            background: #fff;
+            border: 2.5px solid rgba(15,23,42,0.85);
+            box-shadow: 6px 6px 0 var(--green-500, #22C55E);
+            display: flex;
+            align-items: center;
+            gap: 1.15rem;
+            animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .return-hero-icon {
+            flex-shrink: 0;
+            width: 58px; height: 58px; border-radius: 16px;
+            display: inline-grid; place-items: center;
+            background: linear-gradient(135deg, var(--blue-500, #3B82F6), var(--green-500, #22C55E));
+            color: #fff; font-size: 1.5rem;
+            border: 2px solid rgba(15,23,42,0.85);
+            animation: floatY 3s ease-in-out infinite;
+        }
+        @keyframes floatY {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        .return-hero h1 { margin: 0; color: #0f172a; font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 800; letter-spacing: -0.01em; }
+        .return-hero p { margin: 0.4rem 0 0; color: #64748b; font-size: 0.95rem; }
+
+        .return-form-card {
+            position: relative;
+            z-index: 1;
+            background: #fff;
+            border: 2.5px solid rgba(15,23,42,0.85);
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 6px 6px 0 var(--blue-500, #3B82F6);
+            animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .vehicle-checks {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 0.7rem;
+        }
+        .vehicle-checks label {
+            display: flex;
+            gap: 0.55rem;
+            align-items: center;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0.75rem 0.85rem;
+            font-weight: 700;
+            color: #0f172a;
+            background: #f8fafc;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+        }
+        .vehicle-checks label:has(input:checked) {
+            border-color: var(--blue-500, #3B82F6);
+            background: var(--blue-50, #EFF6FF);
+            color: var(--blue-700, #1D4ED8);
+        }
+        .vehicle-checks input { width: 18px; height: 18px; accent-color: var(--blue-500, #3B82F6); }
+        .vehicle-checks-loading { grid-column: 1 / -1; color: #94a3b8; font-weight: 600; font-size: 0.9rem; padding: 0.5rem 0; }
+
+        .si-no-toggle { display: inline-flex; border-radius: 12px; overflow: hidden; border: 2px solid rgba(15,23,42,0.85); }
+        .si-no-btn { border: 0; background: #f8fafc; color: #64748b; font-weight: 800; padding: 0.65rem 1.5rem; cursor: pointer; transition: all 0.2s ease; }
+        .si-no-btn.active[data-valor="No"] { background: var(--green-500, #22C55E); color: #fff; }
+        .si-no-btn.active[data-valor="Sí"] { background: var(--orange-500, #F97316); color: #fff; }
+
+        .btn-return-submit {
+            border: 2.5px solid rgba(15,23,42,0.85);
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--orange-500, #F97316), var(--orange-600, #EA580C));
+            color: #fff;
+            padding: 1rem 1.3rem;
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            box-shadow: 5px 5px 0 var(--blue-600, #2563EB);
+            transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+        }
+        .btn-return-submit:hover:not(:disabled) { transform: translate(-3px, -3px); box-shadow: 8px 8px 0 var(--green-500, #22C55E); }
+        .btn-return-submit:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--blue-600, #2563EB); }
+        .btn-return-submit:disabled { opacity: 0.65; cursor: wait; }
+        .fotos-devolucion-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            gap: 0.6rem;
+            margin-top: 0.75rem;
+        }
+        .foto-devolucion-thumb {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid rgba(15,23,42,0.85);
+            aspect-ratio: 1 / 1;
+        }
+        .foto-devolucion-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .foto-devolucion-thumb button {
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            width: 22px;
+            height: 22px;
+            border: 0;
+            border-radius: 50%;
+            background: rgba(15,23,42,0.75);
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.75rem;
+            line-height: 1;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <img src="/img/Innova_Schools_escudo.webp" alt="Logo" class="logo">
+            <span>Devoluciones</span>
+        </div>
+        <div class="nav-actions">
+            <a class="btn-nav secondary" href="/index.html"><i class="fas fa-arrow-left"></i> Inicio</a>
+        </div>
+    </nav>
+
+    <main class="return-shell">
+        <section class="return-hero">
+            <span class="return-hero-icon"><i class="fas fa-rotate-left"></i></span>
+            <div>
+                <h1>Devoluciones</h1>
+                <p>Informa a soporte que terminaste de usar el vehículo o los vehículos. Soporte validará físicamente antes de dejarlos disponibles.</p>
+            </div>
+        </section>
+
+        <form id="devolucionUsuarioForm" class="return-form-card" novalidate>
+            <div class="form-grid">
+                <div class="input-group">
+                    <label for="usuarioDevolucionNombre"><i class="fas fa-user"></i> Nombre *</label>
+                    <input type="text" id="usuarioDevolucionNombre" required maxlength="80" placeholder="Nombre completo">
+                </div>
+                <div class="input-group">
+                    <label for="usuarioDevolucionCedula"><i class="fas fa-id-card"></i> Cédula *</label>
+                    <input type="text" id="usuarioDevolucionCedula" required maxlength="20" inputmode="numeric" pattern="\d*" placeholder="Número de cédula">
+                </div>
+                <div class="input-group">
+                    <label for="usuarioDevolucionTipo"><i class="fas fa-user-tag"></i> Tipo de usuario *</label>
+                    <select id="usuarioDevolucionTipo" required>
+                        <option value="">Seleccione...</option>
+                        <option value="Docente">Docente</option>
+                        <option value="Comercial">Comercial</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="usuarioDevolucionSede"><i class="fas fa-building"></i> Sede *</label>
+                    <select id="usuarioDevolucionSede" required>
+                        <option value="">Seleccione la sede...</option>
+                        <option value="Zipaquirá">Zipaquirá</option>
+                        <option value="Niza">Niza</option>
+                        <option value="Usaquén">Usaquén</option>
+                        <option value="Cota">Cota</option>
+                        <option value="Mosquera">Mosquera</option>
+                        <option value="Tunja">Tunja</option>
+                        <option value="Barranquilla">Barranquilla</option>
+                    </select>
+                </div>
+                <div class="input-group full-width">
+                    <label><i class="fas fa-car-side"></i> Vehículo o vehículos que está devolviendo *</label>
+                    <div class="vehicle-checks" id="vehiculosDevueltosContainer">
+                        <p class="vehicle-checks-loading">Cargando vehículos de la sede...</p>
+                    </div>
+                </div>
+                <div class="input-group full-width">
+                    <label for="usuarioDevolucionOtros"><i class="fas fa-plus"></i> Otro vehículo (si no aparece en la lista)</label>
+                    <input type="text" id="usuarioDevolucionOtros" placeholder="Separar por coma si no aparece en la lista">
+                </div>
+                <div class="input-group full-width">
+                    <label><i class="fas fa-boxes-stacked"></i> ¿Tomaste equipos adicionales de BODEGA TI? *</label>
+                    <div class="si-no-toggle" id="adicionalesToggle">
+                        <button type="button" class="si-no-btn" data-valor="No" onclick="seleccionarAdicionalesUsuario('No')">No</button>
+                        <button type="button" class="si-no-btn" data-valor="Sí" onclick="seleccionarAdicionalesUsuario('Sí')">Sí</button>
+                    </div>
+                    <input type="text" id="usuarioDevolucionDetalleAdicionales" placeholder="¿Cuáles? (opcional)" style="display:none; margin-top:0.6rem;">
+                </div>
+                <div class="input-group full-width">
+                    <label for="usuarioDevolucionObservaciones"><i class="fas fa-comment"></i> Observaciones</label>
+                    <textarea id="usuarioDevolucionObservaciones" rows="4" placeholder="Opcional"></textarea>
+                </div>
+                <div class="input-group full-width">
+                    <label for="usuarioDevolucionFotos"><i class="fas fa-camera"></i> Fotos del vehículo (opcional, máx. 5)</label>
+                    <input type="file" id="usuarioDevolucionFotos" accept="image/*" multiple>
+                    <div id="usuarioDevolucionFotosPreview" class="fotos-devolucion-preview"></div>
+                </div>
+            </div>
+
+            <div class="section-actions">
+                <button type="submit" id="btnEnviarDevolucionUsuario" class="btn-return-submit">
+                    <i class="fas fa-paper-plane"></i> Enviar devolución
+                </button>
+            </div>
+        </form>
+    </main>
+
+    <div class="toast-container" id="toastContainer"></div>
+    <script src="/js/innova-account.js"></script>
+    <script src="/js/script.js"></script>
+</body>
+</html>
