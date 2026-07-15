@@ -495,14 +495,14 @@ function inicializarSelectorTipoUsuario() {
                     <span class="tipo-usuario-btn-icon"><i class="fas fa-chalkboard-user"></i></span>
                     <span class="tipo-usuario-btn-text">
                         <strong>Docente</strong>
-                        <small>Solicitar un vehículo para uso académico</small>
+                        
                     </span>
                 </button>
                 <button type="button" class="tipo-usuario-btn comercial" data-tipo="Comercial" onclick="seleccionarTipoUsuarioSolicitud('Comercial')">
                     <span class="tipo-usuario-btn-icon"><i class="fas fa-briefcase"></i></span>
                     <span class="tipo-usuario-btn-text">
                         <strong>Comercial</strong>
-                        <small>Solicitar hasta 5 vehículos para eventos</small>
+                        
                     </span>
                 </button>
             </div>
@@ -791,6 +791,21 @@ function obtenerCarrosPrincipalesSolicitud() {
     return [...carrosComercialSeleccionados];
 }
 
+function ocultarCampoCargador() {
+    const cargador = document.getElementById('cargador');
+    if (!cargador) return;
+
+    cargador.checked = false;
+    cargador.required = false;
+    cargador.disabled = true;
+
+    const grupo = cargador.closest('.input-group');
+    if (grupo) {
+        grupo.style.display = 'none';
+        grupo.setAttribute('aria-hidden', 'true');
+    }
+}
+
 // Cargar equipos al iniciar
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM cargado, inicializando...");
@@ -816,6 +831,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (document.getElementById('form')) {
+        ocultarCampoCargador();
         inicializarSelectorTipoUsuario();
         configurarFlujoRevisionEquipos();
         initializeEventListeners();
@@ -3065,7 +3081,7 @@ async function collectFormData() {
         sede: document.getElementById('sede').value,
         tipo_usuario: tipoUsuarioSolicitud || 'Docente',
         hora_devolucion: horaDevolucion,
-        cargador: document.getElementById('cargador').checked ? 'Sí' : 'No',
+        cargador: 'No',
         novedad: document.getElementById('novedad').checked ? 'Sí' : 'No',
         descripcion: document.getElementById('descripcion').value || '',
         autoriza: document.getElementById('autoriza').checked ? 'Sí' : 'No',
