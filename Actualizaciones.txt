@@ -283,3 +283,18 @@ FASE ACTUAL (EN DESARROLLO):
 ----------------------------------
 fecha en que se requiere el equipo 
 comercial, lo de la parte de no recibido que no diga devolver si no recepcion ti 
+// alameda del rio y portal de genoves y otro atlantico parque heredia
+fecha de solicitud no se puede modificar hora , y agregar otro campos que sea fecha de recepcion de los Equipos si se puede modificar hora 
+
+en caso de que se confundio el docente halla opcion de 
+que aparezca la clau, en lo de la firma que en ves ir usted asume vaya lo otro 
+al final diga gracais por solicitar equipos, y el texto diga recuerda solicitar los equipos con 5 minutos de anticipacipacion 
+modificar Dashboard 
+solicitudes, soliictudes pendientes, equipos no disponibles , devoluciones pendientes , novedades reportadas, devoluciones pednientes 
+solicitudes en curos cambiar a devoluciones pednientes y en accion cambiar  pediente a cerrar
+
+Completa los datos de devolución de la solicitud seleccionada.
+cambiarlo 
+estado final cambiar por estado de entrega 
+agregar la opcion de cancelar solicitud 
+cambiar quien realiza a seleciiona segun tu area 

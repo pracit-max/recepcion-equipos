@@ -470,6 +470,7 @@ body {
 /* ── Inline Buttons ── */
 .btn-inline-pdf,
 .btn-inline-return,
+.btn-inline-cancelar,
 .btn-acta-original {
   display: inline-flex;
   align-items: center;
@@ -513,6 +514,17 @@ body {
 .btn-inline-return:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(249,115,22,0.35), var(--shadow-glow-accent);
+}
+
+.btn-inline-cancelar {
+  color: #fff;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  box-shadow: 0 4px 16px rgba(239,68,68,0.25), 0 0 0 1px rgba(239,68,68,0.1);
+}
+
+.btn-inline-cancelar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(239,68,68,0.35);
 }
 
 .btn-inline-pdf:disabled,
@@ -1890,7 +1902,8 @@ textarea:focus-visible {
 }
 
 .btn-inline-return,
-.btn-inline-pdf {
+.btn-inline-pdf,
+.btn-inline-cancelar {
   border-radius: 10px !important;
   border: 2px solid rgba(15, 23, 42, 0.85) !important;
   box-shadow: 3px 3px 0 var(--c-brand) !important;
@@ -1898,7 +1911,8 @@ textarea:focus-visible {
 }
 
 .btn-inline-return:hover,
-.btn-inline-pdf:hover {
+.btn-inline-pdf:hover,
+.btn-inline-cancelar:hover {
   transform: translate(-2px, -2px) !important;
   box-shadow: 6px 6px 0 var(--c-accent) !important;
 }

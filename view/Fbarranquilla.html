@@ -73,7 +73,7 @@
                                 <h2>Recepción de Equipos</h2>
                                 <p class="warning-text">
                                     <i class="fas fa-exclamation-triangle"></i>
-                                    Usted asume la responsabilidad de los equipos recibidos
+                                    Al firmar acepta la Autorización de Descuentos y la cláusula institucional (CLAU) de responsabilidad por los equipos recibidos
                                 </p>
                             </div>
                         </div>
@@ -107,11 +107,11 @@
                                 <label for="correo">
                                     <i class="fas fa-envelope"></i> Correo electrónico Innova *
                                 </label>
-                                <input 
-                                    type="email" 
-                                    id="correo" 
-                                    required 
-                                    placeholder="usuario@innovaschools.edu.co" 
+                                <input
+                                    type="email"
+                                    id="correo"
+                                    required
+                                    placeholder="usuario@innovaschools.edu.co"
                                     pattern=".*@innovaschools\.edu\.co$"
                                     title="Debe ser correo institucional @innovaschools.edu.co"
                                     autocomplete="email"
@@ -124,9 +124,28 @@
 
                             <div class="input-group">
                                 <label for="fecha">
-                                    <i class="fas fa-calendar-alt"></i> Fecha de recepción *
+                                    <i class="fas fa-calendar-check"></i> Fecha de Recepción
+                                    <span style="font-size: 0.8rem; color: #64748b;">(fecha y hora automáticas, no editable)</span>
                                 </label>
                                 <input type="datetime-local" id="fecha" required disabled>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="fechaRequerida">
+                                    <i class="fas fa-calendar-day"></i> Fecha en que se requiere el equipo *
+                                </label>
+                                <input type="date" id="fechaRequerida" required>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="horaRequerida">
+                                    <i class="fas fa-clock"></i> Hora en que se requiere el equipo *
+                                    <span style="font-size: 0.8rem; color: #64748b;">(de 7:00 AM a 3:00 PM)</span>
+                                </label>
+                                <div class="time-picker-card"><input type="time" id="horaRequerida" name="horaRequerida" required min="07:00" max="15:00" onchange="validarHoraRequerida()" value="07:00"></div>
+                                <span id="horaRequeridaError" style="color: #ef4444; font-size: 0.8rem; display: none;">
+                                    <i class="fas fa-exclamation-circle"></i> La hora debe estar entre 7:00 AM y 3:00 PM
+                                </span>
                             </div>
 
                             <!-- Colegio oculto para envío -->
@@ -274,7 +293,8 @@
                                 <h2>Firma y Autorización</h2>
                                 <p class="warning-text">
                                     <i class="fas fa-exclamation-circle"></i>
-                                    Usted asume la responsabilidad total de los equipos recibidos
+                                    Declaración de Responsabilidad — cláusula institucional (CLAU): autoriza los descuentos de nómina según el Art. 149 C.S.T. en caso de pérdida, daño o hurto de los equipos.
+                                    <a href="/view/temrinos.html" class="link" target="_blank">Ver texto completo</a>
                                 </p>
                             </div>
                         </div>

@@ -15,8 +15,9 @@
     <link rel="stylesheet" href="/css/index.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 
-   
+
 </head>
 <body>
 
@@ -72,18 +73,22 @@
                     <i class="fas fa-boxes"></i>Equipos
                 </button>
             </div>
-            <!-- Panel de Notificaciones a la derecha -->
-            <div id="notificacionesPanel" class="notificaciones-panel">
-                <div class="notif-header">
-                    <i class="fas fa-bell"></i> Notificaciones
-                    <button onclick="cerrarNotificacionesPanel()" class="notif-close"><i class="fas fa-times"></i></button>
-                </div>
-                <div id="notifLista" class="notif-lista">
-                    <div class="notif-vacio">Sin notificaciones nuevas</div>
-                </div>
-            </div>
         </div>
     </nav>
+
+    <!-- Panel de Notificaciones — fuera de .nav-container a propósito: ese
+         contenedor tiene backdrop-filter + overflow:hidden, lo que crea un
+         "containing block" para position:fixed y recorta/oculta cualquier
+         hijo fixed (por eso antes nunca se veía bien el panel). -->
+    <div id="notificacionesPanel" class="notificaciones-panel">
+        <div class="notif-header">
+            <i class="fas fa-bell"></i> Notificaciones
+            <button onclick="cerrarNotificacionesPanel()" class="notif-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="notifLista" class="notif-lista">
+            <div class="notif-vacio">Sin notificaciones nuevas</div>
+        </div>
+    </div>
 
     <div class="main-container">
         <header class="header">
@@ -198,6 +203,39 @@
                     <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
                 </a>
 
+                <a href="/view/Falameda.html" class="sede-card" data-region="cundinamarca">
+                    <div class="sede-icon"><i class="fas fa-building"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Cundinamarca</span>
+                        <h3 class="sede-name">Alameda del Río</h3>
+                        <p class="sede-desc">Recepción de equipos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Activo</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
+                <a href="/view/Fgenoves.html" class="sede-card" data-region="bogota">
+                    <div class="sede-icon"><i class="fas fa-city"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Bogotá</span>
+                        <h3 class="sede-name">Portal de Génoves</h3>
+                        <p class="sede-desc">Recepción de equipos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Activo</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
+                <a href="/view/Fheredia.html" class="sede-card" data-region="otras">
+                    <div class="sede-icon"><i class="fas fa-map-marker-alt"></i></div>
+                    <div class="sede-content">
+                        <span class="sede-region-tag">Atlántico</span>
+                        <h3 class="sede-name">Atlántico Parque Heredia</h3>
+                        <p class="sede-desc">Recepción de equipos</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Activo</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
                 <a href="/view/devolucion_usuario.html" class="sede-card user-return-card" data-region="otras">
                     <div class="sede-icon"><i class="fas fa-rotate-left"></i></div>
                     <div class="sede-content">
@@ -290,6 +328,36 @@
                     </div>
                     <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
                 </a>
+
+                <a href="/view/devolucion.html?sede=alameda" class="sede-card devolucion-card">
+                    <div class="sede-icon"><i class="fas fa-tools"></i></div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devolución Alameda del Río</h3>
+                        <p class="sede-desc">Equipos en curso</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
+                <a href="/view/devolucion.html?sede=genoves" class="sede-card devolucion-card">
+                    <div class="sede-icon"><i class="fas fa-tools"></i></div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devolución Portal de Génoves</h3>
+                        <p class="sede-desc">Equipos en curso</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
+
+                <a href="/view/devolucion.html?sede=parqueheredia" class="sede-card devolucion-card">
+                    <div class="sede-icon"><i class="fas fa-tools"></i></div>
+                    <div class="sede-content">
+                        <h3 class="sede-name">Devolución Atlántico Parque Heredia</h3>
+                        <p class="sede-desc">Equipos en curso</p>
+                        <div class="sede-status"><div class="sede-status-dot"></div><span class="sede-status-text">Pendiente</span></div>
+                    </div>
+                    <div class="sede-arrow"><i class="fas fa-arrow-right"></i></div>
+                </a>
             </div>
         </section>
 
@@ -303,69 +371,83 @@
                 
                 <!-- METRICAS PRINCIPALES -->
                 <div class="dashboard-metrics">
-                    <div class="metric-card metric-primary">
+                    <div class="metric-card metric-primary metric-clickable" onclick="abrirDetallePanel('solicitudes')">
+                        <div class="metric-icon"><i class="fas fa-clipboard-list"></i></div>
+                        <div class="metric-content">
+                            <div class="metric-number" id="dashSolicitudesTotal">0</div>
+                            <div class="metric-label">Solicitudes</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-warning metric-clickable" onclick="abrirDetallePanel('pendientes')">
+                        <div class="metric-icon"><i class="fas fa-clock"></i></div>
+                        <div class="metric-content">
+                            <div class="metric-number" id="dashPendientes">0</div>
+                            <div class="metric-label">Solicitudes pendientes</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-danger metric-clickable" onclick="abrirDetallePanel('prestados')">
+                        <div class="metric-icon"><i class="fas fa-laptop"></i></div>
+                        <div class="metric-content">
+                            <div class="metric-number" id="dashEquiposNoDisponibles">0</div>
+                            <div class="metric-label">Equipos no disponibles</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-danger metric-clickable" onclick="abrirDetallePanel('porValidar')">
+                        <div class="metric-icon"><i class="fas fa-rotate-left"></i></div>
+                        <div class="metric-content">
+                            <div class="metric-number" id="dashPorValidar">0</div>
+                            <div class="metric-label">Devoluciones pendientes</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-warning metric-clickable" onclick="abrirDetallePanel('novedades')">
+                        <div class="metric-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                        <div class="metric-content">
+                            <div class="metric-number" id="dashNovedades">0</div>
+                            <div class="metric-label">Novedades reportadas</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-primary metric-clickable" onclick="abrirDetallePanel('docentes')">
                         <div class="metric-icon"><i class="fas fa-users"></i></div>
                         <div class="metric-content">
                             <div class="metric-number" id="dashTotalDocentes">0</div>
                             <div class="metric-label">Docentes registrados</div>
                         </div>
                     </div>
-                    <div class="metric-card metric-success">
+                    <div class="metric-card metric-success metric-clickable" onclick="abrirDetallePanel('finalizadas')">
                         <div class="metric-icon"><i class="fas fa-check-circle"></i></div>
                         <div class="metric-content">
                             <div class="metric-number" id="dashEntregados">0</div>
                             <div class="metric-label">Entregados</div>
                         </div>
                     </div>
-                    <div class="metric-card metric-warning">
-                        <div class="metric-icon"><i class="fas fa-clock"></i></div>
-                        <div class="metric-content">
-                            <div class="metric-number" id="dashPendientes">0</div>
-                            <div class="metric-label">Pendientes</div>
-                        </div>
-                    </div>
-                    <div class="metric-card metric-info">
+                    <div class="metric-card metric-info metric-clickable" onclick="abrirDetallePanel('disponibles')">
                         <div class="metric-icon"><i class="fas fa-laptop"></i></div>
                         <div class="metric-content">
                             <div class="metric-number" id="dashEquiposTotal">0</div>
                             <div class="metric-label">Total equipos</div>
                         </div>
                     </div>
-                    <div class="metric-card metric-primary">
+                    <div class="metric-card metric-primary metric-clickable" onclick="abrirDetallePanel('esteMes')">
                         <div class="metric-icon"><i class="fas fa-calendar-check"></i></div>
                         <div class="metric-content">
                             <div class="metric-number" id="dashEsteMes">0</div>
                             <div class="metric-label">Préstamos este mes</div>
                         </div>
                     </div>
-                    <div class="metric-card metric-info">
+                    <div class="metric-card metric-info metric-clickable" onclick="abrirDetallePanel('comercial')">
                         <div class="metric-icon"><i class="fas fa-briefcase"></i></div>
                         <div class="metric-content">
                             <div class="metric-number" id="dashComercial">0</div>
                             <div class="metric-label">Solicitudes Comercial</div>
                         </div>
                     </div>
-                    <div class="metric-card metric-warning">
-                        <div class="metric-icon"><i class="fas fa-triangle-exclamation"></i></div>
-                        <div class="metric-content">
-                            <div class="metric-number" id="dashNovedades">0</div>
-                            <div class="metric-label">Con novedad</div>
-                        </div>
-                    </div>
-                    <div class="metric-card metric-danger">
-                        <div class="metric-icon"><i class="fas fa-rotate-left"></i></div>
-                        <div class="metric-content">
-                            <div class="metric-number" id="dashPorValidar">0</div>
-                            <div class="metric-label">Devoluciones por validar</div>
-                        </div>
-                    </div>
                 </div>
 
-                <!-- GRAFICO SIMPLE -->
+                <!-- GRAFICO -->
                 <div class="dashboard-chart" id="dashboardChart">
                     <h3><i class="fas fa-chart-bar"></i> Entregas por Colegio</h3>
-                    <div class="chart-bars" id="chartBars">
-                        <!-- Las barras se generan con JS -->
+                    <div class="chart-bars-wrap">
+                        <canvas id="chartBars"></canvas>
                     </div>
                 </div>
 
@@ -386,6 +468,9 @@
                             <option value="usaquen">Usaquén</option>
                             <option value="tunja">Tunja</option>
                             <option value="barranquilla">Barranquilla</option>
+                            <option value="alameda">Alameda del Río</option>
+                            <option value="genoves">Portal de Génoves</option>
+                            <option value="parqueheredia">Atlántico Parque Heredia</option>
                         </select>
                     </div>
                     <div class="filter-box">
@@ -394,6 +479,7 @@
                             <option value="">Todos los estados</option>
                             <option value="EN_CURSO">En curso</option>
                             <option value="CERRADO">Cerrado</option>
+                            <option value="CANCELADO">Cancelado</option>
                         </select>
                     </div>
                 </div>
@@ -505,6 +591,27 @@
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Panel de detalle interactivo del Dashboard -->
+    <div class="detalle-panel-overlay" id="detallePanelOverlay" style="display:none;">
+        <div class="detalle-panel-box">
+            <div class="detalle-panel-header">
+                <h3 id="detallePanelTitulo"><i class="fas fa-chart-line"></i> Detalle</h3>
+                <button class="detalle-panel-close" onclick="cerrarDetallePanel()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="detalle-panel-body">
+                <div class="detalle-panel-chart-wrap">
+                    <canvas id="detallePanelChart"></canvas>
+                </div>
+                <div class="detalle-panel-table-wrap">
+                    <table class="dashboard-table" id="detallePanelTabla">
+                        <thead id="detallePanelTablaHead"></thead>
+                        <tbody id="detallePanelTablaBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Botón flotante de notificaciones -->
     <button id="notifTrigger" class="notif-trigger" onclick="abrirNotificacionesPanel()">
@@ -1209,33 +1316,29 @@
         }
         
         function mostrarDevoluciones() {
+            // Soporte ya tiene una sola sede asociada: ir directo a sus
+            // devoluciones reales en vez de mostrar la tarjeta intermedia
+            // que hay que volver a clickear.
+            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                window.location.href = '/view/devolucion.html?sede=' + encodeURIComponent(currentSedeSoporte);
+                return;
+            }
+
             const vd = document.getElementById('vistaDocentes');
             const vs = document.getElementById('vistaSoporte');
             const va = document.getElementById('vistaAdmin');
             const vDashboard = document.getElementById('vistaDashboard');
-            
+
             if (vd) vd.style.display = 'none';
             if (vs) vs.style.display = 'block';
             if (va) va.style.display = 'none';
             if (vDashboard) vDashboard.style.display = 'none';
-            
+
             const title = document.getElementById('heroTitle');
             const sub = document.getElementById('heroSubtitle');
             const legend = document.getElementById('regionLegend');
-            
-            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
-                const sedeDisplay = capitalizarSede(currentSedeSoporte);
-                if (title) title.textContent = 'Devoluciones ' + sedeDisplay;
-                if (sub) sub.textContent = 'Equipos en curso de tu colegio';
-                if (legend) legend.style.display = 'none';
-                
-                // ? FILTRAR solo la card de el colegio del soporte
-                filtrarTarjetasSoporte();
-                
-                if (typeof cargarSolicitudesSoporte === 'function') {
-                    cargarSolicitudesSoporte(currentSedeSoporte);
-                }
-            } else {
+
+            {
                 if (title) title.textContent = 'Devoluciones';
                 if (sub) sub.textContent = 'Selecciona tu colegio para ver equipos en curso';
                 if (legend) legend.style.display = 'none';
@@ -2248,12 +2351,13 @@
                     const horaDev = escapeHtml(sol.hora_devolucion || '15:00');
                     const esComercial = esSolicitudComercial(sol);
                     const idSolicitud = escapeHtml(sol.id_solicitud || sol.id || '');
+                    const sedeSolicitud = escapeJsAttr(sol.sede || currentSedeSoporte || '');
 
                     // Determinar si es nueva (últimas 5 min)
                     const esNueva = sol.fecha && (new Date() - new Date(sol.fecha)) < 300000;
 
                     return `
-                        <div class="notif-item ${esNueva ? 'notif-item-nuevo' : ''}" onclick="verDetalleRegistro('${idSolicitud}')">
+                        <div class="notif-item ${esNueva ? 'notif-item-nuevo' : ''}" onclick="irADevolucionDesdeNotificacion('${sedeSolicitud}')">
                             <div class="notif-item-titulo">
                                 <i class="fas fa-user-circle"></i>
                                 ${nombre}
@@ -2332,6 +2436,14 @@
                     t.classList.add('hide');
                     setTimeout(() => t.remove(), 300);
                 }, 6000);
+            }
+
+            // Al hacer click en una notificación, llevar directo a la pantalla
+            // de recepción/devolución de esa sede (no solo mostrar un modal).
+            function irADevolucionDesdeNotificacion(sede) {
+                const sedeDestino = sede || currentSedeSoporte;
+                if (!sedeDestino) return;
+                window.location.href = '/view/devolucion.html?sede=' + encodeURIComponent(sedeDestino);
             }
 
             function abrirNotificacionesPanel() {
@@ -2446,6 +2558,10 @@
             const entregados = data.filter(r => r.estado === 'CERRADO').length;
             const pendientes = data.filter(r => r.estado === 'EN_CURSO').length;
             const totalEquipos = data.reduce((acc, r) => acc + (parseInt(r.cantidad) || 0), 0);
+            const solicitudesTotal = data.filter(r => r.estado !== 'CANCELADO').length;
+            const equiposNoDisponibles = data
+                .filter(r => r.estado === 'EN_CURSO')
+                .reduce((acc, r) => acc + (parseInt(r.cantidad) || 1), 0);
 
             const ahora = new Date();
             const mesActual = ahora.getMonth();
@@ -2468,14 +2584,265 @@
             document.getElementById('dashComercial').textContent = comercial.toLocaleString();
             document.getElementById('dashNovedades').textContent = novedades.toLocaleString();
             document.getElementById('dashPorValidar').textContent = porValidar.toLocaleString();
+            const dashSolicitudesTotalEl = document.getElementById('dashSolicitudesTotal');
+            if (dashSolicitudesTotalEl) dashSolicitudesTotalEl.textContent = solicitudesTotal.toLocaleString();
+            const dashEquiposNoDisponiblesEl = document.getElementById('dashEquiposNoDisponibles');
+            if (dashEquiposNoDisponiblesEl) dashEquiposNoDisponiblesEl.textContent = equiposNoDisponibles.toLocaleString();
 
             generarGraficoSedes(data);
         }
 
+        // ── Punto 6: Dashboard interactivo — cada tarjeta abre un panel con
+        // gráfica y tabla de detalle, en vez de mostrar solo un número. ──
+        let detallePanelChartInstance = null;
+
+        function cerrarDetallePanel() {
+            const overlay = document.getElementById('detallePanelOverlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        function datosDashboardFiltrados() {
+            let data = Array.isArray(dashboardData) ? dashboardData : [];
+            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                const sedeNormalizada = normalizarTexto(currentSedeSoporte);
+                data = data.filter(r => normalizarTexto(r.sede || '') === sedeNormalizada);
+            }
+            return data;
+        }
+
+        function contarPorMes(data, campoFecha) {
+            const ahora = new Date();
+            const meses = [];
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(ahora.getFullYear(), ahora.getMonth() - i, 1);
+                meses.push({
+                    key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+                    label: d.toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })
+                });
+            }
+            const conteo = {};
+            meses.forEach(m => conteo[m.key] = 0);
+            data.forEach(r => {
+                const raw = r[campoFecha];
+                if (!raw) return;
+                const f = new Date(raw);
+                if (isNaN(f.getTime())) return;
+                const key = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}`;
+                if (Object.prototype.hasOwnProperty.call(conteo, key)) conteo[key]++;
+            });
+            return { labels: meses.map(m => m.label), valores: meses.map(m => conteo[m.key]) };
+        }
+
+        function contarPorSede(data) {
+            const conteo = {};
+            data.forEach(r => {
+                const sede = capitalizarSede(r.sede) || 'Otro';
+                conteo[sede] = (conteo[sede] || 0) + 1;
+            });
+            const labels = Object.keys(conteo);
+            return { labels, valores: labels.map(l => conteo[l]) };
+        }
+
+        function renderizarGraficaDetalle(tipo, labels, valores, color) {
+            const canvas = document.getElementById('detallePanelChart');
+            if (!canvas || typeof Chart === 'undefined') return;
+            if (detallePanelChartInstance) {
+                detallePanelChartInstance.destroy();
+                detallePanelChartInstance = null;
+            }
+            const esDona = tipo === 'dona';
+            detallePanelChartInstance = new Chart(canvas, {
+                type: esDona ? 'doughnut' : 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: valores,
+                        backgroundColor: esDona
+                            ? ['#2563EB', '#22C55E', '#F97316', '#A855F7', '#EF4444', '#0EA5E9', '#EAB308']
+                            : (color || 'rgba(37, 99, 235, 0.75)'),
+                        borderRadius: esDona ? 0 : 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: esDona, position: 'right' } },
+                    scales: esDona ? {} : { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
+        }
+
+        function renderizarTablaDetalle(headers, filas) {
+            const head = document.getElementById('detallePanelTablaHead');
+            const body = document.getElementById('detallePanelTablaBody');
+            if (!head || !body) return;
+            head.innerHTML = '<tr>' + headers.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr>';
+            if (!filas.length) {
+                body.innerHTML = `<tr><td colspan="${headers.length}" class="dash-empty"><i class="fas fa-inbox"></i><span>Sin registros</span></td></tr>`;
+                return;
+            }
+            body.innerHTML = filas.map(fila => '<tr>' + fila.map(c => `<td>${escapeHtml(c)}</td>`).join('') + '</tr>').join('');
+        }
+
+        async function abrirDetallePanel(tipo) {
+            const overlay = document.getElementById('detallePanelOverlay');
+            const titulo = document.getElementById('detallePanelTitulo');
+            if (!overlay || !titulo) return;
+            overlay.style.display = 'flex';
+
+            const data = datosDashboardFiltrados();
+            const config = {
+                solicitudes: { titulo: 'Total de solicitudes', icono: 'fa-clipboard-list' },
+                pendientes: { titulo: 'Solicitudes pendientes', icono: 'fa-clock' },
+                finalizadas: { titulo: 'Solicitudes finalizadas', icono: 'fa-check-circle' },
+                prestados: { titulo: 'Equipos / vehículos prestados', icono: 'fa-laptop' },
+                disponibles: { titulo: 'Equipos / vehículos disponibles', icono: 'fa-boxes-stacked' },
+                porValidar: { titulo: 'Devoluciones', icono: 'fa-rotate-left' },
+                novedades: { titulo: 'Novedades reportadas', icono: 'fa-triangle-exclamation' },
+                docentes: { titulo: 'Docentes registrados', icono: 'fa-users' },
+                esteMes: { titulo: 'Préstamos este mes', icono: 'fa-calendar-check' },
+                comercial: { titulo: 'Solicitudes Comercial', icono: 'fa-briefcase' }
+            }[tipo] || { titulo: 'Detalle', icono: 'fa-chart-line' };
+
+            titulo.innerHTML = `<i class="fas ${config.icono}"></i> ${config.titulo}`;
+            renderizarTablaDetalle(['Cargando...'], []);
+
+            if (tipo === 'solicitudes') {
+                const { labels, valores } = contarPorMes(data, 'fecha');
+                renderizarGraficaDetalle('barra', labels, valores);
+                renderizarTablaDetalle(
+                    ['Docente', 'Colegio', 'Equipo', 'Fecha', 'Estado'],
+                    data.map(r => [r.nombre || '-', capitalizarSede(r.sede) || '-', r.equipo || '-', formatearFechaFrontend(r.fecha), r.estado || '-'])
+                );
+            } else if (tipo === 'pendientes') {
+                const pendientes = data.filter(r => r.estado === 'EN_CURSO');
+                const { labels, valores } = contarPorSede(pendientes);
+                renderizarGraficaDetalle('barra', labels, valores, 'rgba(234, 88, 12, 0.75)');
+                renderizarTablaDetalle(
+                    ['Docente', 'Colegio', 'Equipo', 'Hora máx.'],
+                    pendientes.map(r => [r.nombre || '-', capitalizarSede(r.sede) || '-', r.equipo || '-', formatearHoraFrontend(r.hora_devolucion)])
+                );
+            } else if (tipo === 'finalizadas') {
+                const cerradas = data.filter(r => r.estado === 'CERRADO');
+                const { labels, valores } = contarPorMes(cerradas, 'fecha_devolucion');
+                renderizarGraficaDetalle('barra', labels, valores, 'rgba(22, 163, 74, 0.75)');
+                renderizarTablaDetalle(
+                    ['Docente', 'Colegio', 'Equipo', 'Fecha devolución', 'Estado de entrega'],
+                    cerradas.map(r => [r.nombre || '-', capitalizarSede(r.sede) || '-', r.equipo || '-', formatearFechaFrontend(r.fecha_devolucion), r.estado_final || '-'])
+                );
+            } else if (tipo === 'prestados') {
+                const prestados = data.filter(r => r.estado === 'EN_CURSO');
+                const { labels, valores } = contarPorSede(prestados);
+                renderizarGraficaDetalle('dona', labels, valores);
+                renderizarTablaDetalle(
+                    ['Equipo', 'Colegio', 'Asignado a', 'Desde'],
+                    prestados.map(r => [r.equipo || '-', capitalizarSede(r.sede) || '-', r.nombre || '-', formatearFechaFrontend(r.fecha)])
+                );
+            } else if (tipo === 'porValidar') {
+                const porValidar = data.filter(r => r.estado === 'EN_CURSO' && r.estado_devolucion_usuario);
+                const { labels, valores } = contarPorSede(porValidar);
+                renderizarGraficaDetalle('dona', labels, valores);
+                renderizarTablaDetalle(
+                    ['Docente', 'Colegio', 'Equipo', 'Notificado'],
+                    porValidar.map(r => [r.nombre || '-', capitalizarSede(r.sede) || '-', r.equipo || '-', r.estado_devolucion_usuario || '-'])
+                );
+            } else if (tipo === 'novedades') {
+                const conNovedad = data.filter(r => String(r.novedad || '').trim().toLowerCase().startsWith('s'));
+                const { labels, valores } = contarPorSede(conNovedad);
+                renderizarGraficaDetalle('barra', labels, valores, 'rgba(234, 179, 8, 0.75)');
+                renderizarTablaDetalle(
+                    ['Docente', 'Colegio', 'Equipo', 'Descripción'],
+                    conNovedad.map(r => [r.nombre || '-', capitalizarSede(r.sede) || '-', r.equipo || '-', r.descripcion || '-'])
+                );
+            } else if (tipo === 'esteMes') {
+                const { labels, valores } = contarPorMes(data, 'fecha');
+                renderizarGraficaDetalle('barra', labels, valores);
+                const ahora = new Date();
+                const esteMes = data.filter(r => {
+                    if (!r.fecha) return false;
+                    const f = new Date(r.fecha);
+                    return !isNaN(f.getTime()) && f.getMonth() === ahora.getMonth() && f.getFullYear() === ahora.getFullYear();
+                });
+                renderizarTablaDetalle(
+                    ['Docente', 'Colegio', 'Equipo', 'Fecha'],
+                    esteMes.map(r => [r.nombre || '-', capitalizarSede(r.sede) || '-', r.equipo || '-', formatearFechaFrontend(r.fecha)])
+                );
+            } else if (tipo === 'comercial') {
+                const comerciales = data.filter(r => String(r.tipo_usuario || '').trim().toLowerCase() === 'comercial');
+                const { labels, valores } = contarPorSede(comerciales);
+                renderizarGraficaDetalle('dona', labels, valores);
+                renderizarTablaDetalle(
+                    ['Docente/Comercial', 'Colegio', 'Equipo', 'Estado'],
+                    comerciales.map(r => [r.nombre || '-', capitalizarSede(r.sede) || '-', r.equipo || '-', r.estado || '-'])
+                );
+            } else if (tipo === 'docentes') {
+                const porDocente = {};
+                data.forEach(r => {
+                    const key = r.cedula || r.nombre || '-';
+                    if (!porDocente[key]) porDocente[key] = { nombre: r.nombre || '-', sede: r.sede || '-', total: 0 };
+                    porDocente[key].total++;
+                });
+                const filas = Object.values(porDocente).sort((a, b) => b.total - a.total);
+                const top = filas.slice(0, 8);
+                renderizarGraficaDetalle('barra', top.map(f => f.nombre), top.map(f => f.total));
+                renderizarTablaDetalle(
+                    ['Docente', 'Colegio', 'Solicitudes'],
+                    filas.map(f => [f.nombre, capitalizarSede(f.sede) || '-', f.total])
+                );
+            } else if (tipo === 'disponibles') {
+                document.querySelector('.detalle-panel-chart-wrap').innerHTML = '<canvas id="detallePanelChart"></canvas>';
+                renderizarTablaDetalle(['Cargando inventario...'], []);
+                await cargarDisponiblesDetalle(data);
+            }
+        }
+
+        async function cargarDisponiblesDetalle(data) {
+            const ocupadosPorSede = {};
+            data.filter(r => r.estado === 'EN_CURSO').forEach(r => {
+                const sede = normalizarTexto(r.sede || '');
+                if (!sede) return;
+                if (!ocupadosPorSede[sede]) ocupadosPorSede[sede] = new Set();
+                if (r.equipo) ocupadosPorSede[sede].add(String(r.equipo));
+            });
+
+            let sedes = Object.keys(ocupadosPorSede);
+            if (currentRole === 'SOPORTE' && currentSedeSoporte) {
+                sedes = [normalizarTexto(currentSedeSoporte)];
+            } else if (!sedes.length) {
+                sedes = [...new Set(data.map(r => normalizarTexto(r.sede || '')))].filter(Boolean);
+            }
+
+            try {
+                const resultados = await Promise.all(sedes.map(sede =>
+                    jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sede)}`).catch(() => [])
+                ));
+
+                const filas = [];
+                const conteoPorSede = {};
+                sedes.forEach((sede, idx) => {
+                    const equipos = Array.isArray(resultados[idx]) ? resultados[idx] : [];
+                    const carrosUnicos = [...new Set(equipos.map(e => e.carro).filter(Boolean))];
+                    const ocupados = ocupadosPorSede[sede] || new Set();
+                    const disponibles = carrosUnicos.filter(c => !ocupados.has(String(c)));
+                    conteoPorSede[capitalizarSede(sede) || sede] = disponibles.length;
+                    disponibles.forEach(carro => filas.push([carro, capitalizarSede(sede) || sede, 'Disponible']));
+                });
+
+                renderizarGraficaDetalle('dona', Object.keys(conteoPorSede), Object.values(conteoPorSede));
+                renderizarTablaDetalle(['Equipo/Vehículo', 'Colegio', 'Estado'], filas);
+            } catch (err) {
+                console.warn('No se pudo cargar el inventario disponible:', err);
+                renderizarTablaDetalle(['Equipo/Vehículo', 'Colegio', 'Estado'], []);
+            }
+        }
+
+        let graficoSedesInstance = null;
+
         function generarGraficoSedes(data) {
-            const contenedor = document.getElementById('chartBars');
-            if (!contenedor) return;
-            
+            const canvas = document.getElementById('chartBars');
+            const wrap = canvas ? canvas.closest('.chart-bars-wrap') : null;
+            if (!canvas || typeof Chart === 'undefined') return;
+
             const sedesMap = {};
             data.forEach(r => {
                 const sede = capitalizarSede(r.sede) || 'Otro';
@@ -2484,45 +2851,53 @@
                 }
                 if (r.estado === 'CERRADO') {
                     sedesMap[sede].entregados++;
-                } else {
+                } else if (r.estado !== 'CANCELADO') {
                     sedesMap[sede].pendientes++;
                 }
             });
-            
+
             const sedes = Object.keys(sedesMap).sort((a, b) => {
                 const totalA = sedesMap[a].entregados + sedesMap[a].pendientes;
                 const totalB = sedesMap[b].entregados + sedesMap[b].pendientes;
                 return totalB - totalA;
-            });
-            
-            const maxValue = Math.max(...sedes.map(s => sedesMap[s].entregados + sedesMap[s].pendientes), 1);
-            
-            if (sedes.length === 0) {
-                contenedor.innerHTML = '<div class="chart-empty">No hay datos para mostrar</div>';
+            }).slice(0, 7);
+
+            if (graficoSedesInstance) {
+                graficoSedesInstance.destroy();
+                graficoSedesInstance = null;
+            }
+
+            if (!sedes.length) {
+                if (wrap) wrap.innerHTML = '<div class="chart-empty">No hay datos para mostrar</div>';
                 return;
             }
-            
-            contenedor.innerHTML = sedes.slice(0, 7).map(sede => {
-                const entregados = sedesMap[sede].entregados;
-                const pendientes = sedesMap[sede].pendientes;
-                const total = entregados + pendientes;
-                const porcentaje = (entregados / maxValue) * 100;
-                const porcentPend = (pendientes / maxValue) * 100;
-                
-                return `
-                    <div class="chart-bar-row">
-                        <div class="chart-bar-label">${sede}</div>
-                        <div class="chart-bar-container">
-                            <div class="chart-bar-fill entregados" style="width: ${porcentaje}%;">
-                                ${entregados > 0 ? `<span class="chart-bar-text">${entregados}</span>` : ''}
-                            </div>
-                        </div>
-                        <div style="width: 40px; text-align: center; font-size: 0.75rem; color: var(--text-muted);">
-                            ${pendientes > 0 ? `<span style="color: #F97316;">${pendientes}</span>` : '-'}
-                        </div>
-                    </div>
-                `;
-            }).join('');
+
+            graficoSedesInstance = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: sedes,
+                    datasets: [
+                        {
+                            label: 'Entregados',
+                            data: sedes.map(s => sedesMap[s].entregados),
+                            backgroundColor: 'rgba(22, 163, 74, 0.8)',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Pendientes',
+                            data: sedes.map(s => sedesMap[s].pendientes),
+                            backgroundColor: 'rgba(249, 115, 22, 0.8)',
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                }
+            });
         }
 
         function renderizarTablaDashboard(data) {
@@ -2545,8 +2920,8 @@
                 const fecha = formatearFechaFrontend(r.fecha);
                 const horaMax = formatearHoraFrontend(r.hora_devolucion || '15:00');
                 
-                const estadoClass = estado === 'CERRADO' ? 'cerrado' : 'en-curso';
-                const estadoTexto = estado === 'CERRADO' ? 'Cerrado' : 'En curso';
+                const estadoClass = estado === 'CERRADO' ? 'cerrado' : (estado === 'CANCELADO' ? 'cancelado' : 'en-curso');
+                const estadoTexto = estado === 'CERRADO' ? 'Cerrado' : (estado === 'CANCELADO' ? 'Cancelado' : 'En curso');
                 
                 return `
                     <tr data-cedula="${escapeHtml(r.cedula || '')}" data-sede="${escapeHtml(r.sede || '')}" data-estado="${escapeHtml(estado)}">
@@ -2605,31 +2980,6 @@
             renderizarTablaDashboard(filtrados);
         }
 
-        function verDetalleRegistro(id) {
-            if (!id) return;
-            
-            const registro = dashboardData.find(r => (r.id_solicitud || r.id) === id);
-            if (!registro) {
-                alert('Registro no encontrado');
-                return;
-            }
-            
-            const mensaje = `
-?? DETALLE DEL REGISTRO
-
-?? Docente: ${registro.nombre || '-'}
-?? Cédula: ${registro.cedula || '-'}
-?? Correo: ${registro.correo || '-'}
-?? Colegio: ${registro.sede || '-'}
-?? Equipo: ${registro.equipo || '-'}
-?? Cantidad: ${registro.cantidad || '0'}
-?? Cargador: ${registro.cargador || 'No'}
-? Hora máx.: ${registro.hora_devolucion || '15:00'}
-Estado: ${registro.estado || 'EN_CURSO'}
-            `.trim();
-            
-            alert(mensaje);
-        }
 
         // -- PANEL DE ADMINISTRACIÓN (SOPORTE) --
         async function cargarTodosRegistros() {
@@ -2840,7 +3190,7 @@ Estado: ${registro.estado || 'EN_CURSO'}
                                 <h4>Devolución</h4>
                                 <div class="detail-grid">
                                     <div class="detail-item"><span class="label">Cantidad devuelta:</span><span class="value">${data.cantidad_devuelta || '-'}</span></div>
-                                    <div class="detail-item"><span class="label">Estado final:</span><span class="value">${data.estado_final || '-'}</span></div>
+                                    <div class="detail-item"><span class="label">Estado de entrega:</span><span class="value">${data.estado_final || '-'}</span></div>
                                     <div class="detail-item"><span class="label">Novedad:</span><span class="value">${data.novedad_devolucion || 'No'}</span></div>
                                     ${data.descripcion_devolucion ? `<div class="detail-item full"><span class="label">Descripción:</span><span class="value">${data.descripcion_devolucion}</span></div>` : ''}
                                 </div>

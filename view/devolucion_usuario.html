@@ -157,7 +157,27 @@
             </div>
         </section>
 
-        <form id="devolucionUsuarioForm" class="return-form-card" novalidate>
+        <section class="return-form-card" id="buscarCedulaCard">
+            <div class="form-grid">
+                <div class="input-group full-width">
+                    <label for="buscarCedulaDevolucion"><i class="fas fa-id-card"></i> Escribe tu cédula para buscar tus solicitudes activas</label>
+                    <input type="text" id="buscarCedulaDevolucion" maxlength="20" inputmode="numeric" pattern="\d*" placeholder="Número de cédula" onkeydown="if(event.key==='Enter'){event.preventDefault();buscarSolicitudesActivasUsuario();}">
+                </div>
+            </div>
+            <div class="section-actions">
+                <button type="button" class="btn-return-submit" id="btnBuscarCedulaDevolucion" onclick="buscarSolicitudesActivasUsuario()">
+                    <i class="fas fa-magnifying-glass"></i> Buscar mis solicitudes
+                </button>
+            </div>
+            <div id="resultadosSolicitudesActivas" style="margin-top:1rem;"></div>
+            <p style="margin-top:1rem;">
+                <a href="#" onclick="mostrarFormularioDevolucionManual(); return false;" style="color:var(--blue-600,#2563EB); font-weight:700; text-decoration:none;">
+                    <i class="fas fa-pen"></i> No encuentro mi solicitud, llenar manualmente
+                </a>
+            </p>
+        </section>
+
+        <form id="devolucionUsuarioForm" class="return-form-card" novalidate style="display:none;">
             <div class="form-grid">
                 <div class="input-group">
                     <label for="usuarioDevolucionNombre"><i class="fas fa-user"></i> Nombre *</label>
@@ -186,6 +206,9 @@
                         <option value="Mosquera">Mosquera</option>
                         <option value="Tunja">Tunja</option>
                         <option value="Barranquilla">Barranquilla</option>
+                        <option value="Alameda del Río">Alameda del Río</option>
+                        <option value="Portal de Génoves">Portal de Génoves</option>
+                        <option value="Atlántico Parque Heredia">Atlántico Parque Heredia</option>
                     </select>
                 </div>
                 <div class="input-group full-width">

@@ -65,6 +65,17 @@ function doGet(e) {
       }
     }
 
+    // ==============================
+    // DEVOLUCIONES: SOLICITUDES ACTIVAS DE UN DOCENTE (por cédula)
+    // ==============================
+    if (action === "buscarSolicitudesActivasPorCedula") {
+      try {
+        return jsonResponse(buscarSolicitudesActivasPorCedulaHandler(e.parameter.cedula || ""));
+      } catch (err) {
+        return jsonResponse({ status: "error", error: err.toString() });
+      }
+    }
+
     if (action === "procesarDocumentosPendientes") {
       procesarDocumentosPendientesAsync();
       return jsonResponse({ status: "ok", message: "Procesamiento de documentos ejecutado" });
@@ -111,6 +122,8 @@ function doGet(e) {
           .map(r => ({
             id_solicitud: r.id_solicitud || "",
             fecha: formatearFechaSheet(r.fecha),
+            fecha_requerida: formatearFechaSheet(r.fecha_requerida),
+            hora_requerida: formatearHoraSheet(r.hora_requerida),
             nombre: r.nombre || "",
             cedula: r.cedula || "",
             correo: r.correo || "",
@@ -210,7 +223,7 @@ function doGet(e) {
     // CARROS OCUPADOS
     // ==============================
     if (action === "ocupados") {
-      return jsonResponse(getCarrosDisponibles());
+      return jsonResponse(getCarrosDisponibles(e.parameter.fecha || ""));
     }
 
     // ==============================
@@ -343,16 +356,7 @@ function doGet(e) {
         const sheetName = "equipos_" + sedeLimpia;
         Logger.log("Buscando hoja: " + sheetName);
 
-        const ss = SpreadsheetApp.openById(SHEET_ID);
-        const sheet = ss.getSheetByName(sheetName);
-
-        if (!sheet) {
-          Logger.log("❌ No existe la hoja: " + sheetName);
-          // Listar hojas disponibles para debug
-          const hojas = ss.getSheets().map(s => s.getName());
-          Logger.log("Hojas disponibles: " + hojas.join(", "));
-          return jsonResponse({ error: "No existe la hoja '" + sheetName + "'. Hojas: " + hojas.join(", ") });
-        }
+        const sheet = obtenerOCrearHojaEquiposSede_(sede);
 
         Logger.log("✅ Hoja encontrada: " + sheetName);
 
@@ -528,7 +532,7 @@ function doGet(e) {
         const sedeAutorizadaUpdate = normalizarTexto(permisoUpdateStatus.acceso.sede);
 
         const nuevoEstado = String(e.parameter.estado).trim().toUpperCase();
-        if (["EN_CURSO", "CERRADO"].indexOf(nuevoEstado) === -1) {
+        if (["EN_CURSO", "CERRADO", "CANCELADO"].indexOf(nuevoEstado) === -1) {
           return jsonResponse({ status: "error", error: "Estado no válido" });
         }
 
@@ -564,6 +568,10 @@ function doGet(e) {
 
         if (normalizarTexto(targetRowObj.sede || "") !== sedeAutorizadaUpdate) {
           return jsonResponse({ status: "error", error: "No autorizado para modificar este registro" });
+        }
+
+        if (nuevoEstado === "CANCELADO" && String(targetRowObj.estado || "").trim().toUpperCase() === "CERRADO") {
+          return jsonResponse({ status: "error", error: "No se puede cancelar una solicitud ya cerrada" });
         }
 
         if (colMap.estado) {
@@ -685,6 +693,67 @@ function buscarDatosPorCedulaHandler(cedula) {
   }
 
   return { status: "not_found" };
+}
+
+// ============================================================
+// DEVOLUCIONES: SOLICITUDES ACTIVAS DE UN DOCENTE (por cédula)
+// ============================================================
+// Permite que el docente, en el módulo de Devoluciones, solo escriba su
+// cédula y el sistema le muestre sus solicitudes EN_CURSO ya con todos los
+// datos (nombre, sede, vehículo(s), fecha y hora de préstamo), sin tener que
+// volver a escribirlos.
+function buscarSolicitudesActivasPorCedulaHandler(cedula) {
+  const cedulaBuscada = String(cedula || "").replace(/\D/g, "");
+  if (!cedulaBuscada || cedulaBuscada.length < 6) {
+    return { status: "error", error: "Cédula inválida" };
+  }
+
+  const cache = CacheService.getScriptCache();
+  const rlKey = "cedula_activas_rl_" + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMddHHmm");
+  const conteo = Number(cache.get(rlKey) || 0);
+  if (conteo >= 60) {
+    return { status: "error", error: "Demasiadas búsquedas, intenta en un momento." };
+  }
+  cache.put(rlKey, String(conteo + 1), 70);
+
+  const sheet = getMainSheet();
+  const colMap = getColumnMap(sheet);
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+
+  if (lastRow <= 1 || !colMap.cedula) {
+    return { status: "ok", solicitudes: [] };
+  }
+
+  const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const solicitudes = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = getRowDataObject(rows[i], colMap);
+    const cedulaRegistro = String(r.cedula || "").replace(/\D/g, "");
+    if (cedulaRegistro !== cedulaBuscada) continue;
+    if (String(r.estado || "").trim().toUpperCase() !== "EN_CURSO") continue;
+
+    solicitudes.push({
+      id_solicitud: r.id_solicitud || "",
+      nombre: r.nombre || "",
+      cedula: cedulaBuscada,
+      curso: r.curso || "",
+      sede: r.sede || "",
+      tipo_usuario: r.tipo_usuario || "Docente",
+      equipo: r.equipo || "",
+      vehiculo_principal: r.vehiculo_principal || r.equipo || "",
+      vehiculos_adicionales: r.vehiculos_adicionales || "",
+      vehiculos_solicitados: r.vehiculos_solicitados || "",
+      cantidad: r.cantidad || "",
+      fecha: formatearFechaSheet(r.fecha),
+      hora_entrega: formatearHoraSheet(r.hora_entrega),
+      hora_devolucion: formatearHoraSheet(r.hora_devolucion),
+      estado_devolucion_usuario: r.estado_devolucion_usuario || ""
+    });
+  }
+
+  return { status: "ok", solicitudes: solicitudes };
 }
 
 // ============================================================
@@ -811,44 +880,35 @@ function doPost(e) {
 
     if (data.equipo && data.equipo !== "Otros equipos" && data.sede && data.hora_devolucion) {
       const sheetVal = getMainSheet();
-      const registros = sheetVal.getDataRange().getValues();
-      registros.shift();
-
-      const fechaHoy = new Date().toISOString().split('T')[0];
+      const colMapVal = getColumnMap(sheetVal);
+      const lastRowVal = sheetVal.getLastRow();
       const zonaHoraria = Session.getScriptTimeZone();
-      const horaActualStr = Utilities.formatDate(new Date(), zonaHoraria, "HH:mm");
+      const fechaNueva = String(data.fecha_requerida || data.fecha || Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd")).split('T')[0];
+      const hoyStr = Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd");
 
-      for (let row of registros) {
-        if (row.length < 24) continue;
+      if (lastRowVal > 1) {
+        const registros = sheetVal.getRange(2, 1, lastRowVal - 1, sheetVal.getLastColumn()).getValues();
 
-        let fechaRegistro = row[0];
-        if (fechaRegistro instanceof Date) {
-          fechaRegistro = Utilities.formatDate(fechaRegistro, zonaHoraria, "yyyy-MM-dd");
-        } else {
-          fechaRegistro = String(fechaRegistro).split('T')[0].split(' ')[0];
-        }
+        for (let row of registros) {
+          const r = getRowDataObject(row, colMapVal);
+          const fechaRegistro = formatearFechaISO_(r.fecha_requerida || r.fecha, zonaHoraria);
+          const sedeRegistrada = String(r.sede || "").trim();
+          const equipoRegistrado = String(r.equipo || "").trim();
+          const horaDevolucionStr = formatearHoraSheet(r.hora_devolucion) || "15:00";
+          const estadoRegistro = String(r.estado || "").trim().toUpperCase();
 
-        const sedeRegistrada = String(row[4] || "").trim();
-        const equipoRegistrado = String(row[5] || "").trim();
-        let horaDevolucionStr = "15:00";
-        const horaRaw = row[23];
-        if (horaRaw instanceof Date) {
-          horaDevolucionStr = Utilities.formatDate(horaRaw, zonaHoraria, "HH:mm");
-        } else if (horaRaw) {
-          horaDevolucionStr = String(horaRaw).trim();
-        }
+          if (equipoRegistrado === data.equipo &&
+              sedeRegistrada.toLowerCase() === data.sede.toLowerCase() &&
+              estadoRegistro === "EN_CURSO" &&
+              hayCruceDeFecha_(fechaRegistro, fechaNueva, horaDevolucionStr, zonaHoraria)) {
 
-        const estadoRegistro = String(row[25] || "").trim().toUpperCase();
+            const mensajeFecha = fechaRegistro === hoyStr
+              ? "está ocupado hasta las " + horaDevolucionStr
+              : "está reservado para el " + fechaRegistro;
 
-        if (fechaRegistro === fechaHoy &&
-            equipoRegistrado === data.equipo &&
-            sedeRegistrada.toLowerCase() === data.sede.toLowerCase() &&
-            estadoRegistro === "EN_CURSO") {
-
-          if (horaActualStr < horaDevolucionStr) {
             return jsonResponse({
               status: "error",
-              error: "El " + data.equipo + " está ocupado hasta las " + horaDevolucionStr + " por " + (row[1] || 'alguien'),
+              error: "El " + data.equipo + " " + mensajeFecha + " por " + (r.nombre || 'alguien'),
               ocupado: true,
               hora_devolucion: horaDevolucionStr
             });
@@ -878,26 +938,26 @@ function doPost(e) {
     // === SEGUNDO CHEQUEO ANTI-RACE-CONDITION ===
     if (data.equipo && data.equipo !== "Otros equipos") {
       const sheetCheck = getMainSheet();
+      const colMapCheck = getColumnMap(sheetCheck);
       const lastRowCheck = sheetCheck.getLastRow();
       if (lastRowCheck > 1) {
-        const rows = sheetCheck.getRange(2, 1, lastRowCheck - 1, 26).getValues();
-        const hoy = Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd");
+        const rows = sheetCheck.getRange(2, 1, lastRowCheck - 1, sheetCheck.getLastColumn()).getValues();
+        const fechaNuevaCheck = String(data.fecha_requerida || data.fecha || Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd")).split("T")[0];
         const normalizar = (txt) => String(txt || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const vehiculosSolicitados = obtenerVehiculosPrincipalesPayload(data).map(normalizar);
 
         for (let row of rows) {
-          let fechaReg = row[0];
-          if (fechaReg instanceof Date) {
-            fechaReg = Utilities.formatDate(fechaReg, zonaHoraria, "yyyy-MM-dd");
-          } else {
-            fechaReg = String(fechaReg).split("T")[0].split(" ")[0];
-          }
+          const r = getRowDataObject(row, colMapCheck);
+          const fechaReg = formatearFechaISO_(r.fecha_requerida || r.fecha, zonaHoraria);
+          const est = String(r.estado || "").trim().toUpperCase();
+          const eq = String(r.equipo || "").trim();
+          const sed = normalizar(r.sede || "");
+          const horaDevolucionRegStr = formatearHoraSheet(r.hora_devolucion) || "15:00";
 
-          const est = String(row[25] || "").trim().toUpperCase();
-          const eq = String(row[5] || "").trim();
-          const sed = normalizar(row[4] || "");
-
-          if (fechaReg === hoy && vehiculosSolicitados.indexOf(normalizar(eq)) !== -1 && sed === normalizar(data.sede || "") && est === "EN_CURSO") {
+          if (vehiculosSolicitados.indexOf(normalizar(eq)) !== -1 &&
+              sed === normalizar(data.sede || "") &&
+              est === "EN_CURSO" &&
+              hayCruceDeFecha_(fechaReg, fechaNuevaCheck, horaDevolucionRegStr, zonaHoraria)) {
             return jsonResponse({
               status: "error",
               error: "El equipo acaba de ser reservado por otro usuario. Recarga la página.",
@@ -927,6 +987,8 @@ function doPost(e) {
       colMapGuardado = getColumnMap(sheet);
       guardarCamposRecepcionPorEncabezado_(sheet, lastRow, colMapGuardado, {
         fecha: data.fecha || "",
+        fecha_requerida: data.fecha_requerida || "",
+        hora_requerida: data.hora_requerida || "",
         nombre: data.nombre || "",
         cedula: data.cedula || "",
         correo: data.correo || "",
@@ -1463,27 +1525,36 @@ function enviarPDFporCorreo(data) {
     const pdfUrl = pdfFile.getUrl();
     Logger.log("PDF subido: " + pdfUrl);
 
-    const destinatarios = [];
-    agregarDestinatarioUnico(destinatarios, data.correo);
-    buscarCorreosSoportePorSede(data.sede).forEach(correo => agregarDestinatarioUnico(destinatarios, correo));
-    if (!destinatarios.length) {
-      agregarDestinatarioUnico(destinatarios, SUPPORT_EMAIL);
+    // Igual que en el PDF de devolución: el PDF ya está subido a Drive en
+    // este punto, así que si falla el envío del correo no debe perderse el
+    // pdfUrl ya generado (antes esto dejaba el acta "pendiente" para
+    // siempre aunque ya existiera en Drive).
+    try {
+      const destinatarios = [];
+      agregarDestinatarioUnico(destinatarios, data.correo);
+      buscarCorreosSoportePorSede(data.sede).forEach(correo => agregarDestinatarioUnico(destinatarios, correo));
+      if (!destinatarios.length) {
+        agregarDestinatarioUnico(destinatarios, SUPPORT_EMAIL);
+      }
+
+      Logger.log("Enviando correo a: " + destinatarios.join(", "));
+
+      GmailApp.sendEmail(
+        destinatarios.join(","),
+        `RECEPCION | ${safe(data.nombre)} | ${safe(data.cedula)} | ${new Date().getTime()}`,
+        `Adjunto PDF de recepción de equipos.\nVer en Drive: ${pdfUrl}`,
+        {
+          attachments: [pdfBlob],
+          name: "Sistema de Recepción de Equipos",
+          replyTo: SUPPORT_EMAIL
+        }
+      );
+
+      Logger.log("Correo enviado exitosamente");
+    } catch (mailErr) {
+      Logger.log("El PDF de recepción se generó bien, pero falló el envío del correo: " + mailErr);
     }
 
-    Logger.log("Enviando correo a: " + destinatarios.join(", "));
-
-    GmailApp.sendEmail(
-      destinatarios.join(","),
-      `RECEPCION | ${safe(data.nombre)} | ${safe(data.cedula)} | ${new Date().getTime()}`,
-      `Adjunto PDF de recepción de equipos.\nVer en Drive: ${pdfUrl}`,
-      {
-        attachments: [pdfBlob],
-        name: "Sistema de Recepción de Equipos",
-        replyTo: SUPPORT_EMAIL
-      }
-    );
-
-    Logger.log("Correo enviado exitosamente");
     tempFile.setTrashed(true);
 
     return pdfUrl;
@@ -1720,6 +1791,28 @@ function validarTokenVerificacion(token, correoEsperado) {
   }
 }
 
+function formatearFechaISO_(valor, zonaHoraria) {
+  if (valor instanceof Date) {
+    return Utilities.formatDate(valor, zonaHoraria, "yyyy-MM-dd");
+  }
+  return String(valor || "").split("T")[0].split(" ")[0];
+}
+
+// Determina si una reserva EXISTENTE (fechaExistente + horaDevolucionExistente)
+// entra en conflicto con la fecha en la que se necesita un equipo nuevo (fechaNueva).
+// Se compara por fecha_requerida (fecha real de uso), no por fecha de creación:
+// - Si son fechas distintas, no hay cruce (el equipo sigue disponible ese día).
+// - Si es la misma fecha y es HOY, solo hay cruce mientras no pase la hora de devolución.
+// - Si es la misma fecha pero es un día futuro, se considera reservado todo el día
+//   (no hay una hora de inicio registrada para diferenciar franjas horarias futuras).
+function hayCruceDeFecha_(fechaExistente, fechaNueva, horaDevolucionExistente, zonaHoraria) {
+  if (!fechaExistente || !fechaNueva || fechaExistente !== fechaNueva) return false;
+  const hoy = Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd");
+  if (fechaExistente !== hoy) return true;
+  const horaActualStr = Utilities.formatDate(new Date(), zonaHoraria, "HH:mm");
+  return horaActualStr < (horaDevolucionExistente || "15:00");
+}
+
 function getDisponibilidadSedeHandler(sede, fecha) {
   const sedeNormalizada = normalizarTexto(sede || "");
   const fechaConsulta = String(fecha || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd")).trim();
@@ -1753,7 +1846,10 @@ function getDisponibilidadSedeHandler(sede, fecha) {
 
   rows.forEach(row => {
     const r = getRowDataObject(row, colMap);
-    let fechaRegistro = r.fecha || "";
+    // El vehículo se ocupa en la fecha en que REALMENTE se necesita (fecha_requerida),
+    // no en la fecha en que se creó la solicitud. Si el registro es antiguo y no tiene
+    // fecha_requerida, se usa la fecha de recepción como respaldo.
+    let fechaRegistro = r.fecha_requerida || r.fecha || "";
 
     if (fechaRegistro instanceof Date) {
       fechaRegistro = Utilities.formatDate(fechaRegistro, zonaHoraria, "yyyy-MM-dd");
@@ -1796,7 +1892,7 @@ function limpiarCacheDisponibilidadSede(sede, fecha) {
   }
 }
 
-function getCarrosDisponibles() {
+function getCarrosDisponibles(fecha) {
   const sheet = getMainSheet();
   const colMap = getColumnMap(sheet);
   const lastRow = sheet.getLastRow();
@@ -1805,7 +1901,7 @@ function getCarrosDisponibles() {
   if (lastRow <= 1) return [];
 
   const zonaHoraria = Session.getScriptTimeZone();
-  const fechaHoy = Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd");
+  const fechaConsulta = String(fecha || Utilities.formatDate(new Date(), zonaHoraria, "yyyy-MM-dd")).trim();
   const rows = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
 
   const ocupados = [];
@@ -1813,7 +1909,9 @@ function getCarrosDisponibles() {
   rows.forEach(row => {
     const r = getRowDataObject(row, colMap);
 
-    let fechaRegistro = r.fecha || "";
+    // Igual que en getDisponibilidadSedeHandler: se usa la fecha en que se
+    // necesita el equipo (fecha_requerida), no la fecha de creación del registro.
+    let fechaRegistro = r.fecha_requerida || r.fecha || "";
     if (fechaRegistro instanceof Date) {
       fechaRegistro = Utilities.formatDate(fechaRegistro, zonaHoraria, "yyyy-MM-dd");
     } else {
@@ -1823,7 +1921,7 @@ function getCarrosDisponibles() {
     const vehiculos = obtenerVehiculosPrincipalesRegistro(r);
     const estado = String(r.estado || "").trim().toUpperCase();
 
-    if (fechaRegistro === fechaHoy && estado === "EN_CURSO" && vehiculos.length) {
+    if (fechaRegistro === fechaConsulta && estado === "EN_CURSO" && vehiculos.length) {
       vehiculos.forEach(equipo => ocupados.push(equipo));
     }
   });
@@ -1880,9 +1978,14 @@ function validarVehiculosPrincipalesDisponibles(data) {
     return { ok: true };
   }
 
+  // Solo el primer carro es obligatorio. Docente hasta 2 carros; Comercial hasta 3.
   const tipoUsuario = normalizarTexto(data.tipo_usuario || "Docente");
-  if (tipoUsuario === "comercial" && (vehiculos.length < 2 || vehiculos.length > 5)) {
-    return { ok: false, error: "Comercial debe solicitar entre 2 y 5 carros." };
+  const limites = tipoUsuario === "comercial" ? { min: 1, max: 3 } : { min: 1, max: 2 };
+  if (vehiculos.length < limites.min || vehiculos.length > limites.max) {
+    return {
+      ok: false,
+      error: (data.tipo_usuario || "Docente") + " debe solicitar entre " + limites.min + " y " + limites.max + " carro(s)."
+    };
   }
 
   const fecha = data.fecha || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
@@ -2141,15 +2244,14 @@ function enviarCorreoDevolucionUsuario(info) {
   const destinatarios = buscarCorreosSoportePorSede(info.sede);
 
   const cuerpo = `
-    <h2 style="color:#dc2626;">Devolución informada por el usuario</h2>
-    <p>Hola equipo de soporte,</p>
+    <h2 style="color:#dc2626;">Reporte de devolución</h2>
     <p>
-      <strong>${info.nombre || "No registrado"}</strong> informó que terminó de usar el/los vehículo(s)
-      indicados abajo en la sede <strong>${info.sede || "No registrada"}</strong>.
+      Se informa que el usuario ha finalizado el uso de los equipos del colegio registrados a continuación.
+      Por tal motivo, se genera esta notificación para realizar el proceso de devolución correspondiente.
     </p>
     <p style="padding:12px; background:#fef2f2; border-left:4px solid #dc2626;">
       Este aviso <strong>no libera automáticamente</strong> el vehículo. Soporte debe validar
-      físicamente la devolución y cerrar la solicitud desde el módulo de devoluciones.
+      físicamente la devolución y cerrar la solicitud desde el módulo de recepción.
     </p>
     <table style="border-collapse:collapse; width:100%; font-family:Arial;">
       <tr style="background:#f3f4f6;">
@@ -2247,6 +2349,8 @@ function getColumnMap(sheet) {
   }
 
   map.fecha = buscarColumna("fecha");
+  map.fecha_requerida = buscarColumna("fecha_requerida", "fecha requerida");
+  map.hora_requerida = buscarColumna("hora_requerida", "hora requerida");
   map.nombre = buscarColumna("nombre");
   map.cedula = buscarColumna("cedula");
   map.correo = buscarColumna("correo");
@@ -2322,6 +2426,8 @@ function asegurarColumnaPorClave(sheet, colMap, key, header) {
 function guardarCamposRecepcionPorEncabezado_(sheet, rowNumber, colMap, valores) {
   const headersPorKey = {
     fecha: "fecha",
+    fecha_requerida: "fecha_requerida",
+    hora_requerida: "hora_requerida",
     nombre: "nombre",
     cedula: "cedula",
     correo: "correo",
@@ -2402,12 +2508,7 @@ function agregarDestinatarioUnico(lista, correo) {
 
 function getEquiposBodegaHandler(sede) {
   const sedeLimpia = normalizarTexto(sede || "");
-  const sheetName = "equipos_" + sedeLimpia;
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) {
-    return { status: "error", error: "No existe la hoja " + sheetName };
-  }
+  const sheet = obtenerOCrearHojaEquiposSede_(sede);
 
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return [];
@@ -2833,6 +2934,10 @@ function cerrarSolicitud(data) {
       return jsonResponse({ status: "error", error: "La solicitud ya está cerrada" });
     }
 
+    if (String(targetRow.estado || "").trim().toUpperCase() === "CANCELADO") {
+      return jsonResponse({ status: "error", error: "La solicitud fue cancelada y no se puede cerrar" });
+    }
+
     const correoSoporteEntrada = String(data.correo_soporte_devolucion || "").trim().toLowerCase();
     const permisoCierre = requireSoporteAutorizado_(correoSoporteEntrada, targetRow.sede || data.sede || "");
     if (!permisoCierre.ok) {
@@ -2942,11 +3047,23 @@ function generarPdfResumenFinal(data) {
       formatearHoraPdf(data.hora_devolucion_real || "")
     );
 
+    // Si una imagen puntual falla al procesarse (foto/firma dañada, archivo
+    // de Drive eliminado, etc.) no debe tumbar la generación de TODO el PDF
+    // de devolución — se omite esa imagen puntual y se sigue con el resto.
+    const procesarImagenPdfSeguro_ = (valor, etiqueta) => {
+      try {
+        return procesarImagenPdf(valor);
+      } catch (imgErr) {
+        Logger.log("No se pudo procesar imagen (" + etiqueta + ") en PDF de devolución: " + imgErr);
+        return null;
+      }
+    };
+
     const firmaEntregaSiAutoriza = esFirmaSiAutoriza(data.firma);
     const firmaDevolucionSiAutoriza = esFirmaSiAutoriza(data.firma_devolucion);
-    const firmaEntrega = !firmaEntregaSiAutoriza && data.firma ? procesarImagenPdf(data.firma) : null;
-    const firmaDevolucion = !firmaDevolucionSiAutoriza && data.firma_devolucion ? procesarImagenPdf(data.firma_devolucion) : null;
-    const fotoDevolucion = data.foto_devolucion_base64 || (data.foto_devolucion ? procesarImagenPdf(data.foto_devolucion) : null);
+    const firmaEntrega = !firmaEntregaSiAutoriza && data.firma ? procesarImagenPdfSeguro_(data.firma, "firma_entrega") : null;
+    const firmaDevolucion = !firmaDevolucionSiAutoriza && data.firma_devolucion ? procesarImagenPdfSeguro_(data.firma_devolucion, "firma_devolucion") : null;
+    const fotoDevolucion = data.foto_devolucion_base64 || (data.foto_devolucion ? procesarImagenPdfSeguro_(data.foto_devolucion, "foto_devolucion") : null);
     const firmaEntregaAutorizadaHtml = `Firma: S&iacute; autorizo<br><strong>Autorizado por:</strong> ${data.nombre || ""}<br><strong>C.C.:</strong> ${data.cedula || ""}<br><em>Confirmaci&oacute;n digital registrada por el usuario.</em>`;
     const firmaDevolucionAutorizadaHtml = `Firma devoluci&oacute;n soporte: S&iacute; autorizo<br><strong>Correo soporte:</strong> ${data.correo_soporte_devolucion || SUPPORT_EMAIL}<br><em>Confirmaci&oacute;n digital independiente registrada por soporte.</em>`;
 
@@ -3028,7 +3145,7 @@ function generarPdfResumenFinal(data) {
         <table>
           <tr><th>Fecha devolución</th><td>${fechaDev}</td></tr>
           <tr><th>Hora devolución real</th><td>${horaDev}</td></tr>
-          <tr><th>Estado final</th><td>${data.estado_final || ""}</td></tr>
+          <tr><th>Estado de entrega</th><td>${data.estado_final || ""}</td></tr>
           <tr><th>Novedad devolución</th><td>${data.novedad_devolucion || "No"}</td></tr>
           <tr><th>Descripción devolución</th><td>${data.descripcion_devolucion || "Sin novedad"}</td></tr>
         </table>
@@ -3084,38 +3201,48 @@ function generarPdfResumenFinal(data) {
     const pdfUrl = pdfFile.getUrl();
     tempFile.setTrashed(true);
 
-    const destinatarios = [];
-    agregarDestinatarioUnico(destinatarios, data.correo);
-    buscarCorreosSoportePorSede(data.sede).forEach(correo => agregarDestinatarioUnico(destinatarios, correo));
-    if (!destinatarios.length) {
-      agregarDestinatarioUnico(destinatarios, SUPPORT_EMAIL);
-    }
-
-    GmailApp.sendEmail(
-      destinatarios.join(","),
-      'Acta de devolucion | ' + (data.sede || "Sede") + ' | ' + (data.nombre || "Usuario"),
-      'Se adjunta el PDF final de devolución.\n\nVer en Drive: ' + pdfUrl,
-      {
-        attachments: [pdfBlob],
-        replyTo: SUPPORT_EMAIL,
-        htmlBody: `
-          <h2>Acta final de devolución</h2>
-          <p><strong>Nombre:</strong> ${data.nombre || ""}</p>
-          <p><strong>Curso:</strong> ${data.curso || "No registrado"}</p>
-          <p><strong>Sede:</strong> ${data.sede || ""}</p>
-          <p><strong>Tipo de usuario:</strong> ${data.tipo_usuario || "Docente"}</p>
-          <p><strong>Vehículo(s):</strong> ${obtenerVehiculosPrincipalesRegistro(data).join(", ") || data.equipo || ""}</p>
-          <p><strong>Cantidad devuelta:</strong> ${data.cantidad_devuelta || ""}</p>
-          <p><strong>Estado final:</strong> ${data.estado_final || ""}</p>
-          <p><strong>Fecha devolución:</strong> ${fechaDev}</p>
-          <p><strong>Hora devolución:</strong> ${horaDev}</p>
-          ${data.acta ? '<p><a href="' + data.acta + '">Abrir acta original de recepcion</a></p>' : ''}
-          ${data.foto_devolucion ? '<p><a href="' + data.foto_devolucion + '">Ver foto de novedad</a></p>' : ''}
-          <p><a href="${pdfUrl}">Ver acta final en Drive</a></p>
-          <hr><p>Sistema de recepción de equipos</p>
-        `
+    // El PDF ya quedó creado y subido a Drive en este punto — eso es lo que
+    // el botón "Ver devolución" necesita. Si el envío del correo falla
+    // (adjunto muy pesado, cuota de Gmail, destinatario inválido, etc.) no
+    // debe perderse el pdfUrl ya generado; antes un error aquí hacía que
+    // toda la función devolviera "" y el PDF quedaba "pendiente" para
+    // siempre aunque ya existiera en Drive.
+    try {
+      const destinatarios = [];
+      agregarDestinatarioUnico(destinatarios, data.correo);
+      buscarCorreosSoportePorSede(data.sede).forEach(correo => agregarDestinatarioUnico(destinatarios, correo));
+      if (!destinatarios.length) {
+        agregarDestinatarioUnico(destinatarios, SUPPORT_EMAIL);
       }
-    );
+
+      GmailApp.sendEmail(
+        destinatarios.join(","),
+        'Acta de devolucion | ' + (data.sede || "Sede") + ' | ' + (data.nombre || "Usuario"),
+        'Se adjunta el PDF final de devolución.\n\nVer en Drive: ' + pdfUrl,
+        {
+          attachments: [pdfBlob],
+          replyTo: SUPPORT_EMAIL,
+          htmlBody: `
+            <h2>Acta final de devolución</h2>
+            <p><strong>Nombre:</strong> ${data.nombre || ""}</p>
+            <p><strong>Curso:</strong> ${data.curso || "No registrado"}</p>
+            <p><strong>Sede:</strong> ${data.sede || ""}</p>
+            <p><strong>Tipo de usuario:</strong> ${data.tipo_usuario || "Docente"}</p>
+            <p><strong>Vehículo(s):</strong> ${obtenerVehiculosPrincipalesRegistro(data).join(", ") || data.equipo || ""}</p>
+            <p><strong>Cantidad devuelta:</strong> ${data.cantidad_devuelta || ""}</p>
+            <p><strong>Estado de entrega:</strong> ${data.estado_final || ""}</p>
+            <p><strong>Fecha devolución:</strong> ${fechaDev}</p>
+            <p><strong>Hora devolución:</strong> ${horaDev}</p>
+            ${data.acta ? '<p><a href="' + data.acta + '">Abrir acta original de recepcion</a></p>' : ''}
+            ${data.foto_devolucion ? '<p><a href="' + data.foto_devolucion + '">Ver foto de novedad</a></p>' : ''}
+            <p><a href="${pdfUrl}">Ver acta final en Drive</a></p>
+            <hr><p>Sistema de recepción de equipos</p>
+          `
+        }
+      );
+    } catch (mailErr) {
+      Logger.log("El PDF de devolución se generó bien, pero falló el envío del correo: " + mailErr);
+    }
 
     return pdfUrl;
 
@@ -3270,14 +3397,29 @@ function formatearHoraPdf(valor) {
 // ============================================================
 // CRUD EQUIPOS SOPORTE
 // ============================================================
+// Fuente \u00fanica para obtener (o crear) la hoja "equipos_<sede>" de una sede.
+// No elimina ni reemplaza hojas existentes: si la sede es nueva y todav\u00eda no
+// tiene su hoja de equipos, la crea autom\u00e1ticamente vac\u00eda con el mismo
+// formato que usan las dem\u00e1s hojas "equipos_<sede>" del sistema, en vez de
+// bloquear el formulario/panel con un error de "hoja no encontrada".
+function obtenerOCrearHojaEquiposSede_(sede) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheetName = "equipos_" + normalizarTexto(sede || "");
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    sheet.getRange(1, 1, 1, 5).setValues([["sede", "equipo", "carro", "placa", "serial"]]);
+    sheet.setFrozenRows(1);
+    Logger.log("\u2705 Se cre\u00f3 autom\u00e1ticamente la hoja " + sheetName);
+  }
+
+  return sheet;
+}
+
 function getHojaEquipos(sede) {
   try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheetName = "equipos_" + sede.toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-    const sheet = ss.getSheetByName(sheetName);
-    return sheet;
+    return obtenerOCrearHojaEquiposSede_(sede);
   } catch (e) {
     Logger.log("Error getHojaEquipos: " + e.toString());
     return null;

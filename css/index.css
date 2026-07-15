@@ -2132,6 +2132,40 @@ body > * {
     font-size: 0.85em;
 }
 
+.sede-soporte-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    margin-left: 4px;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(22, 163, 74, 0.1));
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 16px;
+    color: var(--blue-700, #1D4ED8);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.sede-soporte-badge i:first-child {
+    color: var(--blue-600, #2563EB);
+}
+
+.sede-soporte-badge #btnCambiarCorreo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border-radius: 50%;
+    opacity: 0.75;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.sede-soporte-badge #btnCambiarCorreo:hover {
+    opacity: 1;
+    transform: rotate(90deg);
+}
+
 .sede-select {
     padding: 8px 12px;
     border: 1px solid var(--gray-200);
@@ -2958,6 +2992,12 @@ body::after {
         0 1px 3px rgba(0,0,0,0.04),
         0 8px 32px rgba(0,0,0,0.04),
         0 0 0 1px rgba(0,0,0,0.03) !important;
+    /* En escritorio, el rol Soporte agrega badge de sede + botón "Salir" +
+       3 tabs a esta misma fila; si no cabe, que baje de línea en vez de
+       desbordarse o recortarse. */
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    row-gap: 8px !important;
 }
 
 .nav-container::before {
@@ -3054,6 +3094,10 @@ body::after {
 
 .hero-greeting i {
     font-size: 0.75rem;
+}
+
+#heroTitle {
+    font-weight: 500 !important;
 }
 
 .hero-title {
@@ -4037,6 +4081,74 @@ DASHBOARD - Estilos profesionales
     box-shadow: 0 8px 32px rgba(0,0,0,0.1);
 }
 
+.metric-clickable {
+    cursor: pointer;
+}
+.metric-clickable:active {
+    transform: translateY(-1px);
+}
+
+/* ── Panel de detalle interactivo del Dashboard ── */
+.detalle-panel-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+}
+.detalle-panel-box {
+    width: 100%;
+    max-width: 900px;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(15,23,42,0.4);
+    overflow: hidden;
+}
+.detalle-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(15,23,42,0.08);
+    background: linear-gradient(135deg, #f8fafc, #eef2ff);
+}
+.detalle-panel-header h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+.detalle-panel-close {
+    border: 0;
+    background: rgba(15,23,42,0.06);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: #0f172a;
+    font-size: 1rem;
+}
+.detalle-panel-close:hover { background: rgba(15,23,42,0.12); }
+.detalle-panel-body {
+    padding: 1.25rem 1.5rem 1.5rem;
+    overflow-y: auto;
+}
+.detalle-panel-chart-wrap {
+    position: relative;
+    height: 260px;
+    margin-bottom: 1.25rem;
+}
+.detalle-panel-table-wrap {
+    overflow-x: auto;
+}
+
 .metric-primary::before { background: linear-gradient(180deg, #2563EB, #3B82F6); }
 .metric-success::before { background: linear-gradient(180deg, #16A34A, #22C55E); }
 .metric-warning::before { background: linear-gradient(180deg, #EA580C, #FB923C); }
@@ -4222,6 +4334,20 @@ DASHBOARD - Estilos profesionales
     gap: 0.75rem;
 }
 
+.chart-bars-wrap {
+    position: relative;
+    height: 300px;
+}
+
+.chart-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted, #94a3b8);
+    font-size: 0.9rem;
+}
+
 .chart-bar-row {
     display: flex;
     align-items: center;
@@ -4296,8 +4422,15 @@ DASHBOARD - Estilos profesionales
     border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
+.status-chip-dash.cancelado {
+    background: rgba(239, 68, 68, 0.1);
+    color: #B91C1C;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
 .status-chip-dash.en-curso::before,
-.status-chip-dash.cerrado::before {
+.status-chip-dash.cerrado::before,
+.status-chip-dash.cancelado::before {
     content: '';
     width: 6px;
     height: 6px;
@@ -4306,6 +4439,7 @@ DASHBOARD - Estilos profesionales
 
 .status-chip-dash.en-curso::before { background: #EA580C; }
 .status-chip-dash.cerrado::before { background: #22C55E; }
+.status-chip-dash.cancelado::before { background: #EF4444; }
 
 /* BOTONES TABLA */
 .dash-action-btn {

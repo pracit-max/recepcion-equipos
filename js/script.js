@@ -281,6 +281,13 @@ function obtenerFechaLocalISO() {
     return `${year}-${month}-${day}`;
 }
 
+// El equipo se ocupa según la fecha en que REALMENTE se necesita, no la fecha
+// de hoy. Toda consulta de disponibilidad debe usar esta fecha.
+function obtenerFechaRequeridaSeleccionada() {
+    const input = document.getElementById('fechaRequerida');
+    return (input && input.value) ? input.value : obtenerFechaLocalISO();
+}
+
 function obtenerClaveCacheEquipos(sede) {
     return `equipos_${normalizarClave(sede)}_${obtenerFechaLocalISO()}`;
 }
@@ -416,7 +423,7 @@ function precargarEquiposPorSede(correo) {
     }
 
     const url = `${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeParaURL)}&correo=${encodeURIComponent(correoLimpio)}`;
-    const disponibilidadUrl = `${URL_GOOGLE_SCRIPT}?action=getDisponibilidadSede&sede=${encodeURIComponent(sedeParaURL)}&fecha=${encodeURIComponent(obtenerFechaLocalISO())}&correo=${encodeURIComponent(correoLimpio)}`;
+    const disponibilidadUrl = `${URL_GOOGLE_SCRIPT}?action=getDisponibilidadSede&sede=${encodeURIComponent(sedeParaURL)}&fecha=${encodeURIComponent(obtenerFechaRequeridaSeleccionada())}&correo=${encodeURIComponent(correoLimpio)}`;
 
     const promise = Promise.all([
         jsonpRequest(url),
@@ -480,7 +487,7 @@ function inicializarSelectorTipoUsuario() {
                 <span class="tipo-usuario-icon"><i class="fas fa-user-check"></i></span>
                 <div>
                     <p>Antes de iniciar</p>
-                    <h2>¿Quién realizará la solicitud?</h2>
+                    <h2>Selecciona según tu área</h2>
                 </div>
             </div>
             <div class="tipo-usuario-actions">
@@ -644,6 +651,12 @@ function asegurarEstilosTipoUsuario() {
     document.head.appendChild(style);
 }
 
+// Solo el primer carro es obligatorio en ambos casos.
+// Docente: hasta 2 carros. Comercial: hasta 3 carros.
+function limitesCarrosPorTipo(tipo) {
+    return tipo === 'Comercial' ? { min: 1, max: 3 } : { min: 1, max: 2 };
+}
+
 function seleccionarTipoUsuarioSolicitud(tipo) {
     tipoUsuarioSolicitud = tipo === 'Comercial' ? 'Comercial' : 'Docente';
     aplicarTipoUsuarioSolicitud(tipoUsuarioSolicitud);
@@ -661,15 +674,19 @@ function aplicarTipoUsuarioSolicitud(tipo) {
         btn.classList.toggle('active', btn.dataset.tipo === tipo);
     });
 
+    // Tanto Docente como Comercial eligen sus carros desde el checklist
+    // (commercialCarsPanel) en vez del <select> nativo de un solo carro:
+    // Docente puede tomar 1 o 2, Comercial de 2 a 3.
     const carroSelect = document.getElementById('carroSelect');
     if (carroSelect) {
-        carroSelect.required = tipo !== 'Comercial';
-        carroSelect.closest('.input-group')?.classList.toggle('docente-only-carro', tipo === 'Comercial');
-        if (tipo === 'Comercial') {
-            carroSelect.value = "";
-            document.getElementById('disponibilidadMsg').innerHTML = '';
-        }
+        carroSelect.required = false;
+        carroSelect.value = "";
+        const carroGroup = carroSelect.closest('.input-group');
+        if (carroGroup) carroGroup.style.display = 'none';
+        const dispMsg = document.getElementById('disponibilidadMsg');
+        if (dispMsg) dispMsg.innerHTML = '';
     }
+    carrosComercialSeleccionados = [];
 
     inicializarSelectorCarrosComercial();
     renderizarSelectorCarrosComercial();
@@ -691,82 +708,87 @@ function inicializarBotonDevolucionesUsuario() {
 }
 
 function inicializarSelectorCarrosComercial() {
-    if (!document.getElementById('form') || document.getElementById('commercialCarsPanel')) return;
+    if (!document.getElementById('form') || document.getElementById('commercialCarsAnchor')) return;
     const carroGroup = document.getElementById('carroSelect')?.closest('.input-group');
     if (!carroGroup) return;
-    carroGroup.insertAdjacentHTML('afterend', `
-        <div class="input-group full-width commercial-panel" id="commercialCarsPanel">
-            <label><i class="fas fa-car-side"></i> Vehículos para Comercial *</label>
-            <p style="margin:0.25rem 0 0; color:#64748b; font-size:0.88rem;">Selecciona de 2 a 5 carros disponibles para el evento.</p>
-            <div class="commercial-grid" id="commercialCarsGrid"></div>
-            <div class="commercial-summary" id="commercialCarsSummary">0 vehículos seleccionados</div>
-        </div>
-    `);
+    // Ancla invisible: los dropdowns se insertan como hermanos directos de
+    // .form-grid (no dentro de una caja aparte) para que la cuadrícula de 2/3
+    // columnas del formulario los acomode igual que cédula/nombre/curso, en
+    // vez de quedar todos apilados uno debajo del otro en escritorio.
+    const anchor = document.createElement('div');
+    anchor.id = 'commercialCarsAnchor';
+    anchor.style.display = 'none';
+    carroGroup.insertAdjacentElement('afterend', anchor);
 }
 
+// Igual look & feel que el <select> original de "Carro a recibir" (mismo
+// .select-wrapper con flecha), solo que se repite un dropdown por cada carro
+// que se puede elegir según el tipo de usuario. Solo el primero es obligatorio.
 function renderizarSelectorCarrosComercial() {
-    const grid = document.getElementById('commercialCarsGrid');
-    const panel = document.getElementById('commercialCarsPanel');
-    if (!grid || !panel) return;
+    const anchor = document.getElementById('commercialCarsAnchor');
+    if (!anchor) return;
+    const formGrid = anchor.closest('.form-grid');
 
-    if (tipoUsuarioSolicitud !== 'Comercial') {
-        panel.style.display = 'none';
-        return;
-    }
+    formGrid?.querySelectorAll('.carro-multiple-group').forEach(el => el.remove());
 
-    panel.style.display = 'block';
+    if (!tipoUsuarioSolicitud) return;
+
+    const limites = limitesCarrosPorTipo(tipoUsuarioSolicitud);
     const sede = document.getElementById('sede')?.value || "";
-    grid.innerHTML = '';
 
-    carrosComercialSeleccionados = carrosComercialSeleccionados.filter(carro => carrosDisponibles.includes(carro));
+    carrosComercialSeleccionados = carrosComercialSeleccionados
+        .filter(carro => carrosDisponibles.includes(carro))
+        .slice(0, limites.max);
 
-    carrosDisponibles.forEach(carro => {
-        const ocupado = obtenerDisponibilidadLocal(carro, sede) || disponibilidadCarrosCache.ocupados[carro];
-        const selected = carrosComercialSeleccionados.includes(carro);
-        const label = document.createElement('label');
-        label.className = `commercial-car-card ${selected ? 'selected' : ''} ${ocupado ? 'disabled' : ''}`;
-        label.innerHTML = `
-            <input type="checkbox" value="${escapeHtml(carro)}" ${selected ? 'checked' : ''} ${ocupado ? 'disabled' : ''}>
-            <span>
-                <strong>${escapeHtml(carro)}</strong>
-                <small>${ocupado ? 'No disponible: ' + escapeHtml(ocupado.usuario || 'reservado') : 'Disponible para solicitud comercial'}</small>
-            </span>
+    let insertPoint = anchor;
+
+    for (let i = 0; i < limites.max; i++) {
+        const esRequerido = i < limites.min;
+        const valorActual = carrosComercialSeleccionados[i] || '';
+        const numeroLabel = limites.max === 1 ? '' : ` ${i + 1}`;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'input-group carro-multiple-group';
+        wrapper.innerHTML = `
+            <label for="carroMultiple${i}">
+                <i class="fas fa-laptop"></i> Carro${numeroLabel} a recibir ${esRequerido ? '*' : ''}
+                ${esRequerido ? '' : '<span style="font-size:0.8rem; color:#64748b; font-weight:400;">(opcional)</span>'}
+            </label>
+            <div class="select-wrapper">
+                <select id="carroMultiple${i}" ${esRequerido ? 'required' : ''}>
+                    <option value="">${esRequerido ? 'Seleccione un carro...' : 'Ninguno'}</option>
+                </select>
+                <i class="fas fa-chevron-down"></i>
+            </div>
         `;
-        label.querySelector('input').addEventListener('change', () => toggleCarroComercial(carro));
-        grid.appendChild(label);
-    });
+        insertPoint.insertAdjacentElement('afterend', wrapper);
+        insertPoint = wrapper;
 
-    actualizarResumenCarrosComercial();
-}
+        const select = wrapper.querySelector('select');
+        carrosDisponibles.forEach(carro => {
+            const elegidoEnOtroDropdown = carrosComercialSeleccionados.some((c, idx) => c === carro && idx !== i);
+            if (elegidoEnOtroDropdown) return;
 
-function toggleCarroComercial(carro) {
-    const existe = carrosComercialSeleccionados.includes(carro);
-    if (existe) {
-        carrosComercialSeleccionados = carrosComercialSeleccionados.filter(item => item !== carro);
-    } else {
-        if (carrosComercialSeleccionados.length >= 5) {
-            showToast('Comercial puede seleccionar máximo 5 carros', 'warning');
-            return;
-        }
-        carrosComercialSeleccionados.push(carro);
+            const ocupado = obtenerDisponibilidadLocal(carro, sede) || disponibilidadCarrosCache.ocupados[carro];
+            const option = document.createElement('option');
+            option.value = carro;
+            option.textContent = ocupado ? `${carro} (Ocupado)` : carro;
+            option.disabled = Boolean(ocupado);
+            select.appendChild(option);
+        });
+        select.value = valorActual;
+
+        select.addEventListener('change', () => {
+            const valores = Array.from(formGrid.querySelectorAll('.carro-multiple-group select')).map(s => s.value).filter(Boolean);
+            carrosComercialSeleccionados = [...new Set(valores)];
+            renderizarSelectorCarrosComercial();
+            cargarEquiposCarro();
+        });
     }
-    renderizarSelectorCarrosComercial();
-    cargarEquiposCarro();
-}
-
-function actualizarResumenCarrosComercial() {
-    const summary = document.getElementById('commercialCarsSummary');
-    if (!summary) return;
-    const total = carrosComercialSeleccionados.length;
-    summary.textContent = total
-        ? `${total} vehículo${total === 1 ? '' : 's'} seleccionado${total === 1 ? '' : 's'}: ${carrosComercialSeleccionados.join(', ')}`
-        : '0 vehículos seleccionados';
 }
 
 function obtenerCarrosPrincipalesSolicitud() {
-    if (tipoUsuarioSolicitud === 'Comercial') return [...carrosComercialSeleccionados];
-    const carro = document.getElementById('carroSelect')?.value || '';
-    return carro ? [carro] : [];
+    return [...carrosComercialSeleccionados];
 }
 
 // Cargar equipos al iniciar
@@ -908,7 +930,7 @@ async function cargarEquiposPorSede() {
     try {
         // Construir URL de petición
         const url = `${URL_GOOGLE_SCRIPT}?action=getEquipos&sede=${encodeURIComponent(sedeParaURL)}&correo=${encodeURIComponent(correoSoporte)}`;
-        const disponibilidadUrl = `${URL_GOOGLE_SCRIPT}?action=getDisponibilidadSede&sede=${encodeURIComponent(sedeParaURL)}&fecha=${encodeURIComponent(obtenerFechaLocalISO())}&correo=${encodeURIComponent(correoSoporte)}`;
+        const disponibilidadUrl = `${URL_GOOGLE_SCRIPT}?action=getDisponibilidadSede&sede=${encodeURIComponent(sedeParaURL)}&fecha=${encodeURIComponent(obtenerFechaRequeridaSeleccionada())}&correo=${encodeURIComponent(correoSoporte)}`;
         
         const [data, disponibilidad] = await Promise.all([
             jsonpRequest(url),
@@ -1544,6 +1566,31 @@ function validarHora() {
     return true;
 }
 
+function validarHoraRequerida() {
+    const horaInput = document.getElementById('horaRequerida');
+    if (!horaInput) return true;
+    const hora = horaInput.value;
+    const errorMsg = document.getElementById('horaRequeridaError');
+
+    const horaMin = "07:00";
+    const horaMax = "15:00";
+
+    if (hora < horaMin || hora > horaMax) {
+        if (errorMsg) errorMsg.style.display = 'block';
+
+        horaInput.value = ""; // limpiar, no se permite ninguna hora fuera de 7:00 AM - 3:00 PM
+
+        setTimeout(() => {
+            if (errorMsg) errorMsg.style.display = 'none';
+        }, 8000);
+
+        return false;
+    }
+
+    if (errorMsg) errorMsg.style.display = 'none';
+    return true;
+}
+
 function guardarDisponibilidadCache(sede, data) {
     if (!data || data.status === 'error') return;
     disponibilidadCarrosCache = {
@@ -1556,7 +1603,7 @@ function guardarDisponibilidadCache(sede, data) {
 
 function obtenerDisponibilidadLocal(carro, sede) {
     const mismaSede = normalizarClave(sede) === normalizarClave(disponibilidadCarrosCache.sede);
-    const mismaFecha = disponibilidadCarrosCache.fecha === obtenerFechaLocalISO();
+    const mismaFecha = disponibilidadCarrosCache.fecha === obtenerFechaRequeridaSeleccionada();
     if (!mismaSede || !mismaFecha) return null;
     return disponibilidadCarrosCache.ocupados[carro] || null;
 }
@@ -1645,10 +1692,9 @@ async function verificarDisponibilidad() {
     }
     
     try {
-        const fechaHoy = obtenerFechaLocalISO();
-        
-        // ??? AQUÍ ESTÁ EL CAMBIO IMPORTANTE
-        const url = `${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carro)}&fecha=${fechaHoy}&sede=${encodeURIComponent(sede)}`;
+        const fechaConsulta = obtenerFechaRequeridaSeleccionada();
+
+        const url = `${URL_GOOGLE_SCRIPT}?action=verificarDisponibilidad&carro=${encodeURIComponent(carro)}&fecha=${encodeURIComponent(fechaConsulta)}&sede=${encodeURIComponent(sede)}`;
         
         console.log("URL de consulta:", url);
         
@@ -1762,19 +1808,54 @@ let records = [
 
 // Inicialización
 
+function horaActualPadded() {
+    const ahora = new Date();
+    return `${String(ahora.getHours()).padStart(2, '0')}:${String(ahora.getMinutes()).padStart(2, '0')}`;
+}
+
 function setDefaultDate() {
     const fechaInput = document.getElementById('fecha');
+    if (!fechaInput) return;
     const hoy = new Date();
 
     const year = hoy.getFullYear();
     const month = String(hoy.getMonth() + 1).padStart(2, '0');
     const day = String(hoy.getDate()).padStart(2, '0');
-    const hours = String(hoy.getHours()).padStart(2, '0');
-    const minutes = String(hoy.getMinutes()).padStart(2, '0');
 
-    // Para input datetime-local
-    fechaInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    // "Fecha de Recepción": evidencia del momento exacto de la recepción.
+    // Fecha y hora quedan 100% bloqueadas, generadas automáticamente.
+    fechaInput.value = `${year}-${month}-${day}T${horaActualPadded()}`;
     fechaInput.disabled = true;
+
+    // "Fecha en que se requiere el equipo" — totalmente editable por el usuario.
+    const fechaRequeridaInput = document.getElementById('fechaRequerida');
+    if (fechaRequeridaInput && !fechaRequeridaInput.value) {
+        fechaRequeridaInput.value = `${year}-${month}-${day}`;
+    }
+    if (fechaRequeridaInput && !fechaRequeridaInput.dataset.listenerDisponibilidad) {
+        fechaRequeridaInput.dataset.listenerDisponibilidad = '1';
+        fechaRequeridaInput.addEventListener('change', refrescarDisponibilidadPorFechaRequerida);
+    }
+}
+
+// Al cambiar la fecha en que se requiere el equipo, la disponibilidad de
+// carros debe recalcularse para ESA fecha (el mismo carro puede estar
+// disponible hoy aunque esté reservado para otro día, y viceversa).
+async function refrescarDisponibilidadPorFechaRequerida() {
+    const sede = document.getElementById('sede')?.value || '';
+    if (!sede) return;
+
+    try {
+        const correo = obtenerCorreoInnovaActual();
+        const url = `${URL_GOOGLE_SCRIPT}?action=getDisponibilidadSede&sede=${encodeURIComponent(sede)}&fecha=${encodeURIComponent(obtenerFechaRequeridaSeleccionada())}&correo=${encodeURIComponent(correo)}`;
+        const disponibilidad = await jsonpRequest(url);
+        guardarDisponibilidadCache(sede, disponibilidad);
+    } catch (err) {
+        console.warn("No se pudo actualizar disponibilidad para la nueva fecha:", err);
+    }
+
+    if (typeof renderizarCarrosSelect === 'function') renderizarCarrosSelect();
+    if (typeof verificarDisponibilidad === 'function') verificarDisponibilidad();
 }
 
 function initializeEventListeners() {
@@ -2795,6 +2876,73 @@ function validateCurrentSection() {
 }
 
 // ===== ENVÍO DEL FORMULARIO =====
+function mostrarModalConfirmacionEnvio() {
+    if (!document.getElementById('modalConfirmacionEnvioStyles')) {
+        const style = document.createElement('style');
+        style.id = 'modalConfirmacionEnvioStyles';
+        style.textContent = `
+            .modal-confirmacion-envio-overlay {
+                position: fixed; inset: 0; z-index: 10000;
+                display: flex; align-items: center; justify-content: center;
+                padding: 1.25rem;
+                background: rgba(15, 23, 42, 0.62);
+                backdrop-filter: blur(4px);
+            }
+            .modal-confirmacion-envio-card {
+                width: 100%; max-width: 460px;
+                background: #fff;
+                border-radius: 20px;
+                padding: 2rem 1.75rem 1.75rem;
+                text-align: center;
+                box-shadow: 0 25px 50px -12px rgba(15,23,42,0.35);
+                animation: modalConfirmacionEnvioPop 0.35s cubic-bezier(.34,1.56,.64,1);
+            }
+            @keyframes modalConfirmacionEnvioPop {
+                from { opacity: 0; transform: scale(0.92) translateY(14px); }
+                to { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            .modal-confirmacion-envio-icon {
+                width: 64px; height: 64px; margin: 0 auto 1rem;
+                border-radius: 50%;
+                display: inline-grid; place-items: center;
+                background: linear-gradient(135deg, #22C55E, #16A34A);
+                color: #fff; font-size: 1.75rem;
+            }
+            .modal-confirmacion-envio-card h2 {
+                margin: 0 0 0.75rem; color: #0f172a; font-size: 1.3rem; font-weight: 800;
+            }
+            .modal-confirmacion-envio-card p {
+                margin: 0; color: #475569; font-size: 0.95rem; line-height: 1.5;
+            }
+            .modal-confirmacion-envio-btn {
+                margin-top: 1.5rem;
+                border: 0; border-radius: 12px;
+                background: linear-gradient(135deg, #22C55E, #16A34A);
+                color: #fff; font-weight: 800; font-size: 1rem;
+                padding: 0.85rem 2.5rem;
+                cursor: pointer;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-confirmacion-envio-overlay';
+    overlay.innerHTML = `
+        <div class="modal-confirmacion-envio-card">
+            <div class="modal-confirmacion-envio-icon"><i class="fas fa-check"></i></div>
+            <h2>Gracias. Tu solicitud ha sido enviada exitosamente.</h2>
+            <p>Recuerda presentarte 5 minutos antes de la hora programada para la entrega de los equipos, en la fecha solicitada.</p>
+            <button type="button" class="modal-confirmacion-envio-btn" id="btnAceptarConfirmacionEnvio">Aceptar</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    document.getElementById('btnAceptarConfirmacionEnvio').addEventListener('click', () => {
+        window.location.reload();
+    });
+}
+
 async function handleSubmit(e) {
     e.preventDefault();
 
@@ -2836,11 +2984,7 @@ async function handleSubmit(e) {
         if (result.status === 'ok') {
             guardarDatosCedulaLocal(formData);
             dispararProcesamientoDocumentosPendientes();
-            showToast('¡Registro guardado exitosamente!<br>Recargando...', 'success');
-
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
+            mostrarModalConfirmacionEnvio();
 
         } else {
             throw new Error(result.error || 'Error desconocido');
@@ -2895,15 +3039,24 @@ function toBase64(file) {
 async function collectFormData() {
     const esOtrosEquipos = Boolean(document.getElementById('otrosEquipos')?.checked);
     const horaDevolucion = document.getElementById('horaDevolucion').value;
-    
+
     // Validar hora
     if (!horaDevolucion || horaDevolucion < "07:00" || horaDevolucion > "15:00") {
         showToast('La hora debe estar entre 7:00 AM y 3:00 PM', 'error');
         return false;
     }
-    
+
+    const horaRequerida = document.getElementById('horaRequerida')?.value || '';
+    if (!horaRequerida || horaRequerida < "07:00" || horaRequerida > "15:00") {
+        showToast('La hora en que requiere el equipo debe estar entre 7:00 AM y 3:00 PM', 'error');
+        document.getElementById('horaRequerida')?.focus();
+        return false;
+    }
+
     let data = {
         fecha: document.getElementById('fecha').value.split('T')[0],
+        fecha_requerida: document.getElementById('fechaRequerida')?.value || '',
+        hora_requerida: horaRequerida,
         nombre: document.getElementById('nombre').value.trim(),
         cedula: document.getElementById('cedula').value.trim(),
         correo: document.getElementById('correo').value.trim(),
@@ -2923,6 +3076,12 @@ async function collectFormData() {
     if (!data.curso) {
         showToast('Debe escribir el curso', 'error');
         document.getElementById('curso')?.focus();
+        return false;
+    }
+
+    if (!data.fecha_requerida) {
+        showToast('Debe indicar la fecha en que requiere el equipo', 'error');
+        document.getElementById('fechaRequerida')?.focus();
         return false;
     }
 
@@ -2950,14 +3109,15 @@ async function collectFormData() {
         data.rango_inicio = rangoInicio;
         data.rango_fin = rangoFin;
     } else {
-        // Lógica normal de carros, ampliada para Comercial
+        // Lógica normal de carros: Docente 1-2, Comercial 2-3
         const carrosSeleccionados = obtenerCarrosPrincipalesSolicitud();
-        if (data.tipo_usuario === 'Comercial' && (carrosSeleccionados.length < 2 || carrosSeleccionados.length > 5)) {
-            showToast('Comercial debe seleccionar entre 2 y 5 carros', 'error');
+        const limitesCarros = limitesCarrosPorTipo(data.tipo_usuario);
+        if (!carrosSeleccionados.length) {
+            showToast('Debe seleccionar al menos un carro', 'error');
             return false;
         }
-        if (!carrosSeleccionados.length) {
-            showToast('Debe seleccionar un carro', 'error');
+        if (carrosSeleccionados.length < limitesCarros.min || carrosSeleccionados.length > limitesCarros.max) {
+            showToast(`${data.tipo_usuario} debe seleccionar entre ${limitesCarros.min} y ${limitesCarros.max} carro(s)`, 'error');
             return false;
         }
         
@@ -3565,7 +3725,7 @@ document.addEventListener('click', (e) => {
     }
 });
 async function cargarCarros() {
-    const ocupados = await jsonpRequest(URL_GOOGLE_SCRIPT + "?action=ocupados");
+    const ocupados = await jsonpRequest(URL_GOOGLE_SCRIPT + "?action=ocupados&fecha=" + encodeURIComponent(obtenerFechaRequeridaSeleccionada()));
 
     console.log("OCUPADOS:", ocupados);
 
@@ -3661,13 +3821,53 @@ function renderizarSolicitudes(data) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn-inline-return";
-    btn.textContent = "Pendiente";
+    btn.textContent = "Cerrar";
     btn.addEventListener("click", () => abrirFormularioDevolucion(item));
+
+    const btnCancelar = document.createElement("button");
+    btnCancelar.type = "button";
+    btnCancelar.className = "btn-inline-cancelar";
+    btnCancelar.innerHTML = '<i class="fas fa-ban"></i> Cancelar solicitud';
+    btnCancelar.addEventListener("click", () => cancelarSolicitudSoporte(item));
 
     tr.children[6].appendChild(btnPdf);
     tr.children[7].appendChild(btn);
+    tr.children[7].appendChild(btnCancelar);
     tbody.appendChild(tr);
   });
+}
+
+async function cancelarSolicitudSoporte(item) {
+  const idSolicitud = item && item.id_solicitud;
+  if (!idSolicitud) {
+    showToast("No se pudo identificar la solicitud a cancelar", "error");
+    return;
+  }
+
+  const confirmado = confirm(
+    `¿Seguro que deseas cancelar la solicitud de ${item.nombre || "este usuario"}? Esta acción no se puede deshacer.`
+  );
+  if (!confirmado) return;
+
+  try {
+    const correoSoporte = localStorage.getItem('emailSoporte') || '';
+    const sede = obtenerSedeDesdeURL();
+    const resultado = await jsonpRequest(
+      `${URL_GOOGLE_SCRIPT}?action=updateStatus&id=${encodeURIComponent(idSolicitud)}&estado=CANCELADO&correo=${encodeURIComponent(correoSoporte)}&sede=${encodeURIComponent(sede)}`
+    );
+
+    if (resultado && resultado.status === "error") {
+      showToast(resultado.error || "No se pudo cancelar la solicitud", "error");
+      return;
+    }
+
+    showToast("Solicitud cancelada correctamente", "success");
+    cargarSolicitudesEnCurso();
+    if (typeof cargarDashboard === "function") cargarDashboard(true);
+  } catch (err) {
+    console.error(err);
+    showToast("Error cancelando la solicitud", "error");
+  }
 }
 
 async function cargarDevolucionesCerradas() {
@@ -3723,8 +3923,7 @@ function renderizarDevolucionesCerradas(data) {
     btnResumen.type = "button";
     btnResumen.className = "btn-inline-pdf";
     btnResumen.innerHTML = '<i class="fas fa-file-pdf"></i> Ver devolución';
-    btnResumen.disabled = !urlDevolucion;
-    btnResumen.title = btnResumen.disabled ? "El PDF final todavía no está registrado" : "Abrir PDF final de devolución";
+    btnResumen.title = urlDevolucion ? "Abrir PDF final de devolución" : "El PDF todavía se está generando: haz click para reintentar";
     btnResumen.addEventListener("click", () => abrirPdfDevolucion(urlDevolucion));
 
     const btnRecepcion = document.createElement("button");
@@ -3760,13 +3959,36 @@ function filtrarDevolucionesCerradas() {
   renderizarDevolucionesCerradas(filtrados);
 }
 
+// El PDF de devolución se genera en segundo plano justo después de cerrar la
+// solicitud; si todavía no está listo (o el intento anterior falló), en vez
+// de solo mostrar una advertencia se fuerza el reprocesamiento y se refresca
+// la tabla, para que el usuario pueda volver a intentar sin recargar la página.
+let reintentandoPdfDevolucion = false;
+
 function abrirPdfDevolucion(url) {
     const destino = obtenerUrlPreviewDrive(url);
     if (!destino) {
-        showToast("No hay PDF de devolución relacionado con esta solicitud", "warning");
+        reintentarPdfDevolucion();
         return;
     }
     window.open(destino, "_blank", "noopener,noreferrer");
+}
+
+function reintentarPdfDevolucion() {
+    if (reintentandoPdfDevolucion) {
+        showToast("Ya se está generando el PDF de devolución, espera unos segundos...", "info");
+        return;
+    }
+    reintentandoPdfDevolucion = true;
+    showToast("El PDF de devolución todavía se está generando. Reintentando...", "warning");
+    dispararProcesamientoDocumentosPendientes();
+
+    setTimeout(() => {
+        if (typeof cargarDevolucionesCerradas === "function") {
+            cargarDevolucionesCerradas();
+        }
+        reintentandoPdfDevolucion = false;
+    }, 6000);
 }
 
 function actualizarEstadisticasDevoluciones() {
@@ -3885,6 +4107,9 @@ function abrirFormularioDevolucion(item) {
   document.getElementById("novedad_devolucion").value = "No";
   document.getElementById("descripcion_devolucion").value = "";
   document.getElementById("boxDescripcionDevolucion").style.display = "none";
+  const boxFotoReset = document.getElementById("boxFotoDevolucion");
+  if (boxFotoReset) boxFotoReset.style.display = "none";
+  if (typeof removeFotoDevolucion === "function") removeFotoDevolucion();
   renderizarPanelDevolucionAdicionales(item);
   const correoSoporte = document.getElementById("correo_soporte_devolucion");
   if (correoSoporte) {
@@ -3906,8 +4131,20 @@ function abrirFormularioDevolucion(item) {
 }
 function toggleDescripcionDevolucion() {
   const value = document.getElementById("novedad_devolucion").value;
-  document.getElementById("boxDescripcionDevolucion").style.display =
-    esValorSi(value) ? "block" : "none";
+  const mostrar = esValorSi(value);
+  document.getElementById("boxDescripcionDevolucion").style.display = mostrar ? "block" : "none";
+  const boxFoto = document.getElementById("boxFotoDevolucion");
+  if (boxFoto) boxFoto.style.display = mostrar ? "block" : "none";
+  if (!mostrar) removeFotoDevolucion();
+}
+
+// "Novedad" y "Dañado" en Estado de entrega implican que hay una novedad:
+// se deriva automáticamente en vez de volver a preguntarlo aparte.
+function onCambioEstadoFinal() {
+  const estado = document.getElementById("estado_final").value;
+  const hayNovedad = estado === "INCOMPLETO" || estado === "DAÑADO";
+  document.getElementById("novedad_devolucion").value = hayNovedad ? "Sí" : "No";
+  toggleDescripcionDevolucion();
 }
 
 function renderizarPanelDevolucionAdicionales(item) {
@@ -4273,6 +4510,116 @@ function inicializarFormularioDevolucionUsuario() {
     }
 }
 
+// Punto 5: el docente solo escribe la cédula y el sistema busca sus
+// solicitudes EN_CURSO para autocompletar el resto del formulario, en vez de
+// obligarlo a volver a escribir toda la información.
+async function buscarSolicitudesActivasUsuario() {
+    const cedulaInput = document.getElementById('buscarCedulaDevolucion');
+    const cedula = String(cedulaInput?.value || '').replace(/\D/g, '');
+    const resultados = document.getElementById('resultadosSolicitudesActivas');
+    const btn = document.getElementById('btnBuscarCedulaDevolucion');
+
+    if (!cedula || cedula.length < 6) {
+        showToast('Escribe una cédula válida', 'error');
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
+    }
+    if (resultados) resultados.innerHTML = '';
+
+    try {
+        const data = await jsonpRequest(`${URL_GOOGLE_SCRIPT}?action=buscarSolicitudesActivasPorCedula&cedula=${encodeURIComponent(cedula)}`);
+        const solicitudes = (data && Array.isArray(data.solicitudes)) ? data.solicitudes : [];
+
+        if (!solicitudes.length) {
+            if (resultados) {
+                resultados.innerHTML = `
+                    <div class="alert-box warning" style="margin-top:0.5rem;">
+                        <i class="fas fa-info-circle"></i>
+                        <span>No encontramos solicitudes activas con esa cédula. Puedes llenar el formulario manualmente.</span>
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        window.solicitudesActivasUsuarioEncontradas = solicitudes;
+
+        if (resultados) {
+            resultados.innerHTML = `
+                <p style="font-weight:700; margin-bottom:0.5rem;">Selecciona la solicitud que deseas devolver:</p>
+                ${solicitudes.map((s, idx) => `
+                    <div class="return-form-card" style="margin-bottom:0.75rem; padding:1rem;">
+                        <p style="margin:0 0 0.35rem;"><strong>${escapeHtml(s.nombre || '')}</strong> — ${escapeHtml(capitalizarSedeFormulario(normalizarClave(s.sede)) || s.sede || '')}</p>
+                        <p style="margin:0 0 0.35rem; color:#64748b; font-size:0.9rem;">
+                            Vehículo: ${escapeHtml(formatearVehiculosItem(s))} &nbsp;·&nbsp;
+                            Curso: ${escapeHtml(s.curso || '-')} &nbsp;·&nbsp;
+                            Entregado: ${escapeHtml(s.fecha || '-')} ${escapeHtml(s.hora_entrega || '')}
+                        </p>
+                        ${s.estado_devolucion_usuario ? '<p style="margin:0 0 0.35rem; color:#b45309; font-size:0.85rem;"><i class="fas fa-circle-info"></i> Ya notificaste esta devolución, sigue pendiente de validación por soporte.</p>' : ''}
+                        <button type="button" class="btn-return-submit" onclick="seleccionarSolicitudActivaUsuario(${idx})">
+                            <i class="fas fa-check"></i> Es esta, continuar devolución
+                        </button>
+                    </div>
+                `).join('')}
+            `;
+        }
+    } catch (err) {
+        console.error(err);
+        showToast('No se pudo buscar tus solicitudes, intenta de nuevo', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-magnifying-glass"></i> Buscar mis solicitudes';
+        }
+    }
+}
+
+async function seleccionarSolicitudActivaUsuario(idx) {
+    const solicitud = (window.solicitudesActivasUsuarioEncontradas || [])[idx];
+    if (!solicitud) return;
+
+    mostrarFormularioDevolucionManual();
+
+    const nombreInput = document.getElementById('usuarioDevolucionNombre');
+    const cedulaInput = document.getElementById('usuarioDevolucionCedula');
+    const tipoInput = document.getElementById('usuarioDevolucionTipo');
+    const sedeInput = document.getElementById('usuarioDevolucionSede');
+
+    if (nombreInput) nombreInput.value = solicitud.nombre || '';
+    if (cedulaInput) cedulaInput.value = solicitud.cedula || '';
+    if (tipoInput) tipoInput.value = solicitud.tipo_usuario || 'Docente';
+    if (sedeInput) sedeInput.value = solicitud.sede || '';
+
+    if (solicitud.sede) {
+        await cargarVehiculosDevolucionUsuario(normalizarClave(solicitud.sede));
+    }
+
+    const vehiculosDeLaSolicitud = new Set();
+    try {
+        const parsed = JSON.parse(solicitud.vehiculos_solicitados || '[]');
+        if (Array.isArray(parsed)) parsed.forEach(v => vehiculosDeLaSolicitud.add(String(v)));
+    } catch (err) {
+        // vehiculos_solicitados vacío o en formato antiguo, se usa el respaldo de abajo.
+    }
+    if (solicitud.vehiculo_principal) vehiculosDeLaSolicitud.add(String(solicitud.vehiculo_principal));
+
+    document.querySelectorAll('input[name="vehiculos_devueltos"]').forEach(checkbox => {
+        if (vehiculosDeLaSolicitud.has(checkbox.value)) checkbox.checked = true;
+    });
+
+    document.getElementById('devolucionUsuarioForm')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('Datos autocompletados. Verifica y completa la devolución.', 'success');
+}
+
+function mostrarFormularioDevolucionManual() {
+    const form = document.getElementById('devolucionUsuarioForm');
+    if (form) form.style.display = '';
+}
+
 async function cargarVehiculosDevolucionUsuario(sede) {
     const container = document.getElementById('vehiculosDevueltosContainer');
     if (!container) return;
@@ -4335,7 +4682,10 @@ function capitalizarSedeFormulario(sede) {
         cota: 'Cota',
         mosquera: 'Mosquera',
         tunja: 'Tunja',
-        barranquilla: 'Barranquilla'
+        barranquilla: 'Barranquilla',
+        alameda: 'Alameda del Río',
+        genoves: 'Portal de Génoves',
+        parqueheredia: 'Atlántico Parque Heredia'
     };
     const normalizada = normalizarClave(sede);
     return nombres[normalizada] || sede || '';

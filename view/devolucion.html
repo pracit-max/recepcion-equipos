@@ -47,8 +47,8 @@
                     <i class="fas fa-map-pin"></i>
                     <span id="sedeBadgeText">Cargando colegio...</span>
                 </div>
-                <h1 class="hero-title">Módulo de Devoluciones</h1>
-                <p class="hero-subtitle">Consulta solicitudes en curso y registra la devolución de equipos</p>
+                <h1 class="hero-title">Módulo de Recepción</h1>
+                <p class="hero-subtitle">Consulta solicitudes en curso y registra la recepción de equipos</p>
             </div>
         </section>
 
@@ -70,7 +70,7 @@
         <section class="section-card">
             <h2 class="section-title">
                 <i class="fas fa-list-check"></i>
-                Solicitudes en curso
+                Devoluciones pendientes
             </h2>
             
             <div style="margin-bottom: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
@@ -134,7 +134,7 @@
                             <th>Curso</th>
                             <th>Equipo</th>
                             <th>Fecha dev.</th>
-                            <th>Estado final</th>
+                            <th>Estado de entrega</th>
                             <th>PDF devolución</th>
                             <th>Acta original</th>
                         </tr>
@@ -161,7 +161,7 @@
 
             <div class="selected-box">
                 <i class="fas fa-info-circle"></i>
-                <span>Completa los datos de devolución de la solicitud seleccionada.</span>
+                <span>Completa los datos de recepción de la solicitud seleccionada.</span>
             </div>
 
             <input type="hidden" id="devolucion_id_solicitud">
@@ -200,22 +200,16 @@
             </div>
 
             <div class="form-group">
-                <label for="estado_final">Estado final</label>
-                <select id="estado_final" class="form-input">
+                <label for="estado_final">Estado de entrega</label>
+                <select id="estado_final" class="form-input" onchange="onCambioEstadoFinal()">
                     <option value="">Seleccione...</option>
-                    <option value="COMPLETO">COMPLETO</option>
-                    <option value="INCOMPLETO">INCOMPLETO</option>
-                    <option value="DAÑADO">DAÑADO</option>
+                    <option value="COMPLETO">Bueno</option>
+                    <option value="INCOMPLETO">Novedad</option>
+                    <option value="DAÑADO">Dañado</option>
                 </select>
             </div>
 
-            <div class="form-group">
-                <label for="novedad_devolucion">Novedad en devolución</label>
-                <select id="novedad_devolucion" class="form-input" onchange="toggleDescripcionDevolucion()">
-                    <option value="No">No</option>
-                    <option value="Sí">Sí</option>
-                </select>
-            </div>
+            <input type="hidden" id="novedad_devolucion" value="No">
 
             <div class="form-group" id="boxDescripcionDevolucion" style="display:none;">
                 <label for="descripcion_devolucion">Descripción de la novedad<span class="campo-obligatorio">*</span></label>
@@ -255,7 +249,7 @@
                     <i class="fas fa-xmark"></i> Cancelar
                 </button>
                 <button type="button" class="btn-custom btn-primary" onclick="cerrarSolicitudFrontend()">
-                    <i class="fas fa-check"></i> Confirmar devolución
+                    <i class="fas fa-check"></i> Confirmar recepción
                 </button>
             </div>
         </section>
@@ -265,7 +259,7 @@
         <div class="loading-overlay" id="loadingOverlay" aria-live="polite" aria-busy="true">
             <div class="spinner"></div>
             <p>Espera por favor...</p>
-            <small>Registrando devolución y preparando el PDF.</small>
+            <small>Registrando recepción y preparando el PDF.</small>
         </div>
 
         <footer class="footer-pro">
@@ -304,7 +298,8 @@
             if (sede) {
                 const nombres = {
                     zipaquira: 'Zipaquirá', niza: 'Niza', usaquen: 'Usaquén',
-                    cota: 'Cota', mosquera: 'Mosquera', tunja: 'Tunja', barranquilla: 'Barranquilla'
+                    cota: 'Cota', mosquera: 'Mosquera', tunja: 'Tunja', barranquilla: 'Barranquilla',
+                    alameda: 'Alameda del Río', genoves: 'Portal de Génoves', parqueheredia: 'Atlántico Parque Heredia'
                 };
                 document.getElementById('sedeBadgeText').textContent = nombres[sede] || sede;
                 document.title = 'Devoluciones ' + (nombres[sede] || sede) + ' | Sistema de Equipos';
